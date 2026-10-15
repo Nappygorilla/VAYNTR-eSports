@@ -15,6 +15,7 @@
 
   const year = $("#year");
   if (year) year.textContent = String(new Date().getFullYear());
+  $("[data-year]").forEach((node) => { node.textContent = String(new Date().getFullYear()); });
 
   const menuToggle = $("#menuToggle");
   const primaryNav = $("#primaryNav");
