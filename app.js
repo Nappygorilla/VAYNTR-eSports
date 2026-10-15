@@ -62,6 +62,18 @@
     profileSummary.textContent = "FOV " + fov.value + " · Sens " + sensitivity.value + " · " + curve.value;
   }
   [fov, sensitivity, platform, curve, audio].forEach((control) => control?.addEventListener("input", updateProfile));
+  try {
+    const saved = JSON.parse(localStorage.getItem("vayntr-settings-profile") || "null");
+    if (saved && fov && sensitivity && platform && curve && audio) {
+      if (Number.isFinite(saved.fov) && saved.fov >= 80 && saved.fov <= 120) fov.value = String(saved.fov);
+      if (Number.isFinite(saved.sensitivity) && saved.sensitivity >= 1 && saved.sensitivity <= 20) sensitivity.value = String(saved.sensitivity);
+      if ([...platform.options].some((option) => option.value === saved.platform)) platform.value = saved.platform;
+      if ([...curve.options].some((option) => option.value === saved.curve)) curve.value = saved.curve;
+      if ([...audio.options].some((option) => option.value === saved.audio)) audio.value = saved.audio;
+    }
+  } catch {
+    // Ignore malformed or unavailable browser storage and keep the defaults.
+  }
   updateProfile();
 
   $("#saveProfile")?.addEventListener("click", () => {
