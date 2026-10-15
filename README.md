@@ -34,3 +34,10 @@ The included workflow publishes the repository root to GitHub Pages on pushes to
 3. Choose and configure a backend/database for secure recruitment and account workflows.
 4. Implement server-enforced role permissions and the admin dashboard.
 5. Add automated tests, deployment checks, backups, privacy information, and production security review.
+
+
+## Membership invitation backend scaffold
+
+A Supabase migration and Edge Functions for one-time, 30-day membership invitations are included under `supabase/`. They implement hashed invitation storage, atomic redemption, staff-only issue/revoke endpoints, profile role defaults, RLS, and per-user rate limiting.
+
+**These functions are not yet deployed or wired into the GitHub Pages UI.** Read [the membership invitation deployment and security guide](docs/membership-invite-system.md) before applying the migration or deploying functions. Configure the server-side `ALLOWED_ORIGINS` secret for the exact website origin. Never put the service-role key in frontend files.
