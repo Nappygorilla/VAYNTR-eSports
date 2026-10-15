@@ -1,12 +1,20 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-  "Access-Control-Allow-Methods": "POST, OPTIONS",
-  "Content-Type": "application/json",
+const corsHeadersFor = (request: Request): Record<string, string> => {
+  const origin = request.headers.get("Origin");
+  const allowedOrigins = (Deno.env.get("ALLOWED_ORIGINS") ?? "")
+    .split(",").map((item) => item.trim()).filter(Boolean);
+  return {
+    ...(origin && allowedOrigins.includes(origin)
+      ? { "Access-Control-Allow-Origin": origin, "Vary": "Origin" }
+      : {}),
+    "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+    "Access-Control-Allow-Methods": "POST, OPTIONS",
+    "Content-Type": "application/json",
+  };
 };
-const respond = (status: number, body: Record<string, unknown>) =>
+const respond = (request: Request, status: number, body: Record<string, unknown>) =>
+  new Response(JSON.stringify(body), { status, headers: corsHeadersFor(request) });const respond = (status: number, body: Record<string, unknown>) =>
   new Response(JSON.stringify(body), { status, headers: corsHeaders });
 
 async function sha256Hex(value: string): Promise<string> {
@@ -15,37 +23,41 @@ async function sha256Hex(value: string): Promise<string> {
 }
 
 Deno.serve(async (request) => {
-  if (request.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
-  if (request.method !== "POST") return respond(405, { error: "method_not_allowed" });
+  if (request.method === "OPTIONS") {
+    const headers = corsHeadersFor(request);
+    if (!headers["Access-Control-Allow-Origin"]) return new Response("origin_not_allowed", { status: 403 });
+    return new Response("ok", { headers });
+  }
+  if (request.method !== "POST") return respond(request, 405, { error: "method_not_allowed" });
 
   const url = Deno.env.get("SUPABASE_URL");
   const anonKey = Deno.env.get("SUPABASE_ANON_KEY");
   const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
-  if (!url || !anonKey || !serviceRoleKey) return respond(500, { error: "service_unavailable" });
+  if (!url || !anonKey || !serviceRoleKey) return respond(request, 500, { error: "service_unavailable" });
 
   const authorization = request.headers.get("Authorization");
-  if (!authorization?.startsWith("Bearer ")) return respond(401, { error: "sign_in_required" });
+  if (!authorization?.startsWith("Bearer ")) return respond(request, 401, { error: "sign_in_required" });
 
   const userClient = createClient(url, anonKey, {
     global: { headers: { Authorization: authorization } },
     auth: { persistSession: false, autoRefreshToken: false },
   });
   const { data: authData, error: authError } = await userClient.auth.getUser();
-  if (authError || !authData.user) return respond(401, { error: "sign_in_required" });
+  if (authError || !authData.user) return respond(request, 401, { error: "sign_in_required" });
 
   const admin = createClient(url, serviceRoleKey, {
     auth: { persistSession: false, autoRefreshToken: false },
   });
   const { data: profile, error: profileError } = await admin
     .from("profiles").select("role,membership_status").eq("id", authData.user.id).maybeSingle();
-  if (profileError) return respond(503, { error: "service_unavailable" });
-  if (!profile || !["staff", "admin"].includes(profile.role)) return respond(403, { error: "staff_only" });
+  if (profileError) return respond(request, 503, { error: "service_unavailable" });
+  if (!profile || !["staff", "admin"].includes(profile.role)) return respond(request, 403, { error: "staff_only" });
 
   let payload: { label?: unknown };
   try {
     payload = await request.json();
   } catch {
-    return respond(400, { error: "invalid_request" });
+    return respond(request, 400, { error: "invalid_request" });
   }
   const label = typeof payload.label === "string" ? payload.label.trim().slice(0, 120) : null;
 
@@ -69,10 +81,10 @@ Deno.serve(async (request) => {
 
   if (insertError || !row) {
     console.error("Invite creation failed:", insertError?.message);
-    return respond(503, { error: "service_unavailable" });
+    return respond(request, 503, { error: "service_unavailable" });
   }
 
-  return respond(201, {
+  return respond(request, 201, {
     id: row.id,
     code,
     expiresAt: row.expires_at,
