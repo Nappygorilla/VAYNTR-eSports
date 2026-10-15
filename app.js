@@ -125,6 +125,59 @@
     }
   });
 
+  // Member dashboard preview: profile/settings are stored only in this browser.
+  // This is not authentication or cloud account storage; production member data needs a trusted backend.
+  const memberDashboardForm = $("#memberDashboardForm");
+  if (memberDashboardForm) {
+    const memberFields = [...memberDashboardForm.querySelectorAll("input, select, textarea")];
+    const memberGreeting = $("#memberGreeting");
+    const memberGameSummary = $("#memberGameSummary");
+    const memberSaveStatus = $("#memberSaveStatus");
+    const memberStorageKey = "vayntr-member-dashboard-profile";
+    const refreshMemberSummary = () => {
+      const username = $("#memberUsername")?.value.trim() || "New player";
+      const game = $("#memberMainGame")?.value || "Warzone";
+      const device = $("#memberPlatform")?.value || "PS5";
+      if (memberGreeting) memberGreeting.textContent = username;
+      if (memberGameSummary) memberGameSummary.textContent = game + " · " + device;
+    };
+    const readMemberForm = () => Object.fromEntries(memberFields.map((field) => [field.name, field.value]));
+    const applyMemberForm = (data) => {
+      memberFields.forEach((field) => {
+        if (Object.prototype.hasOwnProperty.call(data, field.name)) field.value = String(data[field.name]);
+      });
+      refreshMemberSummary();
+    };
+    try {
+      const savedMemberProfile = JSON.parse(localStorage.getItem(memberStorageKey) || "null");
+      if (savedMemberProfile && typeof savedMemberProfile === "object") applyMemberForm(savedMemberProfile);
+    } catch {
+      if (memberSaveStatus) memberSaveStatus.textContent = "Saved browser data could not be read; you can still edit this preview.";
+    }
+    memberFields.forEach((field) => field.addEventListener("input", refreshMemberSummary));
+    memberDashboardForm.addEventListener("submit", (event) => {
+      event.preventDefault();
+      const profile = readMemberForm();
+      try {
+        localStorage.setItem(memberStorageKey, JSON.stringify(profile));
+        refreshMemberSummary();
+        if (memberSaveStatus) memberSaveStatus.textContent = "Saved on this device in this browser. It is not synced to a VAYNTR account.";
+        announce("Dashboard preview saved in this browser.");
+      } catch {
+        if (memberSaveStatus) memberSaveStatus.textContent = "Browser storage is unavailable; changes could not be saved.";
+        announce("Could not save in this browser.");
+      }
+    });
+    $("#resetMemberProfile")?.addEventListener("click", () => {
+      memberDashboardForm.reset();
+      try { localStorage.removeItem(memberStorageKey); } catch { /* Keep default form values if storage is unavailable. */ }
+      refreshMemberSummary();
+      if (memberSaveStatus) memberSaveStatus.textContent = "Preview reset. Save again to keep these default values in this browser.";
+      announce("Dashboard preview reset.");
+    });
+    refreshMemberSummary();
+  }
+
   // Update active section cues without requiring a framework.
   if ("IntersectionObserver" in window) {
     const sections = $$(".section-anchor[id]");
