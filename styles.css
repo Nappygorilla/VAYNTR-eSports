@@ -135,3 +135,51 @@ body:before{display:none}
 body{font-kerning:normal}
 button,a,input,select,textarea{font-kerning:normal}
 @media(max-width:520px){.hero h1{letter-spacing:0}}
+
+
+/* VAYNTR member dashboard preview */
+.member-dashboard-page{background:#090909}
+.member-hero{background:radial-gradient(ellipse at 76% 10%,rgba(217,31,50,.18),transparent 40%),#090909}
+.member-hero h1 em{font-style:normal;color:var(--red)}
+.member-workspace{padding-top:54px}
+.member-preview-notice{display:flex;align-items:flex-start;gap:15px;padding:17px 19px;border:1px solid #493035;border-left:3px solid var(--red);background:linear-gradient(100deg,rgba(217,31,50,.09),rgba(255,255,255,.015));margin-bottom:48px}
+.member-preview-notice strong{white-space:nowrap;color:#fff;font-size:.7rem;letter-spacing:.13em;text-transform:uppercase}
+.member-preview-notice span{color:#bdb9bb;font-size:.82rem;line-height:1.65}
+.member-welcome{display:grid;grid-template-columns:minmax(0,1fr) 280px;gap:32px;align-items:end;margin-bottom:36px}
+.member-welcome h2{font-family:"Barlow Condensed",Impact,sans-serif;font-size:clamp(3rem,6vw,5rem);line-height:.82;letter-spacing:0;margin:18px 0}
+.member-welcome>div:first-child>p:last-child{color:#aaa8aa;line-height:1.7;max-width:500px}
+.member-id-card{display:flex;flex-direction:column;align-items:flex-start;gap:9px;padding:21px;background:#111112;border:1px solid #333336;position:relative;overflow:hidden}
+.member-id-card:after{content:"V";position:absolute;right:-5px;bottom:-42px;font-family:"Barlow Condensed",sans-serif;font-size:10rem;line-height:1;color:transparent;-webkit-text-stroke:1px rgba(255,255,255,.055);pointer-events:none}
+.member-id-label,.member-card-heading>span{font-size:.59rem;font-weight:800;letter-spacing:.15em;color:#e65a68;text-transform:uppercase}
+.member-avatar{display:grid;place-items:center;width:43px;height:43px;border:1px solid #8f1c2a;color:#fff;background:rgba(217,31,50,.12);font-family:"Barlow Condensed",sans-serif;font-size:1.6rem;font-weight:900}
+.member-id-card>strong{font-size:1.12rem;overflow-wrap:anywhere}
+.member-id-card>span:not(.member-id-label):not(.member-status){font-size:.78rem;color:#aaa8aa}
+.member-status{display:flex;align-items:center;gap:7px;font-size:.63rem;letter-spacing:.08em;text-transform:uppercase;color:#bcb9bb}
+.member-status i{width:7px;height:7px;border-radius:50%;background:#e65a68;display:inline-block}
+.member-dashboard-grid{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+.member-card{min-width:0;border:1px solid #303033;background:linear-gradient(140deg,rgba(255,255,255,.018),transparent 35%),#0e0e0f;padding:25px}
+.member-card-heading{padding-bottom:20px;border-bottom:1px solid #2e2e31;margin-bottom:23px}
+.member-card-heading h3{font-family:"Barlow Condensed",Impact,sans-serif;font-size:2.1rem;line-height:.95;margin:12px 0 8px;letter-spacing:0}
+.member-card-heading p{margin:0;color:#aaa8aa;font-size:.78rem;line-height:1.65}
+.member-fields{display:grid;grid-template-columns:1fr 1fr;gap:17px 14px}
+.member-fields .field{min-width:0}
+.member-fields .field--full{grid-column:1/-1}
+.member-fields .field label{display:block;margin-bottom:8px;font-size:.7rem;font-weight:700;color:#d4d1d2}
+.member-fields .field input,.member-fields .field select,.member-fields .field textarea{width:100%;min-height:45px;border:1px solid #38383c;border-radius:0;background:#09090a;color:#f5f4f2;padding:12px;font:inherit;font-size:.78rem;outline:none}
+.member-fields .field textarea{resize:vertical;line-height:1.6}
+.member-fields .field input:focus,.member-fields .field select:focus,.member-fields .field textarea:focus{border-color:#e34251;box-shadow:0 0 0 2px rgba(217,31,50,.12)}
+.member-fields .field input::placeholder,.member-fields .field textarea::placeholder{color:#737176}
+.member-save-row{grid-column:1/-1;display:flex;justify-content:space-between;align-items:center;gap:18px;padding:21px 0 32px;border-bottom:1px solid #303033}
+.member-save-row p{margin:0;color:#aaa8aa;font-size:.76rem;line-height:1.6}
+.member-save-row>div{display:flex;gap:10px;flex-wrap:wrap}
+.member-save-row .button{cursor:pointer}
+.member-next-steps{margin-top:30px}
+.member-tool-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:0}
+.member-tool-grid article{padding:7px 20px 4px 0;border-right:1px solid #303033;margin-right:20px}
+.member-tool-grid article:last-child{border-right:0;margin-right:0}
+.member-tool-grid article>span{font-size:.61rem;letter-spacing:.13em;color:#e65a68}
+.member-tool-grid h4{font-size:.95rem;margin:14px 0 8px}
+.member-tool-grid p{color:#aaa8aa;font-size:.76rem;line-height:1.7;min-height:42px;margin:0 0 13px}
+.member-tool-grid small{color:#e65a68;font-size:.62rem;letter-spacing:.1em;text-transform:uppercase}
+@media(max-width:900px){.member-dashboard-grid{grid-template-columns:1fr}.member-welcome{grid-template-columns:minmax(0,1fr) 250px}.member-card{padding:22px}}
+@media(max-width:600px){.member-workspace{padding-top:35px}.member-preview-notice{flex-direction:column;gap:8px;margin-bottom:34px}.member-welcome{grid-template-columns:1fr;gap:20px}.member-id-card{max-width:none}.member-dashboard-grid{grid-template-columns:1fr}.member-card{padding:18px}.member-fields{grid-template-columns:1fr}.member-fields .field--full{grid-column:auto}.member-save-row{align-items:stretch;flex-direction:column}.member-save-row>div{display:grid;grid-template-columns:1fr}.member-tool-grid{grid-template-columns:1fr;gap:20px}.member-tool-grid article{border-right:0;border-bottom:1px solid #303033;padding:0 0 18px;margin:0}.member-tool-grid article:last-child{border-bottom:0;padding-bottom:0}.member-tool-grid p{min-height:0}}
