@@ -15,8 +15,6 @@ const corsHeadersFor = (request: Request): Record<string, string> => {
 };
 const respond = (request: Request, status: number, body: Record<string, unknown>) =>
   new Response(JSON.stringify(body), { status, headers: corsHeadersFor(request) });
-const respond = (status: number, body: Record<string, unknown>) =>
-  new Response(JSON.stringify(body), { status, headers: corsHeaders });
 
 const normalizeCode = (value: string) => value.trim().toUpperCase();
 
