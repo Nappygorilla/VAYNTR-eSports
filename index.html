@@ -4,10 +4,10 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#08090b">
-  <meta name="description" content="VAYNTR is an independent esports organization focused on competition, player development, and performance intelligence.">
+  <meta name="description" content="VAYNTR is an independent esports organization focused on competition, player development, and team news.">
   <meta property="og:type" content="website">
   <meta property="og:title" content="VAYNTR — Built to compete.">
-  <meta property="og:description" content="Esports divisions, performance tools, competitive intel, and recruitment.">
+  <meta property="og:description" content="Esports divisions, competitive intel, team news, and recruitment.">
   <meta property="og:image" content="assets/vayntr-mark.svg">
   <title>VAYNTR — Built to compete.</title>
   <link rel="icon" href="assets/vayntr-mark.svg" type="image/svg+xml">
@@ -48,7 +48,7 @@
           <p class="eyebrow"><span></span> Independent esports organization</p>
           <h1>BUILT TO<br>COMPETE.<br><em>MADE TO</em><br>ENDURE.</h1>
           <p class="hero__description">A home for competitive players, thoughtful preparation, and the next generation of VAYNTR. From the team room to the performance lab, every detail has a purpose.</p>
-          <div class="hero__actions"><a class="button button--primary" href="#divisions">Explore the organization <span aria-hidden="true">↗</span></a><a class="button button--outline" href="#performance">Enter performance lab <span aria-hidden="true">⌁</span></a></div>
+          <div class="hero__actions"><a class="button button--primary" href="#divisions">Explore the organization <span aria-hidden="true">↗</span></a><a class="button button--outline" href="https://nappygorilla.github.io/VAYNTR-eSports-warzone-helper/" target="_blank" rel="noopener noreferrer">Open Warzone Performance Lab <span aria-hidden="true">⌁</span></a></div>
           <div class="hero__principles"><div><strong>COMPETE</strong><span>Teams & tournaments</span></div><div><strong>OPTIMIZE</strong><span>Settings & setup</span></div><div><strong>IMPROVE</strong><span>Guides & practice</span></div></div>
         </div>
         <div class="hero__visual">
@@ -66,7 +66,7 @@
         <div class="section-heading"><div><p class="eyebrow"><span></span> The VAYNTR standard</p><h2>MORE THAN A<br>TEAM TAG.</h2></div><p>One destination for the organization, the players behind it, and the work that happens before the match starts.</p></div>
         <div class="feature-grid">
           <a class="feature-card" href="#divisions"><span class="feature-card__number">01 / ORGANIZATION</span><span class="icon-frame" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M4 20V8l8-4 8 4v12M8 20v-6h8v6M8 9h.01M12 9h.01M16 9h.01"/></svg></span><h3>Esports divisions</h3><p>Teams, player profiles, match history, tournament runs, and official announcements in one place.</p><span class="feature-card__arrow" aria-hidden="true">↗</span></a>
-          <a class="feature-card" href="#performance"><span class="feature-card__number">02 / PERFORMANCE</span><span class="icon-frame" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M3 12h3l3-8 5 16 3-8h4"/></svg></span><h3>Performance lab</h3><p>Controller settings, audio tuning, platform-specific setup notes, and improvement guidance.</p><span class="feature-card__arrow" aria-hidden="true">↗</span></a>
+          <a class="feature-card" href="https://nappygorilla.github.io/VAYNTR-eSports-warzone-helper/" target="_blank" rel="noopener noreferrer"><span class="feature-card__number">02 / WARZONE TOOLS</span><span class="icon-frame" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M3 12h3l3-8 5 16 3-8h4"/></svg></span><h3>Warzone Performance Lab</h3><p>Open the dedicated site for controller settings, audio tuning, platform setup, and improvement guidance.</p><span class="feature-card__arrow" aria-hidden="true">↗</span></a>
           <a class="feature-card" href="#intel"><span class="feature-card__number">03 / FIELD INTEL</span><span class="icon-frame" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M4 5h16v14H4zM8 9h8M8 13h5M8 16h3"/></svg></span><h3>Meta & loadouts</h3><p>Patch-aware builds and clear explanations—separating verified recommendations from theory.</p><span class="feature-card__arrow" aria-hidden="true">↗</span></a>
         </div>
       </div>
@@ -79,23 +79,6 @@
           <a class="division" href="#recruitment"><span class="division__number">02</span><span class="division__copy"><b>Call of Duty Multiplayer</b><small>Respawn modes · Team coordination · Events</small></span><span class="division__arrow" aria-hidden="true">↗</span></a>
           <a class="division" href="#recruitment"><span class="division__number">03</span><span class="division__copy"><b>Rocket League</b><small>Mechanics · Rotation · Competitive team play</small></span><span class="division__arrow" aria-hidden="true">↗</span></a>
           <div class="division division--future"><span class="division__number">04</span><span class="division__copy"><b>Future divisions</b><small>Room to grow as the organization develops</small></span><span class="pill">Planned</span></div>
-        </div>
-      </div>
-    </section>
-    <section class="section section--border section-anchor" id="performance">
-      <div class="container">
-        <div class="section-heading"><div><p class="eyebrow"><span></span> Performance lab</p><h2>YOUR SETUP.<br>YOUR ADVANTAGE.</h2></div><p>Good settings are the ones you can control consistently. Build a personal baseline and change one variable at a time.</p></div>
-        <div class="lab">
-          <div class="lab__intro"><span class="pill pill--red">Interactive tool</span><h3>Build a baseline.<br>Then test with intent.</h3><p>Explore a settings profile for your platform. This tool is a local demo and does not change your game or sync to an account.</p><div class="callout">Live meta and patch recommendations will be connected only when reliable sources are available. This page does not pretend to have live game data.</div></div>
-          <form class="lab__controls" id="settingsForm">
-            <div class="field"><label for="platform">Platform</label><select id="platform" name="platform"><option>PS5</option><option>Xbox Series X|S</option><option>PC</option></select></div>
-            <div class="field"><label for="fov">Field of view <output id="fovOut" for="fov">110</output></label><input id="fov" name="fov" type="range" min="80" max="120" value="110"></div>
-            <div class="field"><label for="sensitivity">Horizontal sensitivity <output id="sensitivityOut" for="sensitivity">6</output></label><input id="sensitivity" name="sensitivity" type="range" min="1" max="20" value="6"></div>
-            <div class="field"><label for="curve">Aim response curve</label><select id="curve" name="curve"><option>Dynamic</option><option>Standard</option><option>Linear</option></select></div>
-            <div class="field"><label for="audio">Audio focus</label><select id="audio" name="audio"><option>Footstep clarity</option><option>Balanced</option><option>Reduce loud effects</option></select></div>
-            <div class="lab__result"><div><b id="profileName">PS5 / Footstep focus</b><small id="profileSummary">FOV 110 · Sens 6 · Dynamic</small></div><button class="button button--primary button--small" type="button" id="saveProfile">Save local profile</button></div>
-            <p class="form-note">Saved only in this browser when local storage is available. No account or server connection.</p>
-          </form>
         </div>
       </div>
     </section>
@@ -133,7 +116,7 @@
   <footer class="site-footer">
     <div class="container footer__top">
       <div class="footer__brand"><a class="brand" href="#home"><img src="assets/vayntr-mark.svg" alt="" class="brand__mark"><span>VAYNTR<span class="brand__dot">.</span></span></a><p>Built to compete. Made to endure.<br>An independent esports and performance platform.</p></div>
-      <div class="footer__links"><div><b>Organization</b><a href="roster.html">Roster</a><a href="news.html">News & intel</a><a href="recruitment.html">Recruitment</a></div><div><b>Performance</b><a href="#performance">Settings lab</a><a href="results.html">Matches & events</a><a href="media.html">Media library</a><a href="https://nappygorilla.github.io/VAYNTR-eSports-warzone-helper/" target="_blank" rel="noopener noreferrer">Warzone Performance Lab ↗</a></div><div><b>Connect</b><a href="#recruitment">Contact</a><span>Social links coming soon</span><a href="privacy.html">Privacy</a><a href="terms.html">Terms</a><a href="disclaimer.html">Disclaimer</a></div></div>
+      <div class="footer__links"><div><b>Organization</b><a href="roster.html">Roster</a><a href="news.html">News & intel</a><a href="recruitment.html">Recruitment</a></div><div><b>Performance</b><a href="https://nappygorilla.github.io/VAYNTR-eSports-warzone-helper/" target="_blank" rel="noopener noreferrer">Warzone Performance Lab ↗</a><a href="results.html">Matches & events</a><a href="media.html">Media library</a></div><div><b>Connect</b><a href="#recruitment">Contact</a><span>Social links coming soon</span><a href="privacy.html">Privacy</a><a href="terms.html">Terms</a><a href="disclaimer.html">Disclaimer</a></div></div>
     </div>
     <div class="container footer__bottom"><span>© <span id="year"></span> VAYNTR. All rights reserved.</span><span>Initial website build · No backend connected yet.</span></div>
   </footer>
