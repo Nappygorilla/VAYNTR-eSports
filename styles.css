@@ -125,3 +125,13 @@ body:before{display:none}
 @media(max-width:800px){
   .hero h1{letter-spacing:-.012em}
 }
+
+
+/* Typography audit: remove cramped negative tracking across headings and UI text.
+   Display fonts keep a compact look, but normal glyph spacing is prioritized for readability. */
+.hero h1{letter-spacing:.005em}
+.section-heading h2,.side-intro h2,.recruit-cta h2,.sponsor-band h2{letter-spacing:0}
+.page-hero h1,.empty-state h2,.lab__intro h3,.feature-card h3,.division__copy b,.news-card h3{letter-spacing:0}
+body{font-kerning:normal}
+button,a,input,select,textarea{font-kerning:normal}
+@media(max-width:520px){.hero h1{letter-spacing:0}}
