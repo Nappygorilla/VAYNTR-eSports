@@ -211,3 +211,15 @@ button,a,input,select,textarea{font-kerning:normal}
 .hero__visual .hero__visual-bottom{z-index:2}
 @media(max-width:800px){.hero__visual .hero__emblem-wrap{min-height:190px}.hero__visual .hero__emblem{width:min(46%,220px)}.hero__visual .brand-banner{max-height:135px}}
 @media(max-width:520px){.hero__visual .hero__emblem-wrap{min-height:150px}.hero__visual .brand-banner{max-height:105px}}
+
+
+/* Compact homepage hero so visitors reach the content sooner. */
+.hero{min-height:0;padding-top:36px;padding-bottom:22px}
+.hero__layout{gap:28px}
+.hero__visual{min-height:340px}
+.hero__visual .hero__emblem-wrap{min-height:0}
+.hero__visual .hero__emblem{width:min(58%,250px);max-height:235px}
+.hero__bottomline{padding-top:13px;padding-bottom:13px}
+@media(max-width:1000px){.hero__visual{min-height:320px}}
+@media(max-width:800px){.hero{padding-top:30px;padding-bottom:18px}.hero__layout{gap:12px}.hero__visual{min-height:270px}.hero__visual .hero__emblem{width:min(48%,205px);max-height:190px}}
+@media(max-width:520px){.hero{padding-top:23px;padding-bottom:14px}.hero__visual{min-height:220px;padding:12px}.hero__visual .hero__emblem{width:min(48%,165px);max-height:155px}.hero__bottomline{padding-top:10px;padding-bottom:10px}}
