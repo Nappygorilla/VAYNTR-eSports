@@ -111,3 +111,17 @@ body:before{display:none}
   .hero__copy{max-width:690px}
   .hero__visual{min-height:500px}
 }
+
+
+/* Wordmark spacing correction: give the M and P in COMPETE clean optical separation */
+.hero h1{
+  font-kerning:normal;
+  font-variant-ligatures:none;
+  letter-spacing:-.015em;
+}
+@media(min-width:801px){
+  .hero h1{letter-spacing:-.018em}
+}
+@media(max-width:800px){
+  .hero h1{letter-spacing:-.012em}
+}
