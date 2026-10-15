@@ -14,9 +14,7 @@ const corsHeadersFor = (request: Request): Record<string, string> => {
   };
 };
 const respond = (request: Request, status: number, body: Record<string, unknown>) =>
-  new Response(JSON.stringify(body), { status, headers: corsHeadersFor(request) });const respond = (status: number, body: Record<string, unknown>) =>
-  new Response(JSON.stringify(body), { status, headers: corsHeaders });
-
+  new Response(JSON.stringify(body), { status, headers: corsHeadersFor(request) });
 Deno.serve(async (request) => {
   if (request.method === "OPTIONS") {
     const headers = corsHeadersFor(request);
