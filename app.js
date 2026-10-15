@@ -5,6 +5,23 @@
   const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
   const boot = $("#boot");
 
+  // Supabase connection (public browser config only). This initializes the client;
+  // authentication and cloud profile syncing still need to be wired to the UI.
+  const SUPABASE_URL = "https://exxewfphfdoywtiorwix.supabase.co";
+  const SUPABASE_PUBLISHABLE_KEY = "sb_publishable_Sybxc4QyqzbWrORV8SmSA_4b44gBTM";
+  window.vayntrSupabaseReady = import("https://esm.sh/@supabase/supabase-js@2")
+    .then(({ createClient }) => {
+      window.vayntrSupabase = createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY);
+      document.documentElement.dataset.supabase = "ready";
+      return window.vayntrSupabase;
+    })
+    .catch((error) => {
+      document.documentElement.dataset.supabase = "unavailable";
+      console.error("VAYNTR backend client could not initialize.", error);
+      return null;
+    });
+
+
   // Keep the branded intro brief and never trap users if JavaScript is delayed.
   if (boot) {
     const dismiss = () => boot.classList.add("is-done");
