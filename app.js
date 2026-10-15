@@ -114,6 +114,17 @@
     announce("Demo only: no application was sent or stored.");
   });
 
+
+  // Member access code UI. Verification must be handled by a trusted backend;
+  // never accept or store membership codes as valid in browser-only JavaScript.
+  $("#memberCodeForm")?.addEventListener("submit", (event) => {
+    event.preventDefault();
+    const message = $("#memberCodeMessage");
+    if (message) {
+      message.textContent = "Code received, but verification is not available yet. Contact VAYNTR staff until member access is connected.";
+    }
+  });
+
   // Update active section cues without requiring a framework.
   if ("IntersectionObserver" in window) {
     const sections = $$(".section-anchor[id]");
