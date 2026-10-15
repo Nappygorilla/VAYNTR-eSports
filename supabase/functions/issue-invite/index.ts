@@ -14,9 +14,7 @@ const corsHeadersFor = (request: Request): Record<string, string> => {
   };
 };
 const respond = (request: Request, status: number, body: Record<string, unknown>) =>
-  new Response(JSON.stringify(body), { status, headers: corsHeadersFor(request) });const respond = (status: number, body: Record<string, unknown>) =>
-  new Response(JSON.stringify(body), { status, headers: corsHeaders });
-
+  new Response(JSON.stringify(body), { status, headers: corsHeadersFor(request) });
 async function sha256Hex(value: string): Promise<string> {
   const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(value));
   return [...new Uint8Array(digest)].map((byte) => byte.toString(16).padStart(2, "0")).join("");
