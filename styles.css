@@ -202,3 +202,12 @@ button,a,input,select,textarea{font-kerning:normal}
 .legal-related strong{width:100%;font-size:.65rem;letter-spacing:.15em;color:#e65a68}
 .legal-related a{font-size:.76rem}
 @media(max-width:650px){.legal-footer-strip .container{flex-direction:column;gap:10px}.legal-footer-strip nav{gap:10px 14px}.legal-document p,.legal-document li{font-size:.84rem}}
+
+
+/* Keep the wide brand header and the emblem as separate layers. */
+.hero__visual .hero__emblem-wrap{position:relative;inset:auto;flex:1 1 auto;min-height:240px;display:grid;place-items:center;z-index:1}
+.hero__visual .hero__emblem{width:min(54%,260px);max-height:250px;object-fit:contain;position:relative;z-index:2}
+.hero__visual .brand-banner{display:block;position:relative;z-index:1;width:100%;height:auto;max-height:170px;object-fit:contain;margin:0 auto;flex:0 0 auto}
+.hero__visual .hero__visual-bottom{z-index:2}
+@media(max-width:800px){.hero__visual .hero__emblem-wrap{min-height:190px}.hero__visual .hero__emblem{width:min(46%,220px)}.hero__visual .brand-banner{max-height:135px}}
+@media(max-width:520px){.hero__visual .hero__emblem-wrap{min-height:150px}.hero__visual .brand-banner{max-height:105px}}
