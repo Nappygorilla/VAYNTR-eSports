@@ -10,13 +10,15 @@
   <meta property="og:description" content="Esports divisions, competitive intel, team news, and recruitment.">
   <meta property="og:image" content="https://nappygorilla.github.io/VAYNTR-eSports/assets/vayntr-header.png">
   <title>VAYNTR — Built to compete.</title>
-  <link rel="icon" href="assets/vayntr-icon.png" type="image/png">
+  <link rel="icon" type="image/png" href="assets/vayntr-icon.png?v=20261016-tabs">
+  <link rel="shortcut icon" type="image/png" href="assets/vayntr-icon.png?v=20261016-tabs">
+  <link rel="apple-touch-icon" href="assets/vayntr-icon.png?v=20261016-tabs">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700;800;900&family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="styles.css?v=20261016-instantnav">
-  <script src="app.js?v=20261016-instantnav" defer></script><script src="content.js?v=20261016-instantnav" defer></script>
-  <script src="navigation.js?v=20261016-instantnav" defer></script>
+  <link rel="stylesheet" href="styles.css?v=20261016-tabs">
+  <script src="app.js?v=20261016-tabs" defer></script><script src="content.js?v=20261016-tabs" defer></script>
+  <script src="navigation.js?v=20261016-tabs" defer></script>
 </head>
 <body data-content-page="home">
   <a class="skip-link" href="#main">Skip to content</a>
@@ -50,9 +52,44 @@
           <span class="hero__ghost-type" aria-hidden="true">V</span>
         </div>
       </div>
-      <div class="hero__bottomline"><span>WARZONE</span><span>CALL OF DUTY</span><span>ROCKET LEAGUE</span><span>BUILT TO COMPETE</span></div>
+      <div class="hero__bottomline" role="tablist" aria-label="Explore VAYNTR divisions">
+        <button class="hero__section-tab" type="button" role="tab" id="division-tab-warzone" aria-controls="panel-warzone" aria-selected="false" tabindex="-1" data-division-tab="warzone">WARZONE</button>
+        <button class="hero__section-tab" type="button" role="tab" id="division-tab-cod" aria-controls="panel-cod" aria-selected="false" tabindex="-1" data-division-tab="cod">CALL OF DUTY</button>
+        <button class="hero__section-tab" type="button" role="tab" id="division-tab-rocket-league" aria-controls="panel-rocket-league" aria-selected="false" tabindex="-1" data-division-tab="rocket-league">ROCKET LEAGUE</button>
+        <button class="hero__section-tab" type="button" role="tab" id="division-tab-built" aria-controls="organization" aria-selected="true" tabindex="0" data-division-tab="built">BUILT TO COMPETE</button>
+      </div>
     </section>
-    <section class="section section-anchor" id="organization">
+        <section class="section section-anchor division-panel" id="panel-warzone" data-division-panel="warzone" role="tabpanel" aria-labelledby="division-tab-warzone" aria-live="polite" hidden>
+      <div class="container">
+        <div class="section-heading"><div><p class="eyebrow"><span></span> Warzone division</p><h2>DROP IN.<br>TAKE CONTROL.</h2></div><p>Focused on battle royale awareness, coordinated team play, and the small decisions that win fights. Official roster entries and results appear only after team review.</p></div>
+        <div class="feature-grid">
+          <a class="feature-card" href="https://nappygorilla.github.io/VAYNTR-eSports-warzone-helper/" target="_blank" rel="noopener noreferrer"><span class="feature-card__number">01 / PERFORMANCE LAB</span><span class="icon-frame" aria-hidden="true">01</span><h3>Prepare with purpose</h3><p>Open the dedicated Performance Lab for controller settings, audio tuning, platform setup, and improvement guidance.</p><span class="feature-card__arrow" aria-hidden="true"></span></a>
+          <a class="feature-card" href="roster.html"><span class="feature-card__number">02 / TEAM ROSTER</span><span class="icon-frame" aria-hidden="true">02</span><h3>Meet the roster</h3><p>View player information that has been approved for public display—without invented names or unconfirmed stats.</p><span class="feature-card__arrow" aria-hidden="true"></span></a>
+          <a class="feature-card" href="recruitment.html"><span class="feature-card__number">03 / TRYOUTS</span><span class="icon-frame" aria-hidden="true">03</span><h3>Apply through the official route</h3><p>Tell the staff about your game, your approach, and your goals through the recruitment page.</p><span class="feature-card__arrow" aria-hidden="true"></span></a>
+        </div>
+      </div>
+    </section>
+    <section class="section section-anchor division-panel" id="panel-cod" data-division-panel="cod" role="tabpanel" aria-labelledby="division-tab-cod" aria-live="polite" hidden>
+      <div class="container">
+        <div class="section-heading"><div><p class="eyebrow"><span></span> Call of Duty division</p><h2>PLAY AS ONE.<br>WIN THE ROUND.</h2></div><p>A home for Call of Duty multiplayer competition, communication, and team coordination. We will publish specific lineups and event results as they are confirmed by staff.</p></div>
+        <div class="feature-grid">
+          <a class="feature-card" href="roster.html"><span class="feature-card__number">01 / PLAYERS</span><span class="icon-frame" aria-hidden="true">01</span><h3>Roster and roles</h3><p>See approved player profiles and team information as the division develops.</p><span class="feature-card__arrow" aria-hidden="true"></span></a>
+          <a class="feature-card" href="results.html"><span class="feature-card__number">02 / MATCHES</span><span class="icon-frame" aria-hidden="true">02</span><h3>Results with evidence</h3><p>Follow published match updates and event results. Verified details are shared only after review.</p><span class="feature-card__arrow" aria-hidden="true"></span></a>
+          <a class="feature-card" href="recruitment.html"><span class="feature-card__number">03 / RECRUITMENT</span><span class="icon-frame" aria-hidden="true">03</span><h3>Start with an application</h3><p>Use the official recruitment form to introduce yourself and submit your gameplay video.</p><span class="feature-card__arrow" aria-hidden="true"></span></a>
+        </div>
+      </div>
+    </section>
+    <section class="section section-anchor division-panel" id="panel-rocket-league" data-division-panel="rocket-league" role="tabpanel" aria-labelledby="division-tab-rocket-league" aria-live="polite" hidden>
+      <div class="container">
+        <div class="section-heading"><div><p class="eyebrow"><span></span> Rocket League division</p><h2>CONTROL THE PITCH.<br>OWN THE NEXT PLAY.</h2></div><p>Rocket League combines mechanics, rotation, and trust between teammates. This space is ready for confirmed roster profiles, match history, and division announcements as the team grows.</p></div>
+        <div class="feature-grid">
+          <a class="feature-card" href="roster.html"><span class="feature-card__number">01 / TEAM</span><span class="icon-frame" aria-hidden="true">01</span><h3>Players and roles</h3><p>Follow approved player profiles and division updates as information becomes available.</p><span class="feature-card__arrow" aria-hidden="true"></span></a>
+          <a class="feature-card" href="results.html"><span class="feature-card__number">02 / COMPETITION</span><span class="icon-frame" aria-hidden="true">02</span><h3>Matches and progress</h3><p>Check the public results area for verified event and match information.</p><span class="feature-card__arrow" aria-hidden="true"></span></a>
+          <a class="feature-card" href="recruitment.html"><span class="feature-card__number">03 / JOIN VAYNTR</span><span class="icon-frame" aria-hidden="true">03</span><h3>Put your game forward</h3><p>Applications start on the recruitment page, where you can tell staff about your experience and goals.</p><span class="feature-card__arrow" aria-hidden="true"></span></a>
+        </div>
+      </div>
+    </section>
+    <section class="section section-anchor division-panel" id="organization" data-division-panel="built" role="tabpanel" aria-labelledby="division-tab-built" aria-live="polite">
       <div class="container">
         <div class="section-heading"><div><p class="eyebrow"><span></span> The VAYNTR standard</p><h2>ONE NAME.<br>ONE STANDARD.</h2></div><p>A growing organization built around competitive ambition, player development, and a culture that values the work behind every result.</p></div>
         <div class="feature-grid">
