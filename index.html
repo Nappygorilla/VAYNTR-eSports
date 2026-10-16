@@ -10,12 +10,12 @@
   <meta property="og:description" content="Esports divisions, competitive intel, team news, and recruitment.">
   <meta property="og:image" content="https://nappygorilla.github.io/VAYNTR-eSports/assets/vayntr-header.png">
   <title>VAYNTR — Built to compete.</title>
-  <link rel="icon" href="assets/vayntr-icon.png" type="image/png">
+  <link rel="icon" type="image/png" href="assets/vayntr-icon.png?v=20261016-tabs">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700;800;900&family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="styles.css?v=20261016-instantnav">
-  <script src="app.js?v=20261016-instantnav" defer></script><script src="content.js?v=20261016-instantnav" defer></script>
+  <link rel="stylesheet" href="styles.css?v=20261016-tabs">
+  <script src="app.js?v=20261016-tabs" defer></script><script src="content.js?v=20261016-instantnav" defer></script>
   <script src="navigation.js?v=20261016-instantnav" defer></script>
 </head>
 <body data-content-page="home">
@@ -50,15 +50,46 @@
           <span class="hero__ghost-type" aria-hidden="true">V</span>
         </div>
       </div>
-      <div class="hero__bottomline"><span>WARZONE</span><span>CALL OF DUTY</span><span>ROCKET LEAGUE</span><span>BUILT TO COMPETE</span></div>
+      <div class="hero__bottomline" role="tablist" aria-label="Explore VAYNTR sections">
+        <button class="hero__tab" type="button" role="tab" id="focus-tab-warzone" aria-controls="focus-panel-warzone" aria-selected="true" tabindex="0" data-focus-tab="warzone">WARZONE</button>
+        <button class="hero__tab" type="button" role="tab" id="focus-tab-call-of-duty" aria-controls="focus-panel-call-of-duty" aria-selected="false" tabindex="-1" data-focus-tab="call-of-duty">CALL OF DUTY</button>
+        <button class="hero__tab" type="button" role="tab" id="focus-tab-rocket-league" aria-controls="focus-panel-rocket-league" aria-selected="false" tabindex="-1" data-focus-tab="rocket-league">ROCKET LEAGUE</button>
+        <button class="hero__tab" type="button" role="tab" id="focus-tab-built-to-compete" aria-controls="focus-panel-built-to-compete" aria-selected="false" tabindex="-1" data-focus-tab="built-to-compete">BUILT TO COMPETE</button>
+      </div>
     </section>
-    <section class="section section-anchor" id="organization">
+    <section class="section section-anchor focus-section" id="organization" aria-label="Selected VAYNTR focus">
       <div class="container">
-        <div class="section-heading"><div><p class="eyebrow"><span></span> The VAYNTR standard</p><h2>ONE NAME.<br>ONE STANDARD.</h2></div><p>A growing organization built around competitive ambition, player development, and a culture that values the work behind every result.</p></div>
-        <div class="feature-grid">
-          <a class="feature-card" href="#divisions"><span class="feature-card__number">01 / ORGANIZATION</span><span class="icon-frame" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M4 20V8l8-4 8 4v12M8 20v-6h8v6M8 9h.01M12 9h.01M16 9h.01"/></svg></span><h3>Esports divisions</h3><p>Teams, player profiles, match history, tournament runs, and official announcements in one place.</p><span class="feature-card__arrow" aria-hidden="true"></span></a>
-          <a class="feature-card" href="https://nappygorilla.github.io/VAYNTR-eSports-warzone-helper/" target="_blank" rel="noopener noreferrer"><span class="feature-card__number">02 / WARZONE TOOLS</span><span class="icon-frame" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M3 12h3l3-8 5 16 3-8h4"/></svg></span><h3>Warzone Performance Lab</h3><p>Open the dedicated site for controller settings, audio tuning, platform setup, and improvement guidance.</p><span class="feature-card__arrow" aria-hidden="true"></span></a>
-          <a class="feature-card" href="#intel"><span class="feature-card__number">03 / FIELD INTEL</span><span class="icon-frame" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M4 5h16v14H4zM8 9h8M8 13h5M8 16h3"/></svg></span><h3>Meta & loadouts</h3><p>Patch-aware builds and clear explanations—separating verified recommendations from theory.</p><span class="feature-card__arrow" aria-hidden="true"></span></a>
+        <div class="focus-panel" role="tabpanel" id="focus-panel-warzone" aria-labelledby="focus-tab-warzone" tabindex="0" data-focus-panel="warzone">
+          <div class="section-heading"><div><p class="eyebrow"><span></span> Warzone / Battle royale</p><h2>OWN THE<br>NEXT FIGHT.</h2></div><p>VAYNTR’s Warzone focus is about controlled aggression, communication, and learning from every engagement. Explore the dedicated performance tools and the standards we use to improve.</p></div>
+          <div class="feature-grid">
+            <a class="feature-card" href="https://nappygorilla.github.io/VAYNTR-eSports-warzone-helper/" target="_blank" rel="noopener noreferrer"><span class="feature-card__number">01 / PERFORMANCE</span><span class="icon-frame" aria-hidden="true">01</span><h3>Warzone Performance Lab</h3><p>Open the separate toolkit for settings, audio, setup guidance, and improvement resources.</p><span class="feature-card__arrow" aria-hidden="true">↗</span></a>
+            <a class="feature-card" href="player-development.html"><span class="feature-card__number">02 / IMPROVEMENT</span><span class="icon-frame" aria-hidden="true">02</span><h3>Practice with purpose</h3><p>Build a repeatable routine around decision-making, review, communication, and learning.</p><span class="feature-card__arrow" aria-hidden="true">↗</span></a>
+            <a class="feature-card" href="tryout-process.html"><span class="feature-card__number">03 / RECRUITMENT</span><span class="icon-frame" aria-hidden="true">03</span><h3>Explore tryouts</h3><p>See what to prepare and how applications are reviewed through the official recruitment page.</p><span class="feature-card__arrow" aria-hidden="true">↗</span></a>
+          </div>
+        </div>
+        <div class="focus-panel" role="tabpanel" id="focus-panel-call-of-duty" aria-labelledby="focus-tab-call-of-duty" tabindex="0" data-focus-panel="call-of-duty" hidden>
+          <div class="section-heading"><div><p class="eyebrow"><span></span> Call of Duty / Multiplayer</p><h2>PLAY AS<br>ONE UNIT.</h2></div><p>A Call of Duty multiplayer lane built around coordination, map awareness, objective discipline, and composed communication. Team announcements and confirmed roster details will be published when available.</p></div>
+          <div class="feature-grid">
+            <a class="feature-card" href="competitive-standards.html"><span class="feature-card__number">01 / TEAMPLAY</span><span class="icon-frame" aria-hidden="true">01</span><h3>Coordination first</h3><p>Learn the expectations around communication, fair play, reliability, and representing the team.</p><span class="feature-card__arrow" aria-hidden="true">↗</span></a>
+            <a class="feature-card" href="player-development.html"><span class="feature-card__number">02 / DEVELOPMENT</span><span class="icon-frame" aria-hidden="true">02</span><h3>Review the details</h3><p>Use focused practice and honest review to turn mistakes into concrete next steps.</p><span class="feature-card__arrow" aria-hidden="true">↗</span></a>
+            <a class="feature-card" href="recruitment.html"><span class="feature-card__number">03 / JOIN VAYNTR</span><span class="icon-frame" aria-hidden="true">03</span><h3>Apply through recruitment</h3><p>There is one official route to submit an application; a submission does not guarantee selection.</p><span class="feature-card__arrow" aria-hidden="true">↗</span></a>
+          </div>
+        </div>
+        <div class="focus-panel" role="tabpanel" id="focus-panel-rocket-league" aria-labelledby="focus-tab-rocket-league" tabindex="0" data-focus-panel="rocket-league" hidden>
+          <div class="section-heading"><div><p class="eyebrow"><span></span> Rocket League / Team play</p><h2>CONTROL<br>THE FIELD.</h2></div><p>Rocket League demands mechanical consistency, smart rotations, and trust in teammates. This section highlights the habits and standards behind a team-first competitive approach.</p></div>
+          <div class="feature-grid">
+            <a class="feature-card" href="player-development.html"><span class="feature-card__number">01 / MECHANICS</span><span class="icon-frame" aria-hidden="true">01</span><h3>Build consistency</h3><p>Set focused practice goals and work on repeatable fundamentals rather than chasing quick fixes.</p><span class="feature-card__arrow" aria-hidden="true">↗</span></a>
+            <a class="feature-card" href="competitive-standards.html"><span class="feature-card__number">02 / ROTATION</span><span class="icon-frame" aria-hidden="true">02</span><h3>Trust the rotation</h3><p>Value spacing, communication, accountability, and decisions that support the whole team.</p><span class="feature-card__arrow" aria-hidden="true">↗</span></a>
+            <a class="feature-card" href="recruitment.html"><span class="feature-card__number">03 / OPPORTUNITIES</span><span class="icon-frame" aria-hidden="true">03</span><h3>Check recruitment</h3><p>Use the official application form to share your game, experience, and competitive goals.</p><span class="feature-card__arrow" aria-hidden="true">↗</span></a>
+          </div>
+        </div>
+        <div class="focus-panel" role="tabpanel" id="focus-panel-built-to-compete" aria-labelledby="focus-tab-built-to-compete" tabindex="0" data-focus-panel="built-to-compete" hidden>
+          <div class="section-heading"><div><p class="eyebrow"><span></span> The VAYNTR standard</p><h2>ONE NAME.<br>ONE STANDARD.</h2></div><p>A growing organization built around competitive ambition, player development, and a culture that values the work behind every result.</p></div>
+          <div class="feature-grid">
+            <a class="feature-card" href="about.html"><span class="feature-card__number">01 / ORGANIZATION</span><span class="icon-frame" aria-hidden="true">01</span><h3>Who we are</h3><p>Learn about the mission, direction, and principles behind VAYNTR.</p><span class="feature-card__arrow" aria-hidden="true">↗</span></a>
+            <a class="feature-card" href="competitive-standards.html"><span class="feature-card__number">02 / TEAM CULTURE</span><span class="icon-frame" aria-hidden="true">02</span><h3>Standards that matter</h3><p>Fair play, respect, reliability, and honest representation guide how we compete.</p><span class="feature-card__arrow" aria-hidden="true">↗</span></a>
+            <a class="feature-card" href="news.html"><span class="feature-card__number">03 / ORGANIZATION UPDATES</span><span class="icon-frame" aria-hidden="true">03</span><h3>Follow the progress</h3><p>Read published announcements and confirmed updates as the organization grows.</p><span class="feature-card__arrow" aria-hidden="true">↗</span></a>
+          </div>
         </div>
       </div>
     </section>
