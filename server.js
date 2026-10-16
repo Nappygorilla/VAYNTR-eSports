@@ -233,6 +233,7 @@ app.get("/health", async (_req, res) => {
 app.get("/api/status", (_req, res) => res.json({ service: "VAYNTR API", status: "online", features: { health: true, accounts: Boolean(pool), recruitmentApplications: Boolean(pool), staffTools: Boolean(pool), emailNotifications: Boolean(RESEND_API_KEY && RESEND_FROM_EMAIL), staffReviewConfigured: Boolean(STAFF_REVIEW_TOKEN) } }));
 
 app.post("/api/auth/register", authLimiter, requireDatabase, async (req, res, next) => {
+  if (process.env.ENABLE_PUBLIC_REGISTRATION !== "true") return res.status(404).json({ error: "Public account registration is disabled." });
   try {
     const email = typeof req.body.email === "string" ? req.body.email.trim().toLowerCase() : "";
     const displayName = typeof req.body.displayName === "string" ? req.body.displayName.trim() : "";
@@ -274,17 +275,19 @@ app.post("/api/recruitment/applications", requireDatabase, async (req, res, next
     const game = typeof req.body.game === "string" ? req.body.game.trim() : "";
     const message = typeof req.body.message === "string" ? req.body.message.trim() : "";
     const youtubeUrl = parseYouTubeVideoUrl(req.body.youtubeUrl);
+    const privacyConsent = req.body.privacyConsent === true;
 
     if (displayName.length < 2 || displayName.length > 50) return res.status(400).json({ error: "Display name must be 2–50 characters." });
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || email.length > 254) return res.status(400).json({ error: "Enter a valid email address." });
     if (!["PlayStation", "Xbox", "PC", "Cross-platform"].includes(platform)) return res.status(400).json({ error: "Choose a valid platform." });
     if (game.length < 2 || game.length > 80) return res.status(400).json({ error: "Enter the game or division you are applying for." });
     if (!youtubeUrl) return res.status(400).json({ error: "Submit a valid YouTube video link, not a channel or playlist link." });
+    if (!privacyConsent) return res.status(400).json({ error: "Confirm the application privacy acknowledgement before submitting." });
     if (message.length > 2000) return res.status(400).json({ error: "Additional information must be 2,000 characters or fewer." });
 
     const result = await pool.query(
-      "INSERT INTO recruitment_applications (display_name, email, platform, game, message, youtube_url) VALUES ($1, $2, $3, $4, $5, $6) RETURNING id, status, created_at",
-      [displayName, email, platform, game, message, youtubeUrl]
+      "INSERT INTO recruitment_applications (display_name, email, platform, game, message, youtube_url, privacy_consent, privacy_consent_at) VALUES ($1, $2, $3, $4, $5, $6, $7, NOW()) RETURNING id, status, created_at",
+      [displayName, email, platform, game, message, youtubeUrl, privacyConsent]
     );
     const application = { ...result.rows[0], display_name: displayName, email };
     const notification = await sendApplicationReceivedEmail(application);
@@ -385,6 +388,7 @@ CREATE TABLE IF NOT EXISTS recruitment_applications (
  id BIGSERIAL PRIMARY KEY, display_name TEXT NOT NULL, email TEXT NOT NULL,
  platform TEXT NOT NULL CHECK (platform IN ('PlayStation', 'Xbox', 'PC', 'Cross-platform')),
  game TEXT NOT NULL, message TEXT NOT NULL DEFAULT '', youtube_url TEXT,
+ privacy_consent BOOLEAN NOT NULL DEFAULT FALSE, privacy_consent_at TIMESTAMPTZ,
  status TEXT NOT NULL DEFAULT 'received' CHECK (status IN ('received', 'reviewing', 'accepted', 'declined')),
  confirmation_email_status TEXT NOT NULL DEFAULT 'pending', confirmation_email_sent_at TIMESTAMPTZ,
  decision_notified_status TEXT CHECK (decision_notified_status IN ('accepted', 'declined')),
@@ -392,6 +396,8 @@ CREATE TABLE IF NOT EXISTS recruitment_applications (
  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(), updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 ALTER TABLE recruitment_applications ADD COLUMN IF NOT EXISTS youtube_url TEXT;
+ALTER TABLE recruitment_applications ADD COLUMN IF NOT EXISTS privacy_consent BOOLEAN NOT NULL DEFAULT FALSE;
+ALTER TABLE recruitment_applications ADD COLUMN IF NOT EXISTS privacy_consent_at TIMESTAMPTZ;
 ALTER TABLE recruitment_applications ADD COLUMN IF NOT EXISTS confirmation_email_status TEXT NOT NULL DEFAULT 'pending';
 ALTER TABLE recruitment_applications ADD COLUMN IF NOT EXISTS confirmation_email_sent_at TIMESTAMPTZ;
 ALTER TABLE recruitment_applications ADD COLUMN IF NOT EXISTS decision_notified_status TEXT;
