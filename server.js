@@ -204,7 +204,7 @@ function requireRole(...roles) {
 
 function requireStaffAccess(req, res, next) {
   const match = (req.get("authorization") || "").match(/^Bearer\s+(.+)$/i);
-  if (STAFF_REVIEW_TOKEN && match) {
+  if (STAFF_REVIEW_TOKEN.length >= 32 && match) {
     const supplied = Buffer.from(match[1]);
     const expected = Buffer.from(STAFF_REVIEW_TOKEN);
     if (supplied.length === expected.length && crypto.timingSafeEqual(supplied, expected)) {
@@ -230,7 +230,7 @@ app.get("/health", async (_req, res) => {
   }
   res.status(database === "unavailable" ? 503 : 200).json({ ok: database !== "unavailable", service: "vayntr-api", database, time: new Date().toISOString() });
 });
-app.get("/api/status", (_req, res) => res.json({ service: "VAYNTR API", status: "online", features: { health: true, accounts: false, recruitmentApplications: Boolean(pool), staffTools: Boolean(pool), emailNotifications: Boolean(RESEND_API_KEY && RESEND_FROM_EMAIL), staffReviewConfigured: Boolean(STAFF_REVIEW_TOKEN) } }));
+app.get("/api/status", (_req, res) => res.json({ service: "VAYNTR API", status: "online", features: { health: true, accounts: false, recruitmentApplications: Boolean(pool), staffTools: Boolean(pool), emailNotifications: Boolean(RESEND_API_KEY && RESEND_FROM_EMAIL), staffReviewConfigured: STAFF_REVIEW_TOKEN.length >= 32 } }));
 
 app.post("/api/auth/register", authLimiter, requireDatabase, async (req, res, next) => {
   if (process.env.ENABLE_PUBLIC_REGISTRATION !== "true") return res.status(404).json({ error: "Public account registration is disabled." });
@@ -265,7 +265,7 @@ app.post("/api/auth/login", authLimiter, requireDatabase, async (req, res, next)
 app.get("/api/auth/me", requireDatabase, authenticate, (req, res) => res.json({ user: req.user }));
 
 app.post("/api/recruitment/applications", requireDatabase, async (req, res, next) => {
-  if (!RESEND_API_KEY || !RESEND_FROM_EMAIL || !STAFF_REVIEW_TOKEN) {
+  if (!RESEND_API_KEY || !RESEND_FROM_EMAIL || STAFF_REVIEW_TOKEN.length < 32) {
     return res.status(503).json({ error: "Recruitment applications are temporarily paused while official email delivery and secure staff review are configured." });
   }
   try {
