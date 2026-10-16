@@ -38,8 +38,41 @@
     addText(top, "span", "roster-player-card__platform", player.platform);
     card.appendChild(top);
 
+    if (player.profile_image_url) {
+      try {
+        const imageUrl = new URL(player.profile_image_url);
+        if (imageUrl.protocol === "https:" && !imageUrl.username && !imageUrl.password) {
+          const image = document.createElement("img");
+          image.className = "roster-player-card__image";
+          image.src = imageUrl.href;
+          image.alt = "Portrait or player artwork for " + player.display_name;
+          image.loading = "lazy"; image.decoding = "async"; image.referrerPolicy = "no-referrer";
+          image.addEventListener("error", () => image.remove(), { once: true });
+          card.appendChild(image);
+        }
+      } catch {}
+    }
     addText(card, "h3", "roster-player-card__name", player.display_name);
     addText(card, "p", "roster-player-card__division", player.game);
+    if (player.role) addText(card, "p", "roster-player-card__role", player.role);
+    if (player.bio) addText(card, "p", "roster-player-card__bio", player.bio);
+    const links = document.createElement("div");
+    links.className = "roster-player-card__links";
+    if (player.social_url) {
+      const social = document.createElement("a");
+      social.href = player.social_url; social.target = "_blank"; social.rel = "noopener noreferrer";
+      social.textContent = "Player socials ↗";
+      social.setAttribute("aria-label", player.display_name + " social profile");
+      links.appendChild(social);
+    }
+    if (player.highlight_url) {
+      const highlight = document.createElement("a");
+      highlight.href = player.highlight_url; highlight.target = "_blank"; highlight.rel = "noopener noreferrer";
+      highlight.textContent = "Highlights ↗";
+      highlight.setAttribute("aria-label", player.display_name + " highlights");
+      links.appendChild(highlight);
+    }
+    if (links.childElementCount) card.appendChild(links);
     return card;
   }
 
