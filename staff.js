@@ -67,15 +67,15 @@
     addText(manualEmailFollowup, "p", "", accepted
       ? "The player is on the public roster and the application is deleted. Compose your welcome email here, or find their contact in the accepted roster below."
       : "The application is deleted and no roster entry was created. You can compose the denial email now; no email is sent until you press Send in your mail app.");
-    if (!/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(email)) {
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
       addText(manualEmailFollowup, "p", "form-note", "The applicant email could not be opened as a mail link. Contact details may need to be checked.");
       manualEmailFollowup.hidden = false;
       return;
     }
     const subject = accepted ? "VAYNTR Esports | Welcome to the Roster" : "VAYNTR Esports | Recruitment Decision";
     const message = accepted
-      ? "Hi " + displayName + ",\\n\\nYour application to VAYNTR Esports has been accepted. Welcome to the roster! We will follow up with any onboarding steps and expectations.\\n\\nVAYNTR Esports"
-      : "Hi " + displayName + ",\\n\\nThank you for applying to VAYNTR Esports. After reviewing your application, we are unable to offer you a roster spot at this time. We appreciate your interest and wish you the best.\\n\\nVAYNTR Esports";
+      ? "Hi " + displayName + ",\n\nYour application to VAYNTR Esports has been accepted. Welcome to the roster! We will follow up with any onboarding steps and expectations.\n\nVAYNTR Esports"
+      : "Hi " + displayName + ",\n\nThank you for applying to VAYNTR Esports. After reviewing your application, we are unable to offer you a roster spot at this time. We appreciate your interest and wish you the best.\n\nVAYNTR Esports";
     const link = document.createElement("a");
     link.className = "button button--primary";
     link.href = "mailto:" + encodeURIComponent(email).replace("%40", "@") +
