@@ -11,9 +11,9 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700;800;900&family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="styles.css?v=20261016-staff">
-  <link rel="stylesheet" href="staff.css?v=20261016-staff">
-  <script src="staff.js?v=20261016-staff" defer></script>
+  <link rel="stylesheet" href="styles.css?v=20261016-decisions">
+  <link rel="stylesheet" href="staff.css?v=20261016-decisions">
+  <script src="staff.js?v=20261016-decisions" defer></script>
 </head>
 <body>
   <a class="skip-link" href="#main">Skip to content</a>
@@ -51,6 +51,15 @@
             <div class="staff-toolbar__actions"><button type="button" class="button button--outline" id="refreshApplications">Refresh</button><button type="button" class="button button--outline" id="staffSignOut">Sign out</button></div>
           </div>
           <div id="applicationsList" class="staff-applications" aria-live="polite"></div>
+          <div id="manualEmailFollowup" class="application-panel manual-email-followup" role="status" aria-live="polite" hidden></div>
+          <section class="staff-roster-section" aria-labelledby="staffRosterHeading">
+            <div class="staff-toolbar staff-roster-toolbar">
+              <div><p class="eyebrow"><span></span> Active roster</p><h2 id="staffRosterHeading" class="staff-title">CONFIRMED PLAYERS.</h2><p id="staffRosterStatus" class="form-note" role="status" aria-live="polite"></p></div>
+              <button type="button" class="button button--outline" id="refreshRoster">Refresh roster</button>
+            </div>
+            <p class="form-note">Accepted players appear on the public roster automatically. Their email addresses are shown only here so you can contact them manually.</p>
+            <div id="staffRosterList" class="staff-applications" aria-live="polite"></div>
+          </section>
         </div>
       </div>
     </section>

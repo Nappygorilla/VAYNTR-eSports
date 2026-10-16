@@ -7,8 +7,8 @@ Node.js API for the static VAYNTR Esports site hosted on GitHub Pages. The Rende
 - Public applications are submitted only through \`recruitment.html\`.
 - The form requires the applicant's name, email, platform, game/division, consent checkbox, and a direct YouTube video link explaining why they want to join VAYNTR. Unlisted videos are accepted; private videos may not be accessible to reviewers.
 - The API validates supported YouTube video URL formats on the server before saving the application.
-- \`POST /api/recruitment/applications\` stores the application, then attempts a branded confirmation email. Email delivery is optional: if Resend is not configured, the application still saves and appears in staff review.
-- \`GET /api/staff/applications\` lists recent submissions and YouTube links; \`POST /api/staff/applications/:id/status\` changes status and sends an email when the status becomes \`accepted\` or \`declined\`.
+- \`POST /api/recruitment/applications\` validates and stores the application, then marks contact as manual; it does not send a confirmation email.
+- \`GET /api/staff/applications\` lists pending submissions and YouTube links. \`POST /api/staff/applications/:id/decision\` accepts or denies an application in a database transaction. Accept copies the applicant's display name, email, platform, and game into \`roster_players\` and deletes the application; deny deletes the application without creating a roster entry. No email is sent by this decision endpoint. \`GET /api/roster\` returns public-safe player details; \`GET /api/staff/roster\` is protected and includes email addresses for manual contact.
 - Status updates are protected by a staff access token or a pre-existing staff/admin JWT. The unlinked \`staff-applications.html\` screen is not linked from the public navigation and only displays application data after the API authorizes it.
 - The former public login, registration, and member-dashboard pages are not part of the intended public site. Public account registration returns 404 unless `ENABLE_PUBLIC_REGISTRATION=true`; leave this unset. Existing staff/admin JWTs may still access staff routes, but the preferred staff console uses `STAFF_REVIEW_TOKEN`.
 
@@ -32,7 +32,7 @@ Use a database connection string that the service can actually reach. Render's i
 
 ## Email delivery
 
-The API calls Resend from the backend only. A successful application is saved even if email delivery is temporarily unavailable; the response and staff screen make that limitation visible. Decision email attempts are tracked to avoid sending the same successful decision notification repeatedly. If a message fails because configuration is missing or Resend rejects it, correct the sender/API setup and save the terminal decision again to retry.
+The operator currently sends applicant and decision emails manually. The Accept/Deny controls do not send emails. The accepted player's email is retained only in the staff-protected roster contact list, and the public roster endpoint never returns email addresses. Resend support remains optional for future use.
 
 The email sender does not use a placeholder address automatically. Until \`RESEND_FROM_EMAIL\` is configured with a verified sending domain, application and decision records can be saved, but email notifications will report as not sent.
 

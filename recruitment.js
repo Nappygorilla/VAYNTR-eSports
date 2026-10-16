@@ -19,10 +19,8 @@
         Boolean(features.recruitmentApplications && features.staffReviewConfigured);
       if (recruitmentAvailable) {
         controls.forEach((control) => { control.disabled = false; });
-        status.textContent = features.emailNotifications
-          ? "Applications are open. Make sure your YouTube video is Unlisted or Public before submitting."
-          : "Applications are open. Automatic email confirmations are not configured yet, but your application can still be submitted and reviewed. Make sure your YouTube video is Unlisted or Public.";
-        status.dataset.state = features.emailNotifications ? "success" : "warning";
+        status.textContent = "Applications are open. VAYNTR contacts applicants manually after review. Make sure your YouTube video is Unlisted or Public before submitting.";
+        status.dataset.state = "success";
       } else {
         status.textContent = "Applications are temporarily paused until the database and secure staff-review access are ready. No application details have been submitted.";
         status.dataset.state = "warning";
@@ -97,10 +95,8 @@
       const data = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(data.error || "The application could not be submitted. Please try again.");
       form.reset();
-      status.textContent = data.notification && data.notification.sent
-        ? "Application submitted successfully. Resend accepted your confirmation email request."
-        : "Application saved successfully, but the confirmation email could not be sent yet. The VAYNTR team can still review your application.";
-      status.dataset.state = data.notification && data.notification.sent ? "success" : "warning";
+      status.textContent = "Application received successfully. VAYNTR will review your submission and contact you by email manually.";
+      status.dataset.state = "success";
     } catch (error) {
       status.textContent = error.message || "Unable to reach the application service. Your application has not been confirmed; please try again later.";
       status.dataset.state = "error";
