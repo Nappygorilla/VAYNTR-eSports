@@ -68,7 +68,7 @@
     if (activeView === "applications") return loadApplications();
     if (activeView === "roster") return loadRoster();
     if (activeView === "overview") {
-      await Promise.all([loadApplications(false), loadOverview()]);
+      await loadApplications(false);
       return;
     }
     await loadOverview();
@@ -365,6 +365,7 @@
       activateView(tab.dataset.staffTab);
       if (activeView === "applications") await loadApplications();
       else if (activeView === "roster") await loadRoster();
+      else if (activeView === "overview") await loadApplications(false);
       else await loadOverview();
     });
   });
