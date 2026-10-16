@@ -1,6 +1,6 @@
 # VAYNTR Esports
 
-VAYNTR is an independent esports organization website focused on competition, player development, and team news. The public website is hosted on GitHub Pages and the API runs on Render.
+VAYNTR is an independent esports organization website focused on competition, player development, and team news. The API runs on Render. The website is being prepared for the clean free GitHub Pages address `https://nappygorilla.github.io/`; GitHub requires this repository to be named `Nappygorilla.github.io` for that root URL to work.
 
 ## Public website
 
