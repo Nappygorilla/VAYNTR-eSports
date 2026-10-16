@@ -6,6 +6,33 @@
   const submit = document.getElementById("recruitmentSubmit");
   const API_BASE = "https://vayntr-esports.onrender.com";
 
+  let recruitmentAvailable = false;
+  const controls = [...form.querySelectorAll("input, select, textarea, button")];
+  controls.forEach((control) => { control.disabled = true; });
+
+  async function checkRecruitmentAvailability() {
+    try {
+      const response = await fetch(API_BASE + "/api/status");
+      const data = await response.json().catch(() => ({}));
+      recruitmentAvailable = response.ok &&
+        Boolean(data.features && data.features.recruitmentApplications &&
+          data.features.emailNotifications && data.features.staffReviewConfigured);
+      if (recruitmentAvailable) {
+        controls.forEach((control) => { control.disabled = false; });
+        status.textContent = "Applications are open. Make sure your YouTube video is Unlisted or Public before submitting.";
+        status.dataset.state = "success";
+      } else {
+        status.textContent = "Applications are temporarily paused while VAYNTR completes email-delivery and secure staff-review setup. No application details have been submitted.";
+        status.dataset.state = "warning";
+      }
+    } catch {
+      recruitmentAvailable = false;
+      status.textContent = "Recruitment availability could not be verified. The form is paused and no application details have been submitted.";
+      status.dataset.state = "error";
+    }
+  }
+  checkRecruitmentAvailability();
+
   function normalizeYouTubeUrl(value) {
     let url;
     try { url = new URL(value.trim()); } catch { return null; }
@@ -34,6 +61,11 @@
   form.addEventListener("submit", async (event) => {
     event.preventDefault();
     status.textContent = "";
+    if (!recruitmentAvailable) {
+      status.textContent = "Applications are temporarily paused. Please try again later.";
+      status.dataset.state = "warning";
+      return;
+    }
     if (!form.reportValidity()) return;
     const youtubeUrl = normalizeYouTubeUrl(form.elements.youtubeUrl.value);
     if (!youtubeUrl) {
@@ -70,7 +102,7 @@
       status.textContent = error.message || "Unable to reach the application service. Your application has not been confirmed; please try again later.";
       status.dataset.state = "error";
     } finally {
-      submit.disabled = false;
+      submit.disabled = !recruitmentAvailable;
       submit.innerHTML = 'Submit application <span aria-hidden="true">↗</span>';
     }
   });
