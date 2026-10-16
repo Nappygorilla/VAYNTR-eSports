@@ -9,6 +9,7 @@
   const loginStatus = $("#staffLoginStatus");
   const reviewStatus = $("#staffReviewStatus");
   const list = $("#applicationsList");
+  const manualEmailFollowup = $("#manualEmailFollowup");
   const loginButton = $("#staffLoginButton");
   let token = "";
   try { token = sessionStorage.getItem(TOKEN_KEY) || ""; } catch {}
@@ -39,6 +40,10 @@
     loginPanel.hidden = false;
     loginForm.reset();
     list.replaceChildren();
+    if (manualEmailFollowup) {
+      manualEmailFollowup.hidden = true;
+      manualEmailFollowup.replaceChildren();
+    }
     setStatus(loginStatus, "Signed out.", "success");
   }
 
@@ -48,6 +53,37 @@
     element.textContent = text == null ? "" : String(text);
     parent.appendChild(element);
     return element;
+  }
+
+  function showManualEmailFollowup(contact, decision) {
+    if (!manualEmailFollowup) return;
+    manualEmailFollowup.replaceChildren();
+    const email = String(contact && contact.email || "").trim();
+    const displayName = String(contact && contact.displayName || "applicant");
+    const accepted = decision === "accept";
+
+    addText(manualEmailFollowup, "p", "eyebrow", "Manual follow-up / " + (accepted ? "accepted" : "declined"));
+    addText(manualEmailFollowup, "h3", "staff-application__name", accepted ? "WELCOME TO VAYNTR." : "RECRUITMENT DECISION.");
+    addText(manualEmailFollowup, "p", "", accepted
+      ? "The player is on the public roster and the application is deleted. Compose your welcome email here, or find their contact in the accepted roster below."
+      : "The application is deleted and no roster entry was created. You can compose the denial email now; no email is sent until you press Send in your mail app.");
+    if (!/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(email)) {
+      addText(manualEmailFollowup, "p", "form-note", "The applicant email could not be opened as a mail link. Contact details may need to be checked.");
+      manualEmailFollowup.hidden = false;
+      return;
+    }
+    const subject = accepted ? "VAYNTR Esports | Welcome to the Roster" : "VAYNTR Esports | Recruitment Decision";
+    const message = accepted
+      ? "Hi " + displayName + ",\\n\\nYour application to VAYNTR Esports has been accepted. Welcome to the roster! We will follow up with any onboarding steps and expectations.\\n\\nVAYNTR Esports"
+      : "Hi " + displayName + ",\\n\\nThank you for applying to VAYNTR Esports. After reviewing your application, we are unable to offer you a roster spot at this time. We appreciate your interest and wish you the best.\\n\\nVAYNTR Esports";
+    const link = document.createElement("a");
+    link.className = "button button--primary";
+    link.href = "mailto:" + encodeURIComponent(email).replace("%40", "@") +
+      "?subject=" + encodeURIComponent(subject) + "&body=" + encodeURIComponent(message);
+    link.textContent = accepted ? "Compose welcome email ↗" : "Compose denial email ↗";
+    link.setAttribute("aria-label", (accepted ? "Compose welcome email for " : "Compose denial email for ") + displayName);
+    manualEmailFollowup.appendChild(link);
+    manualEmailFollowup.hidden = false;
   }
 
   function renderApplication(application) {
@@ -120,6 +156,7 @@
           body: JSON.stringify({ decision })
         });
         await loadApplications(false);
+        showManualEmailFollowup(result.contact, decision);
         setStatus(reviewStatus, result.message || (accepting
           ? "Applicant accepted and added to roster."
           : "Application denied and deleted."), "success");
