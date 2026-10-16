@@ -160,7 +160,7 @@
     } catch (error) {
       if (error.status === 401 || error.status === 403) {
         signOut();
-        setStatus(loginStatus, "This account is not authorized for recruitment review. A VAYNTR administrator must assign the staff or admin role.", "error");
+        setStatus(loginStatus, "Access denied. Check that STAFF_REVIEW_TOKEN is configured correctly in Render and paste the exact value here.", "error");
       } else {
         setStatus(reviewStatus, error.message || "Unable to load applications.", "error");
       }
@@ -171,20 +171,12 @@
     event.preventDefault();
     if (!loginForm.reportValidity()) return;
     loginButton.disabled = true;
-    setStatus(loginStatus, "Authenticating…");
+    setStatus(loginStatus, "Checking staff access…");
+    token = loginForm.elements.accessKey.value;
+    try { sessionStorage.setItem(TOKEN_KEY, token); } catch {}
+    loginForm.elements.accessKey.value = "";
     try {
-      const result = await api("/api/auth/login", {
-        method: "POST",
-        body: JSON.stringify({
-          email: loginForm.elements.email.value.trim(),
-          password: loginForm.elements.password.value
-        })
-      });
-      token = result.token;
-      try { sessionStorage.setItem(TOKEN_KEY, token); } catch {}
       await loadApplications();
-    } catch (error) {
-      setStatus(loginStatus, error.message || "Sign-in failed.", "error");
     } finally {
       loginButton.disabled = false;
     }
