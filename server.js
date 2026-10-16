@@ -230,7 +230,25 @@ app.get("/health", async (_req, res) => {
   }
   res.status(database === "unavailable" ? 503 : 200).json({ ok: database !== "unavailable", service: "vayntr-api", database, time: new Date().toISOString() });
 });
-app.get("/api/status", (_req, res) => res.json({ service: "VAYNTR API", status: "online", features: { health: true, accounts: false, recruitmentApplications: Boolean(pool), staffTools: Boolean(pool), emailNotifications: Boolean(RESEND_API_KEY && RESEND_FROM_EMAIL), staffReviewConfigured: STAFF_REVIEW_TOKEN.length >= 32 } }));
+app.get("/api/status", async (_req, res) => {
+  let databaseReady = false;
+  if (pool) {
+    try { await pool.query("SELECT 1"); databaseReady = true; }
+    catch { databaseReady = false; }
+  }
+  res.json({
+    service: "VAYNTR API",
+    status: "online",
+    features: {
+      health: true,
+      accounts: false,
+      recruitmentApplications: databaseReady,
+      staffTools: databaseReady,
+      emailNotifications: Boolean(RESEND_API_KEY && RESEND_FROM_EMAIL),
+      staffReviewConfigured: STAFF_REVIEW_TOKEN.length >= 32
+    }
+  });
+});
 
 app.post("/api/auth/register", authLimiter, requireDatabase, async (req, res, next) => {
   if (process.env.ENABLE_PUBLIC_REGISTRATION !== "true") return res.status(404).json({ error: "Public account registration is disabled." });
