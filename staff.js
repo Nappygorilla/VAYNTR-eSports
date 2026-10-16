@@ -53,13 +53,14 @@
   function renderApplication(application) {
     const card = document.createElement("article");
     card.className = "application-panel staff-application";
+
     const top = document.createElement("div");
     top.className = "staff-application__top";
     const identity = document.createElement("div");
     addText(identity, "h3", "staff-application__name", application.display_name);
     addText(identity, "p", "staff-application__meta", application.email);
     top.appendChild(identity);
-    addText(top, "span", "pill" + (["accepted", "declined"].includes(application.status) ? " pill--red" : ""), String(application.status || "received").toUpperCase());
+    addText(top, "span", "pill", "AWAITING DECISION");
     card.appendChild(top);
 
     const details = document.createElement("div");
@@ -67,16 +68,6 @@
     addText(details, "p", "", "Game / division: " + application.game);
     addText(details, "p", "", "Platform: " + application.platform);
     addText(details, "p", "", "Submitted: " + (application.created_at ? new Date(application.created_at).toLocaleString() : "Unknown"));
-    addText(details, "p", "", "Confirmation email: " + (application.confirmation_email_status || "pending"));
-    let decisionEmailState = "not applicable until accepted or declined";
-    if (["accepted", "declined"].includes(application.status)) {
-      decisionEmailState = application.decision_notified_status === application.status
-        ? application.status + " decision email accepted by provider"
-        : application.decision_email_error
-          ? "not sent (" + application.decision_email_error + ")"
-          : "not sent yet";
-    }
-    addText(details, "p", "", "Decision email: " + decisionEmailState);
     card.appendChild(details);
 
     const videoBlock = document.createElement("div");
@@ -90,7 +81,7 @@
       link.textContent = "Open submitted video ↗";
       videoBlock.appendChild(link);
     } else {
-      addText(videoBlock, "p", "form-note", "No video link exists for this older submission.");
+      addText(videoBlock, "p", "form-note", "This older application has no YouTube link.");
     }
     card.appendChild(videoBlock);
 
@@ -102,106 +93,49 @@
       card.appendChild(note);
     }
 
-    const statusBox = document.createElement("div");
-    statusBox.className = "staff-application__actions";
-    const label = addText(statusBox, "label", "", "Application status");
-    const select = document.createElement("select");
-    select.setAttribute("aria-label", "Application status for " + application.display_name);
-    for (const value of ["received", "reviewing", "accepted", "declined"]) {
-      const option = document.createElement("option");
-      option.value = value;
-      option.textContent = value.charAt(0).toUpperCase() + value.slice(1);
-      option.selected = value === application.status;
-      select.appendChild(option);
-    }
-    label.appendChild(select);
-    const saveButton = document.createElement("button");
-    saveButton.type = "button";
-    saveButton.className = "button button--primary";
-    saveButton.textContent = "Save status";
-    saveButton.addEventListener("click", async () => {
-      saveButton.disabled = true;
-      const requestedStatus = select.value;
-      setStatus(reviewStatus, "Saving application status…");
+    const actions = document.createElement("div");
+    actions.className = "staff-application__actions";
+    const acceptButton = document.createElement("button");
+    acceptButton.type = "button";
+    acceptButton.className = "button button--primary";
+    acceptButton.textContent = "Accept & add to roster";
+    const denyButton = document.createElement("button");
+    denyButton.type = "button";
+    denyButton.className = "button button--outline";
+    denyButton.textContent = "Deny & delete application";
+
+    async function decide(decision) {
+      const accepting = decision === "accept";
+      const message = accepting
+        ? "Accept " + application.display_name + "? They will be added to the public roster and this application will be deleted. Their email will remain private in the staff roster so you can contact them manually."
+        : "Deny " + application.display_name + "? This permanently deletes the application without adding them to the roster.";
+      if (!window.confirm(message)) return;
+
+      acceptButton.disabled = true;
+      denyButton.disabled = true;
+      setStatus(reviewStatus, accepting ? "Adding player to roster…" : "Deleting application…");
       try {
-        const result = await api("/api/staff/applications/" + encodeURIComponent(application.id) + "/status", {
+        const result = await api("/api/staff/applications/" + encodeURIComponent(application.id) + "/decision", {
           method: "POST",
-          body: JSON.stringify({ status: requestedStatus })
+          body: JSON.stringify({ decision })
         });
-        if (requestedStatus === "accepted" || requestedStatus === "declined") {
-          const notice = result.notification;
-          if (notice && notice.reason === "already_notified") {
-            setStatus(reviewStatus, "Status saved. This decision email had already been queued.", "success");
-          } else if (notice && notice.sent) {
-            setStatus(reviewStatus, "Status saved. Resend accepted the decision email request.", "success");
-          } else {
-            setStatus(reviewStatus, "Status saved, but the decision email was not sent. Check RESEND_FROM_EMAIL, domain verification, and the Render logs.", "warning");
-          }
-        } else {
-          setStatus(reviewStatus, "Application status saved.", "success");
-        }
         await loadApplications(false);
+        setStatus(reviewStatus, result.message || (accepting
+          ? "Applicant accepted and added to roster."
+          : "Application denied and deleted."), "success");
       } catch (error) {
         if (error.status === 401 || error.status === 403) signOut();
-        setStatus(reviewStatus, error.message || "Unable to save status.", "error");
+        setStatus(reviewStatus, error.message || "Unable to process this application.", "error");
       } finally {
-        saveButton.disabled = false;
+        acceptButton.disabled = false;
+        denyButton.disabled = false;
       }
-    });
-    statusBox.appendChild(saveButton);
-    if (application.confirmation_email_status !== "sent") {
-      const retryButton = document.createElement("button");
-      retryButton.type = "button";
-      retryButton.className = "button button--outline";
-      retryButton.textContent = "Retry confirmation email";
-      retryButton.addEventListener("click", async () => {
-        retryButton.disabled = true;
-        setStatus(reviewStatus, "Retrying confirmation email…");
-        try {
-          const result = await api("/api/staff/applications/" + encodeURIComponent(application.id) + "/confirmation-email", { method: "POST" });
-          await loadApplications(false);
-          setStatus(reviewStatus, result.notification && result.notification.sent
-            ? "Confirmation email request accepted by Resend."
-            : "Confirmation email could not be sent. Check sender verification and Render logs.", result.notification && result.notification.sent ? "success" : "warning");
-        } catch (error) {
-          setStatus(reviewStatus, error.message || "Unable to retry confirmation email.", "error");
-        } finally {
-          retryButton.disabled = false;
-        }
-      });
-      statusBox.appendChild(retryButton);
     }
-    if (["accepted", "declined"].includes(application.status) &&
-        application.decision_notified_status !== application.status) {
-      const retryDecisionButton = document.createElement("button");
-      retryDecisionButton.type = "button";
-      retryDecisionButton.className = "button button--outline";
-      retryDecisionButton.textContent = "Retry decision email";
-      retryDecisionButton.addEventListener("click", async () => {
-        retryDecisionButton.disabled = true;
-        setStatus(reviewStatus, "Retrying decision email…");
-        try {
-          const result = await api("/api/staff/applications/" + encodeURIComponent(application.id) + "/status", {
-            method: "POST",
-            body: JSON.stringify({ status: application.status })
-          });
-          await loadApplications(false);
-          const notice = result.notification;
-          setStatus(reviewStatus,
-            notice && notice.sent
-              ? (notice.reason === "already_notified" ? "This decision email was already accepted by the provider." : "Decision email request accepted by Resend.")
-              : "Decision email could not be sent. The application status remains saved; check sender verification and Render logs.",
-            notice && notice.sent ? "success" : "warning");
-        } catch (error) {
-          if (error.status === 401 || error.status === 403) signOut();
-          setStatus(reviewStatus, error.message || "Unable to retry decision email.", "error");
-        } finally {
-          retryDecisionButton.disabled = false;
-        }
-      });
-      statusBox.appendChild(retryDecisionButton);
-    }
-    card.appendChild(statusBox);
+
+    acceptButton.addEventListener("click", () => decide("accept"));
+    denyButton.addEventListener("click", () => decide("deny"));
+    actions.append(acceptButton, denyButton);
+    card.appendChild(actions);
     return card;
   }
 
@@ -214,11 +148,13 @@
       reviewPanel.hidden = false;
       if (!result.applications || result.applications.length === 0) {
         addText(list, "div", "empty-state", "No applications have been submitted yet.");
+        await loadRoster(false);
         setStatus(reviewStatus, "Queue loaded. No applications are waiting.", "success");
         return;
       }
       for (const application of result.applications) list.appendChild(renderApplication(application));
-      setStatus(reviewStatus, "Loaded " + result.applications.length + " recent application(s).", "success");
+      await loadRoster(false);
+      setStatus(reviewStatus, "Loaded " + result.applications.length + " application(s).", "success");
     } catch (error) {
       if (error.status === 401 || error.status === 403) {
         signOut();
@@ -228,6 +164,46 @@
       } else {
         setStatus(reviewStatus, error.message || "Unable to load applications.", "error");
       }
+    }
+  }
+
+  async function loadRoster(showLoading = true) {
+    const rosterList = $("#staffRosterList");
+    const rosterStatus = $("#staffRosterStatus");
+    if (!rosterList || !rosterStatus) return;
+    if (showLoading) setStatus(rosterStatus, "Loading accepted roster…");
+    rosterList.replaceChildren();
+    try {
+      const result = await api("/api/staff/roster");
+      const players = Array.isArray(result.players) ? result.players : [];
+      if (players.length === 0) {
+        addText(rosterList, "div", "empty-state", "No players have been accepted yet.");
+        setStatus(rosterStatus, "Accepted roster is empty.", "success");
+        return;
+      }
+      for (const player of players) {
+        const card = document.createElement("article");
+        card.className = "application-panel staff-application staff-roster-player";
+        const top = document.createElement("div");
+        top.className = "staff-application__top";
+        const identity = document.createElement("div");
+        addText(identity, "h3", "staff-application__name", player.display_name);
+        addText(identity, "p", "staff-application__meta", player.email);
+        top.appendChild(identity);
+        addText(top, "span", "pill pill--red", "ROSTER MEMBER");
+        card.appendChild(top);
+        const details = document.createElement("div");
+        details.className = "staff-application__details";
+        addText(details, "p", "", "Game / division: " + player.game);
+        addText(details, "p", "", "Platform: " + player.platform);
+        addText(details, "p", "", "Added: " + (player.accepted_at ? new Date(player.accepted_at).toLocaleDateString() : "Unknown"));
+        card.appendChild(details);
+        rosterList.appendChild(card);
+      }
+      setStatus(rosterStatus, players.length + " roster member(s). Email addresses are visible only in this protected staff area.", "success");
+    } catch (error) {
+      if (error.status === 401 || error.status === 403) signOut();
+      setStatus(rosterStatus, error.message || "Unable to load the accepted roster.", "error");
     }
   }
 
@@ -247,6 +223,7 @@
   });
 
   $("#refreshApplications").addEventListener("click", () => loadApplications());
+  $("#refreshRoster")?.addEventListener("click", () => loadRoster());
   $("#staffSignOut").addEventListener("click", signOut);
   if (token) loadApplications();
 })();
