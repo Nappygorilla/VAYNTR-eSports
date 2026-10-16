@@ -1,0 +1,17 @@
+services:
+  - type: web
+    name: vayntr-api
+    runtime: node
+    plan: free
+    region: virginia
+    buildCommand: npm install
+    startCommand: npm start
+    healthCheckPath: /health
+    autoDeploy: true
+    envVars:
+      - key: JWT_SECRET
+        generateValue: true
+      - key: FRONTEND_ORIGINS
+        value: https://nappygorilla.github.io
+      - key: DATABASE_URL
+        sync: false
