@@ -38,6 +38,12 @@ for (const file of htmlFiles) {
     let target;
     try { target = new URL(raw, pageUrl); } catch { continue; }
 
+    const rawPath = raw.split(/[?#]/, 1)[0].toLowerCase();
+    const explicitlyTargetsResultsPage = rawPath === "results.html" || rawPath.endsWith("/results.html");
+    if (explicitlyTargetsResultsPage && target.origin === previewOrigin && target.pathname === repositoryPrefix + "results.html" && raw !== "https://nappygorilla.github.io/VAYNTR-eSports/results.html") {
+      addError(file, "Results links must use the public GitHub Pages URL so they do not resolve against the Render API domain.");
+    }
+
     const isRepoHosted = target.origin === previewOrigin && target.pathname.startsWith(repositoryPrefix);
     const isRelativeLocal = !/^[a-z][a-z0-9+.-]*:/i.test(raw) && !raw.startsWith("//") && target.origin === previewOrigin;
     if (!isRepoHosted && !isRelativeLocal) continue;
