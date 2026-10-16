@@ -283,8 +283,8 @@ app.post("/api/auth/login", authLimiter, requireDatabase, async (req, res, next)
 app.get("/api/auth/me", requireDatabase, authenticate, (req, res) => res.json({ user: req.user }));
 
 app.post("/api/recruitment/applications", requireDatabase, async (req, res, next) => {
-  if (!RESEND_API_KEY || !RESEND_FROM_EMAIL || STAFF_REVIEW_TOKEN.length < 32) {
-    return res.status(503).json({ error: "Recruitment applications are temporarily paused while official email delivery and secure staff review are configured." });
+  if (STAFF_REVIEW_TOKEN.length < 32) {
+    return res.status(503).json({ error: "Recruitment applications are temporarily paused while secure staff review is configured." });
   }
   try {
     const displayName = typeof req.body.displayName === "string" ? req.body.displayName.trim() : "";
@@ -328,7 +328,7 @@ app.post("/api/recruitment/applications", requireDatabase, async (req, res, next
 
 app.get("/api/staff/applications", requireDatabase, requireStaffAccess, async (_req, res, next) => {
   try {
-    const result = await pool.query("SELECT id, display_name, email, platform, game, message, youtube_url, status, created_at, confirmation_email_status, decision_notified_status FROM recruitment_applications ORDER BY created_at DESC LIMIT 100");
+    const result = await pool.query("SELECT id, display_name, email, platform, game, message, youtube_url, status, created_at, confirmation_email_status, decision_notified_status, decision_email_error FROM recruitment_applications ORDER BY created_at DESC LIMIT 100");
     res.json({ applications: result.rows });
   } catch (error) { next(error); }
 });
