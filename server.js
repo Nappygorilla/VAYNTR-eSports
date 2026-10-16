@@ -121,7 +121,7 @@ async function sendApplicationReceivedEmail(application) {
     statusLabel: "UNDER REVIEW",
     paragraphs: [
       "Thank you for applying to VAYNTR Esports. We have received your application and YouTube video link.",
-      "Our recruitment team will review your submission. Sending an application does not guarantee acceptance; we will email you when a decision is recorded."
+      "Our recruitment team will review your submission. Submitting an application does not guarantee acceptance. If email notifications are available, we will send a separate notice when a decision is recorded."
     ]
   });
 }
