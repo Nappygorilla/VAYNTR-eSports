@@ -314,6 +314,26 @@ app.get("/api/staff/applications", requireDatabase, requireStaffAccess, async (_
     res.json({ applications: result.rows });
   } catch (error) { next(error); }
 });
+app.post("/api/staff/applications/:id/confirmation-email", requireDatabase, requireStaffAccess, async (req, res, next) => {
+  const id = Number(req.params.id);
+  if (!Number.isSafeInteger(id) || id < 1) return res.status(400).json({ error: "Invalid application ID." });
+  try {
+    const result = await pool.query(
+      "SELECT id, display_name, email FROM recruitment_applications WHERE id = $1",
+      [id]
+    );
+    if (!result.rowCount) return res.status(404).json({ error: "Application not found." });
+    const notification = await sendApplicationReceivedEmail(result.rows[0]);
+    await pool.query(
+      "UPDATE recruitment_applications SET confirmation_email_status = $1, confirmation_email_sent_at = CASE WHEN $1 = 'sent' THEN NOW() ELSE confirmation_email_sent_at END WHERE id = $2",
+      [notification.sent ? "sent" : notification.reason, id]
+    );
+    res.json({ notification });
+  } catch (error) {
+    next(error);
+  }
+});
+
 app.post("/api/staff/applications/:id/status", requireDatabase, requireStaffAccess, async (req, res, next) => {
   const id = Number(req.params.id);
   const status = req.body.status;
