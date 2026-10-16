@@ -67,6 +67,7 @@
     addText(details, "p", "", "Game / division: " + application.game);
     addText(details, "p", "", "Platform: " + application.platform);
     addText(details, "p", "", "Submitted: " + (application.created_at ? new Date(application.created_at).toLocaleString() : "Unknown"));
+    addText(details, "p", "", "Confirmation email: " + (application.confirmation_email_status || "pending"));
     card.appendChild(details);
 
     const videoBlock = document.createElement("div");
@@ -139,6 +140,28 @@
       }
     });
     statusBox.appendChild(saveButton);
+    if (application.confirmation_email_status !== "sent") {
+      const retryButton = document.createElement("button");
+      retryButton.type = "button";
+      retryButton.className = "button button--outline";
+      retryButton.textContent = "Retry confirmation email";
+      retryButton.addEventListener("click", async () => {
+        retryButton.disabled = true;
+        setStatus(reviewStatus, "Retrying confirmation email…");
+        try {
+          const result = await api("/api/staff/applications/" + encodeURIComponent(application.id) + "/confirmation-email", { method: "POST" });
+          await loadApplications(false);
+          setStatus(reviewStatus, result.notification && result.notification.sent
+            ? "Confirmation email request accepted by Resend."
+            : "Confirmation email could not be sent. Check sender verification and Render logs.", result.notification && result.notification.sent ? "success" : "warning");
+        } catch (error) {
+          setStatus(reviewStatus, error.message || "Unable to retry confirmation email.", "error");
+        } finally {
+          retryButton.disabled = false;
+        }
+      });
+      statusBox.appendChild(retryButton);
+    }
     card.appendChild(statusBox);
     return card;
   }
