@@ -1,6 +1,7 @@
 "use strict";
 
 const express = require("express");
+const crypto = require("node:crypto");
 const helmet = require("helmet");
 const cors = require("cors");
 const rateLimit = require("express-rate-limit");
@@ -20,6 +21,7 @@ const FRONTEND_ORIGINS = (process.env.FRONTEND_ORIGINS || "https://nappygorilla.
 const RESEND_API_KEY = process.env.RESEND_API_KEY || "";
 const RESEND_FROM_EMAIL = process.env.RESEND_FROM_EMAIL || "";
 const RESEND_REPLY_TO = process.env.RESEND_REPLY_TO || "";
+const STAFF_REVIEW_TOKEN = process.env.STAFF_REVIEW_TOKEN || "";
 
 function escapeHtml(value) {
   return String(value ?? "").replace(/[&<>"']/g, (character) => ({
@@ -200,6 +202,26 @@ function requireRole(...roles) {
   };
 }
 
+function requireStaffAccess(req, res, next) {
+  const match = (req.get("authorization") || "").match(/^Bearer\s+(.+)$/i);
+  if (STAFF_REVIEW_TOKEN && match) {
+    const supplied = Buffer.from(match[1]);
+    const expected = Buffer.from(STAFF_REVIEW_TOKEN);
+    if (supplied.length === expected.length && crypto.timingSafeEqual(supplied, expected)) {
+      req.user = { id: null, display_name: "VAYNTR staff token", role: "admin" };
+      return next();
+    }
+  }
+  // Legacy staff/admin JWTs continue to work; regular member accounts are never granted staff access.
+  return authenticate(req, res, (error) => {
+    if (error) return next(error);
+    if (!req.user || !["admin", "staff"].includes(req.user.role)) {
+      return res.status(403).json({ error: "You do not have permission to review applications." });
+    }
+    next();
+  });
+}
+
 app.get("/health", async (_req, res) => {
   let database = "not_configured";
   if (pool) {
@@ -280,13 +302,13 @@ app.post("/api/recruitment/applications", requireDatabase, async (req, res, next
   }
 });
 
-app.get("/api/staff/applications", requireDatabase, authenticate, requireRole("admin", "staff"), async (_req, res, next) => {
+app.get("/api/staff/applications", requireDatabase, requireStaffAccess, async (_req, res, next) => {
   try {
     const result = await pool.query("SELECT id, display_name, email, platform, game, message, youtube_url, status, created_at, confirmation_email_status, decision_notified_status FROM recruitment_applications ORDER BY created_at DESC LIMIT 100");
     res.json({ applications: result.rows });
   } catch (error) { next(error); }
 });
-app.post("/api/staff/applications/:id/status", requireDatabase, authenticate, requireRole("admin", "staff"), async (req, res, next) => {
+app.post("/api/staff/applications/:id/status", requireDatabase, requireStaffAccess, async (req, res, next) => {
   const id = Number(req.params.id);
   const status = req.body.status;
   if (!Number.isSafeInteger(id) || id < 1 || !["received", "reviewing", "accepted", "declined"].includes(status)) {
