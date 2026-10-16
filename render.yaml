@@ -9,8 +9,6 @@ services:
     healthCheckPath: /health
     autoDeploy: true
     envVars:
-      - key: JWT_SECRET
-        generateValue: true
       - key: FRONTEND_ORIGINS
         value: https://nappygorilla.github.io
       - key: DATABASE_URL
