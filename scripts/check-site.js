@@ -4,7 +4,9 @@ const fs = require("node:fs");
 const path = require("node:path");
 
 const root = path.resolve(__dirname, "..");
-const repositoryPrefix = "/VAYNTR-eSports/";
+const siteBasePath = "/";
+const legacyProjectPrefix = "/VAYNTR-eSports/";
+const externalProjectPrefixes = ["/VAYNTR-eSports-warzone-helper/"];
 const previewOrigin = "https://nappygorilla.github.io";
 const htmlFiles = fs.readdirSync(root).filter((name) => name.endsWith(".html"));
 const errors = [];
@@ -31,7 +33,7 @@ for (const file of htmlFiles) {
     }
   }
 
-  const pageUrl = new URL(file, previewOrigin + repositoryPrefix);
+  const pageUrl = new URL(file, previewOrigin + siteBasePath);
   for (const match of source.matchAll(/\b(?:href|src)\s*=\s*["']([^"']+)["']/gi)) {
     const raw = match[1].trim();
     if (!raw || /^(?:mailto:|tel:|data:|javascript:|blob:)/i.test(raw)) continue;
@@ -40,15 +42,23 @@ for (const file of htmlFiles) {
 
     const rawPath = raw.split(/[?#]/, 1)[0].toLowerCase();
     const explicitlyTargetsResultsPage = rawPath === "results.html" || rawPath.endsWith("/results.html");
-    if (explicitlyTargetsResultsPage && target.origin === previewOrigin && target.pathname === repositoryPrefix + "results.html" && raw !== "https://nappygorilla.github.io/VAYNTR-eSports/results.html") {
-      addError(file, "Results links must use the public GitHub Pages URL so they do not resolve against the Render API domain.");
+    if (target.origin === previewOrigin && target.pathname.startsWith(legacyProjectPrefix)) {
+      addError(file, "Legacy project-site URL detected; use the root GitHub Pages URL instead: " + raw);
+      continue;
     }
 
-    const isRepoHosted = target.origin === previewOrigin && target.pathname.startsWith(repositoryPrefix);
-    const isRelativeLocal = !/^[a-z][a-z0-9+.-]*:/i.test(raw) && !raw.startsWith("//") && target.origin === previewOrigin;
-    if (!isRepoHosted && !isRelativeLocal) continue;
+    const isExternalProjectPage = target.origin === previewOrigin &&
+      externalProjectPrefixes.some((prefix) => target.pathname.startsWith(prefix));
+    if (explicitlyTargetsResultsPage && target.origin === previewOrigin &&
+        target.pathname === siteBasePath + "results.html" &&
+        raw !== "https://nappygorilla.github.io/results.html") {
+      addError(file, "Results links must use the public root GitHub Pages URL.");
+    }
 
-    let relative = isRepoHosted ? target.pathname.slice(repositoryPrefix.length) : target.pathname.slice(repositoryPrefix.length);
+    const isSameSitePage = target.origin === previewOrigin && !isExternalProjectPage;
+    if (!isSameSitePage) continue;
+
+    let relative = target.pathname.slice(siteBasePath.length);
     if (!relative || relative.endsWith("/")) relative += "index.html";
     relative = decodeURIComponent(relative);
     const destination = path.resolve(root, relative);
