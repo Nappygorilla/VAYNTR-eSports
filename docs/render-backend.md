@@ -7,7 +7,7 @@ Node.js API for the static VAYNTR Esports site hosted on GitHub Pages. The Rende
 - Public applications are submitted only through \`recruitment.html\`.
 - The form requires the applicant's name, email, platform, game/division, consent checkbox, and a direct YouTube video link explaining why they want to join VAYNTR. Unlisted videos are accepted; private videos may not be accessible to reviewers.
 - The API validates supported YouTube video URL formats on the server before saving the application.
-- \`POST /api/recruitment/applications\` stores the application, then attempts a branded confirmation email.
+- \`POST /api/recruitment/applications\` stores the application, then attempts a branded confirmation email. Email delivery is optional: if Resend is not configured, the application still saves and appears in staff review.
 - \`GET /api/staff/applications\` lists recent submissions and YouTube links; \`POST /api/staff/applications/:id/status\` changes status and sends an email when the status becomes \`accepted\` or \`declined\`.
 - Status updates are protected by a staff access token or a pre-existing staff/admin JWT. The unlinked \`staff-applications.html\` screen is not linked from the public navigation and only displays application data after the API authorizes it.
 - The former public login, registration, and member-dashboard pages are not part of the intended public site. Public account registration returns 404 unless `ENABLE_PUBLIC_REGISTRATION=true`; leave this unset. Existing staff/admin JWTs may still access staff routes, but the preferred staff console uses `STAFF_REVIEW_TOKEN`.
@@ -17,7 +17,7 @@ Node.js API for the static VAYNTR Esports site hosted on GitHub Pages. The Rende
 - \`DATABASE_URL\`: connection string for the VAYNTR PostgreSQL database.
 - \`JWT_SECRET\`: legacy JWT secret, at least 32 characters, for any existing staff/admin JWTs.
 - \`FRONTEND_ORIGINS=https://nappygorilla.github.io\`: allowed browser origin. Add your custom website origin if one is configured later.
-- \`RESEND_API_KEY\`: secret API key from Resend.
+- \`RESEND_API_KEY\`: optional secret API key from Resend. Without it, applications and status changes still work, but automatic emails are skipped.
 - \`RESEND_FROM_EMAIL\`: sender in the form \`VAYNTR Esports <recruitment@yourdomain.com>\`. The domain must be verified in Resend. Do not set this to an address on a domain you do not control.
 - \`RESEND_REPLY_TO\`: optional reply-to address.
 - \`STAFF_REVIEW_TOKEN\`: private, high-entropy random secret, at least 32 characters. Set it in Render Environment and enter the same value on the unlinked \`staff-applications.html\` page. Never commit it or share it publicly.
@@ -28,7 +28,7 @@ Never expose \`RESEND_API_KEY\`, \`STAFF_REVIEW_TOKEN\`, database credentials, o
 
 On startup the API creates the application table if needed and adds the YouTube/email-notification columns to existing installations. This is designed to preserve existing applications while adding the new fields.
 
-Use a database connection string that the service can actually reach. Render's internal database URLs are intended for services in the same region; the VAYNTR web service and database must be configured consistently or use the correct connection method. Check \`GET /health\` and require \`ok: true\` and \`database: connected\` before opening recruitment.
+Use a database connection string that the service can actually reach. Render's internal database URLs are intended for services in the same region; the VAYNTR web service and database must be configured consistently or use the correct connection method. Check \`GET /health\` and require \`ok: true\` and \`database: connected\` before opening recruitment. Resend is optional; recruitment remains usable without email notifications.
 
 ## Email delivery
 
