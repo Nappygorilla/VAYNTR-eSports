@@ -298,3 +298,16 @@ html{scroll-behavior:smooth}
 .resource-links a{font-size:.72rem;color:#c3c1c3;text-underline-offset:3px}
 .resource-links a:hover{color:#fff;text-decoration:underline}
 @media(prefers-reduced-motion:reduce){::view-transition-old(root),::view-transition-new(root){animation:none!important}}
+
+
+/* Interactive division selector from the hero ticker */
+.hero__bottomline{align-items:stretch;gap:clamp(12px,2.2vw,30px)}
+.hero__tab{flex:1 0 auto;min-width:max-content;display:inline-flex;align-items:center;justify-content:center;border:0;border-bottom:2px solid transparent;padding:13px 4px 12px;background:transparent;color:#969496;font:inherit;font-size:.62rem;font-weight:900;letter-spacing:.15em;text-transform:uppercase;white-space:nowrap;cursor:pointer;transition:color .18s ease,border-color .18s ease}
+.hero__tab:hover{color:#f0eeee}
+.hero__tab[aria-selected=true]{color:#fff;border-bottom-color:var(--red)}
+.hero__tab:focus-visible{outline:2px solid #ff6574;outline-offset:-2px}
+.focus-panel .section-heading{align-items:end}
+.focus-panel .feature-card__arrow{color:#e34a59}
+.focus-panel[hidden]{display:none!important}
+@media(max-width:800px){.hero__bottomline{justify-content:flex-start;overflow-x:auto;scrollbar-width:thin;scrollbar-color:#4b242a transparent;gap:20px}.hero__tab{flex:0 0 auto;padding-inline:2px}.focus-panel .section-heading{align-items:flex-start}}
+@media(prefers-reduced-motion:reduce){.hero__tab{transition:none}}
