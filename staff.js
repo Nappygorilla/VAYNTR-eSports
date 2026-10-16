@@ -44,7 +44,10 @@
       const data = await api("/api/status");
       const features = data.features || {};
       const ready = Boolean(features.recruitmentApplications && features.staffReviewConfigured);
-      if (databaseStatus) databaseStatus.textContent = features.recruitmentApplications ? "CONNECTED" : "CHECK";
+      if (databaseStatus) {
+        databaseStatus.textContent = features.recruitmentApplications ? "CONNECTED" : "CHECK";
+        databaseStatus.dataset.state = features.recruitmentApplications ? "success" : "warning";
+      }
       if (databaseNote) databaseNote.textContent = features.recruitmentApplications
         ? (ready ? "API and database are reachable." : "Database is reachable; check staff-token configuration.")
         : "Database/API readiness needs attention.";
@@ -52,7 +55,10 @@
         ready ? "Portal connected. Recruitment and staff review are configured." : "Portal loaded, but recruitment readiness needs attention.",
         ready ? "success" : "warning");
     } catch (error) {
-      if (databaseStatus) databaseStatus.textContent = "OFFLINE";
+      if (databaseStatus) {
+        databaseStatus.textContent = "OFFLINE";
+        databaseStatus.dataset.state = "error";
+      }
       if (databaseNote) databaseNote.textContent = "Could not read the API feature status.";
       setStatus($("#portalActionStatus"), error.message || "Unable to check backend status.", "error");
     }
