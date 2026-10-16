@@ -9,15 +9,13 @@
     "check": "node --check server.js && node --check app.js && node --check recruitment.js && node --check staff.js && node --check roster.js && node --check content.js && node --check navigation.js && node --check scripts/check-site.js && node scripts/check-site.js"
   },
   "engines": {
-    "node": ">=20"
+    "node": "24.x"
   },
   "dependencies": {
-    "bcryptjs": "^2.4.3",
     "cors": "^2.8.5",
     "express": "^4.21.2",
     "express-rate-limit": "^7.5.0",
     "helmet": "^8.0.0",
-    "jsonwebtoken": "^9.0.2",
     "pg": "^8.13.1"
   }
 }

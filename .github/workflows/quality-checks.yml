@@ -1,0 +1,30 @@
+name: Site quality checks
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  site-checks:
+    name: JavaScript syntax and site integrity
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
+      - name: Install API dependencies
+        run: npm install --no-audit --no-fund
+
+      - name: Run project checks
+        run: npm run check

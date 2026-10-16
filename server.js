@@ -5,8 +5,6 @@ const crypto = require("node:crypto");
 const helmet = require("helmet");
 const cors = require("cors");
 const rateLimit = require("express-rate-limit");
-const bcrypt = require("bcryptjs");
-const jwt = require("jsonwebtoken");
 const { Pool } = require("pg");
 
 const app = express();
@@ -14,7 +12,6 @@ app.disable("x-powered-by");
 app.set("trust proxy", 1);
 const PORT = Number(process.env.PORT || 10000);
 const DATABASE_URL = process.env.DATABASE_URL;
-const JWT_SECRET = process.env.JWT_SECRET;
 const FRONTEND_ORIGINS = (process.env.FRONTEND_ORIGINS || "https://nappygorilla.github.io")
   .split(",").map((s) => s.trim()).filter(Boolean);
 
@@ -157,10 +154,6 @@ async function sendApplicationDecisionEmail(application, status) {
 }
 
 
-if (!JWT_SECRET || JWT_SECRET.length < 32) {
-  console.error("JWT_SECRET must be set in Render and contain at least 32 characters.");
-  process.exit(1);
-}
 const pool = DATABASE_URL ? new Pool({
   connectionString: DATABASE_URL,
   ssl: process.env.PGSSLMODE === "disable" ? false : { rejectUnauthorized: false },
@@ -179,7 +172,7 @@ app.use(cors({
   allowedHeaders: ["Content-Type", "Authorization"]
 }));
 app.use(express.json({ limit: "20kb" }));
-const authLimiter = rateLimit({ windowMs: 15 * 60 * 1000, limit: 10, standardHeaders: "draft-7", legacyHeaders: false, message: { error: "Too many attempts. Please wait and try again." } });
+const recruitmentLimiter = rateLimit({ windowMs: 15 * 60 * 1000, limit: 10, standardHeaders: "draft-7", legacyHeaders: false, message: { error: "Too many applications from this connection. Please wait and try again." } });
 const apiLimiter = rateLimit({ windowMs: 15 * 60 * 1000, limit: 60, standardHeaders: "draft-7", legacyHeaders: false });
 app.use("/api", apiLimiter);
 
@@ -187,48 +180,21 @@ function requireDatabase(_req, res, next) {
   if (!pool) return res.status(503).json({ error: "Database is not configured yet." });
   next();
 }
-function tokenFor(user) {
-  return jwt.sign({ sub: String(user.id) }, JWT_SECRET, { expiresIn: "2h", issuer: "vayntr-api" });
-}
-async function authenticate(req, res, next) {
-  const match = (req.get("authorization") || "").match(/^Bearer\s+(.+)$/i);
-  if (!match) return res.status(401).json({ error: "Sign in is required." });
-  try {
-    const payload = jwt.verify(match[1], JWT_SECRET, { issuer: "vayntr-api" });
-    const result = await pool.query("SELECT id, email, display_name, role, created_at FROM users WHERE id = $1", [payload.sub]);
-    if (!result.rowCount) return res.status(401).json({ error: "Account not found." });
-    req.user = result.rows[0];
-    next();
-  } catch (error) {
-    if (error.name === "JsonWebTokenError" || error.name === "TokenExpiredError") return res.status(401).json({ error: "Your session is invalid or expired. Please sign in again." });
-    next(error);
-  }
-}
-function requireRole(...roles) {
-  return (req, res, next) => {
-    if (!req.user || !roles.includes(req.user.role)) return res.status(403).json({ error: "You do not have permission to do that." });
-    next();
-  };
-}
-
 function requireStaffAccess(req, res, next) {
-  const match = (req.get("authorization") || "").match(/^Bearer\s+(.+)$/i);
-  if (STAFF_REVIEW_TOKEN.length >= 32 && match) {
-    const supplied = Buffer.from(match[1]);
-    const expected = Buffer.from(STAFF_REVIEW_TOKEN);
-    if (supplied.length === expected.length && crypto.timingSafeEqual(supplied, expected)) {
-      req.user = { id: null, display_name: "VAYNTR staff token", role: "admin" };
-      return next();
-    }
+  if (STAFF_REVIEW_TOKEN.length < 32) {
+    return res.status(503).json({ error: "Staff review access is not configured." });
   }
-  // Legacy staff/admin JWTs continue to work; regular member accounts are never granted staff access.
-  return authenticate(req, res, (error) => {
-    if (error) return next(error);
-    if (!req.user || !["admin", "staff"].includes(req.user.role)) {
-      return res.status(403).json({ error: "You do not have permission to review applications." });
-    }
-    next();
-  });
+  const match = (req.get("authorization") || "").match(/^Bearer\\s+(.+)$/i);
+  if (!match) return res.status(401).json({ error: "A staff review token is required." });
+
+  const supplied = Buffer.from(match[1]);
+  const expected = Buffer.from(STAFF_REVIEW_TOKEN);
+  if (supplied.length !== expected.length || !crypto.timingSafeEqual(supplied, expected)) {
+    return res.status(401).json({ error: "The staff review token is invalid." });
+  }
+
+  req.user = { id: null, display_name: "VAYNTR staff token", role: "admin" };
+  return next();
 }
 
 app.get("/health", async (_req, res) => {
@@ -270,39 +236,7 @@ app.get("/api/roster", requireDatabase, async (_req, res, next) => {
   } catch (error) { next(error); }
 });
 
-app.post("/api/auth/register", authLimiter, requireDatabase, async (req, res, next) => {
-  if (process.env.ENABLE_PUBLIC_REGISTRATION !== "true") return res.status(404).json({ error: "Public account registration is disabled." });
-  try {
-    const email = typeof req.body.email === "string" ? req.body.email.trim().toLowerCase() : "";
-    const displayName = typeof req.body.displayName === "string" ? req.body.displayName.trim() : "";
-    const password = typeof req.body.password === "string" ? req.body.password : "";
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || email.length > 254) return res.status(400).json({ error: "Enter a valid email address." });
-    if (displayName.length < 2 || displayName.length > 50) return res.status(400).json({ error: "Display name must be 2–50 characters." });
-    if (password.length < 12 || password.length > 128) return res.status(400).json({ error: "Password must be 12–128 characters." });
-    const passwordHash = await bcrypt.hash(password, 12);
-    const result = await pool.query("INSERT INTO users (email, display_name, password_hash, role) VALUES ($1, $2, $3, 'member') RETURNING id, email, display_name, role, created_at", [email, displayName, passwordHash]);
-    const user = result.rows[0];
-    res.status(201).json({ user, token: tokenFor(user) });
-  } catch (error) {
-    if (error.code === "23505") return res.status(409).json({ error: "An account with that email already exists." });
-    next(error);
-  }
-});
-app.post("/api/auth/login", authLimiter, requireDatabase, async (req, res, next) => {
-  try {
-    const email = typeof req.body.email === "string" ? req.body.email.trim().toLowerCase() : "";
-    const password = typeof req.body.password === "string" ? req.body.password : "";
-    const result = await pool.query("SELECT id, email, display_name, role, password_hash, created_at FROM users WHERE email = $1", [email]);
-    const user = result.rows[0];
-    const valid = user && await bcrypt.compare(password, user.password_hash);
-    if (!valid) return res.status(401).json({ error: "Email or password is incorrect." });
-    delete user.password_hash;
-    res.json({ user, token: tokenFor(user) });
-  } catch (error) { next(error); }
-});
-app.get("/api/auth/me", requireDatabase, authenticate, (req, res) => res.json({ user: req.user }));
-
-app.post("/api/recruitment/applications", requireDatabase, async (req, res, next) => {
+app.post("/api/recruitment/applications", recruitmentLimiter, requireDatabase, async (req, res, next) => {
   if (STAFF_REVIEW_TOKEN.length < 32) {
     return res.status(503).json({ error: "Recruitment applications are temporarily paused while secure staff review is configured." });
   }
@@ -626,11 +560,6 @@ app.use((error, _req, res, _next) => {
 });
 
 const schema = `
-CREATE TABLE IF NOT EXISTS users (
- id BIGSERIAL PRIMARY KEY, email TEXT NOT NULL UNIQUE, display_name TEXT NOT NULL,
- password_hash TEXT NOT NULL, role TEXT NOT NULL DEFAULT 'member' CHECK (role IN ('member', 'staff', 'admin')),
- created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-);
 CREATE TABLE IF NOT EXISTS recruitment_applications (
  id BIGSERIAL PRIMARY KEY, display_name TEXT NOT NULL, email TEXT NOT NULL,
  platform TEXT NOT NULL CHECK (platform IN ('PlayStation', 'Xbox', 'PC', 'Cross-platform')),
