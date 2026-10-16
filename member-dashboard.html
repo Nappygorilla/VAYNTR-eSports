@@ -1,80 +1,30 @@
 <!doctype html>
 <html lang="en">
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="theme-color" content="#08090b">
-  <meta name="description" content="VAYNTR member dashboard preview for player profiles and game settings.">
-  <title>Member Dashboard | VAYNTR</title>
-  <link rel="icon" href="assets/vayntr-icon.png" type="image/png">
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700;800;900&family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="styles.css?v=20261015-legal1">
-  <script src="app.js?v=20261015-supabase1" defer></script>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#08090b">
+<meta name="description" content="VAYNTR member portal availability.">
+<title>Member Portal | VAYNTR</title>
+<link rel="icon" href="assets/vayntr-icon.png" type="image/png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700;800;900&family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css?v=20261016-no-demos">
+<script src="app.js?v=20261016-no-demos" defer></script>
 </head>
-<body class="member-dashboard-page">
-  <a class="skip-link" href="#main">Skip to content</a>
-  <header class="site-header">
-    <div class="container nav">
-      <a class="brand" href="index.html" aria-label="VAYNTR home"><img src="assets/vayntr-icon.png" alt="" class="brand__mark"><span>VAYNTR<span class="brand__dot">.</span></span></a>
-      <button class="menu-toggle" id="menuToggle" aria-expanded="false" aria-controls="primaryNav" aria-label="Open navigation"><span></span><span></span><span></span></button>
-      <nav class="nav__links" id="primaryNav" aria-label="Primary navigation">
-        <a href="roster.html">Roster</a><a href="results.html">Results</a><a href="news.html">Intel</a><a href="media.html">Media</a><a href="recruitment.html">Recruitment</a>
-      </nav>
-      <a class="button button--small button--outline nav__cta" href="recruitment.html#member-access">Member access</a>
-    </div>
-  </header>
-  <main id="main">
-    <section class="page-hero member-hero">
-      <div class="container">
-        <p class="eyebrow"><span></span> VAYNTR / Player HQ</p>
-        <h1>YOUR GAME.<br><em>YOUR PROFILE.</em></h1>
-        <p>Keep your player details, platform, and preferred game settings organized in one place.</p>
-      </div>
-      <div class="page-hero__mark" aria-hidden="true">V</div>
-    </section>
-    <section class="section member-workspace">
-      <div class="container">
-        <div class="member-preview-notice"><strong>Dashboard preview</strong><span>This version saves to this browser only. Member sign-in and cloud sync are not connected, so these fields are not yet tied to a verified VAYNTR account. See the <a href="privacy.html">Privacy Policy</a> and <a href="terms.html">Terms of Use</a>.</span></div>
-        <div class="member-welcome">
-          <div><p class="eyebrow"><span></span> Player workspace</p><h2>PLAYER<br>CONTROL.</h2><p>Edit your profile and tune your saved settings below.</p></div>
-          <div class="member-id-card"><span class="member-id-label">CURRENT PLAYER</span><div class="member-avatar" aria-hidden="true">V</div><strong id="memberGreeting">New player</strong><span id="memberGameSummary">Warzone · PS5</span><span class="member-status"><i></i> Local preview</span></div>
-        </div>
-        <form id="memberDashboardForm" class="member-dashboard-grid">
-          <section class="member-card">
-            <div class="member-card-heading"><span>01 / IDENTITY</span><h3>Player profile</h3><p>How your team sees your player details.</p></div>
-            <div class="member-fields">
-              <div class="field"><label for="memberUsername">Username / gamertag</label><input id="memberUsername" name="username" maxlength="40" autocomplete="nickname" placeholder="Your in-game name"></div>
-              <div class="field"><label for="memberDisplayName">Display name</label><input id="memberDisplayName" name="displayName" maxlength="60" placeholder="Name shown on your profile"></div>
-              <div class="field"><label for="memberMainGame">Main game / division</label><select id="memberMainGame" name="mainGame"><option>Warzone</option><option>Call of Duty Multiplayer</option><option>Rocket League</option><option>Other</option></select></div>
-              <div class="field"><label for="memberPlatform">Platform</label><select id="memberPlatform" name="platform"><option>PS5</option><option>Xbox</option><option>PC</option></select></div>
-              <div class="field"><label for="memberRegion">Region</label><select id="memberRegion" name="region"><option>North America</option><option>Europe</option><option>Asia-Pacific</option><option>South America</option><option>Middle East</option><option>Other</option></select></div>
-              <div class="field"><label for="memberInput">Input</label><select id="memberInput" name="input"><option>Controller</option><option>Mouse & keyboard</option><option>Both</option></select></div>
-              <div class="field field--full"><label for="memberBio">Short player bio (optional)</label><textarea id="memberBio" name="bio" maxlength="280" rows="3" placeholder="Playstyle, goals, preferred role..."></textarea></div>
-            </div>
-          </section>
-          <section class="member-card">
-            <div class="member-card-heading"><span>02 / PERFORMANCE</span><h3>Game settings</h3><p>Save your current setup so it is easy to reference later.</p></div>
-            <div class="member-fields">
-              <div class="field"><label for="memberSensitivity">Horizontal sensitivity</label><input id="memberSensitivity" name="sensitivity" type="number" min="0.1" max="30" step="0.05" value="2"></div>
-              <div class="field"><label for="memberAds">ADS sensitivity multiplier</label><input id="memberAds" name="ads" type="number" min="0.1" max="3" step="0.05" value="0.9"></div>
-              <div class="field"><label for="memberFov">Field of view (FOV)</label><input id="memberFov" name="fov" type="number" min="60" max="120" step="1" value="120"></div>
-              <div class="field"><label for="memberVertical">Vertical sensitivity</label><input id="memberVertical" name="vertical" type="number" min="0.1" max="30" step="0.05" value="1.55"></div>
-              <div class="field"><label for="memberCurve">Aim response curve</label><select id="memberCurve" name="curve"><option>Dynamic</option><option>Linear</option><option>Standard</option><option>Not applicable</option></select></div>
-              <div class="field"><label for="memberAudio">Audio preference</label><select id="memberAudio" name="audio"><option>Treyarch Mix</option><option>Headphone Bass Boost</option><option>Studio Reference</option><option>Balanced / default</option><option>Other</option></select></div>
-              <div class="field"><label for="memberAspect">Display aspect</label><select id="memberAspect" name="aspect"><option>16:9</option><option>4:3 with black bars</option><option>Ultrawide</option><option>Other</option></select></div>
-              <div class="field"><label for="memberHz">Display refresh rate</label><select id="memberHz" name="refresh"><option>60 Hz</option><option>120 Hz</option><option>144 Hz</option><option>165 Hz</option><option>240 Hz</option><option>Other</option></select></div>
-              <div class="field field--full"><label for="memberNotes">Other settings / notes</label><textarea id="memberNotes" name="notes" maxlength="1200" rows="4" placeholder="Dead zones, button layout, keybinds, graphics, audio notes..."></textarea></div>
-            </div>
-          </section>
-          <div class="member-save-row"><p id="memberSaveStatus" role="status" aria-live="polite">Changes are not saved yet.</p><div><button class="button button--outline" id="resetMemberProfile" type="button">Reset preview</button><button class="button button--primary" type="submit">Save profile</button></div></div>
-        </form>
-        <section class="member-card member-next-steps"><div class="member-card-heading"><span>03 / MEMBER TOOLS</span><h3>More for your team</h3><p>These can be connected as the member system develops.</p></div><div class="member-tool-grid"><article><span>01</span><h4>Loadout library</h4><p>Save builds and notes for each game.</p><small>Planned</small></article><article><span>02</span><h4>Team announcements</h4><p>Read practice times, roster updates, and team notices.</p><small>Planned</small></article><article><span>03</span><h4>Account security</h4><p>Secure sign-in, recovery, and member-only access.</p><small>Backend required</small></article></div></section>
-      </div>
-    </section>
-  </main>
-  <footer class="site-footer"><div class="container footer__top"><div class="footer__brand"><a class="brand" href="index.html"><img src="assets/vayntr-icon.png" alt="" class="brand__mark"><span>VAYNTR<span class="brand__dot">.</span></span></a><p>Built to compete. Made to endure.<br>An independent esports organization.</p></div><div class="footer__links"><div><b>Organization</b><a href="roster.html">Roster</a><a href="recruitment.html">Recruitment</a><a href="recruitment.html#member-access">Member access</a></div><div><b>Performance</b><a href="https://nappygorilla.github.io/VAYNTR-eSports-warzone-helper/" target="_blank" rel="noopener noreferrer">Warzone Performance Lab</a><a href="results.html">Results</a></div><div><b>Connect</b><a href="privacy.html">Privacy</a><a href="terms.html">Terms</a><a href="disclaimer.html">Disclaimer</a></div></div></div><div class="container footer__bottom"><span>© <span data-year></span> VAYNTR. All rights reserved.</span><span>Member dashboard preview · Local browser storage only.</span></div><div class="legal-footer-strip"><div class="container"><span>LEGAL &amp; POLICIES</span><nav aria-label="Legal links"><a href="legal.html">Legal center</a><a href="privacy.html">Privacy</a><a href="terms.html">Terms</a><a href="community-rules.html">Community rules</a><a href="recruitment-policy.html">Recruitment &amp; safety</a><a href="cookies.html">Cookies &amp; storage</a><a href="intellectual-property.html">Copyright &amp; IP</a><a href="disclaimer.html">Disclaimer</a></nav></div></div></footer>
-  <div class="toast" id="toast" role="status" aria-live="polite"></div>
-</body>
-</html>
+<body>
+<a class="skip-link" href="#main">Skip to content</a>
+<header class="site-header"><div class="container nav">
+<a class="brand" href="index.html" aria-label="VAYNTR home"><img src="assets/vayntr-icon.png" alt="" class="brand__mark"><span>VAYNTR<span class="brand__dot">.</span></span></a>
+<button class="menu-toggle" id="menuToggle" aria-expanded="false" aria-controls="primaryNav" aria-label="Open navigation"><span></span><span></span><span></span></button>
+<nav class="nav__links" id="primaryNav" aria-label="Primary navigation"><a href="mission.html">Our mission</a><a href="roster.html">Roster</a><a href="results.html">Results</a><a href="news.html">Intel</a><a href="recruitment.html">Recruitment</a></nav>
+<a class="button button--small button--primary nav__cta" href="recruitment.html">Recruitment status <span aria-hidden="true">↗</span></a>
+</div></header>
+<main id="main">
+<section class="page-hero"><div class="container"><p class="eyebrow"><span></span>Member access</p><h1>BUILT ON<br>TRUST.</h1><p>Member-only tools will open after secure sign-in and server-side access controls are operational.</p></div><div class="page-hero__mark" aria-hidden="true">V</div></section>
+<section class="section"><div class="container"><div class="empty-state"><span class="pill">Portal unavailable</span><h2>Member accounts are not live yet.</h2><p>This page does not offer a fake sign-in, local-only account, or pretend member profile. No membership codes or personal information are being collected here.</p><p>When the secure member system is ready, this page will provide verified access to account features.</p><a class="button button--primary" href="recruitment.html#member-access">View member access status <span aria-hidden="true">↗</span></a></div></div></section>
+</main>
+<footer class="site-footer"><div class="container footer__top"><div class="footer__brand"><a class="brand" href="index.html"><img src="assets/vayntr-icon.png" alt="" class="brand__mark"><span>VAYNTR<span class="brand__dot">.</span></span></a><p>Built to compete. Made to endure.<br>An independent esports organization.</p></div><div class="footer__links"><div><b>Organization</b><a href="roster.html">Roster</a><a href="recruitment.html">Recruitment</a></div><div><b>Competition</b><a href="results.html">Results</a><a href="news.html">News &amp; intel</a></div><div><b>Policies</b><a href="privacy.html">Privacy</a><a href="terms.html">Terms</a><a href="legal.html">Legal center</a></div></div></div><div class="container footer__bottom"><span>© <span data-year></span> VAYNTR. All rights reserved.</span><span>Member portal access is not yet available.</span></div></footer>
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+</body></html>
