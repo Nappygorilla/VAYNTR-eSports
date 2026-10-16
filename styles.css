@@ -223,3 +223,19 @@ button,a,input,select,textarea{font-kerning:normal}
 @media(max-width:1000px){.hero__visual{min-height:320px}}
 @media(max-width:800px){.hero{padding-top:30px;padding-bottom:18px}.hero__layout{gap:12px}.hero__visual{min-height:270px}.hero__visual .hero__emblem{width:min(48%,205px);max-height:190px}}
 @media(max-width:520px){.hero{padding-top:23px;padding-bottom:14px}.hero__visual{min-height:220px;padding:12px}.hero__visual .hero__emblem{width:min(48%,165px);max-height:155px}.hero__bottomline{padding-top:10px;padding-bottom:10px}}
+
+/* Backend-powered public roster */
+.roster-sections{display:grid;gap:24px;margin-top:28px}
+.roster-sections>section{scroll-margin-top:100px}
+.roster-section-heading{margin:0 0 18px}
+.roster-section-heading .eyebrow{margin:0 0 8px}
+.roster-section-heading h2{font-family:"Barlow Condensed",Impact,sans-serif;font-size:clamp(2rem,4vw,3rem);line-height:.9;margin:0;letter-spacing:-.02em}
+.roster-player-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}
+.roster-player-card{padding:22px;border:1px solid var(--line);background:linear-gradient(145deg,#15181d,#0d0f12);min-width:0}
+.roster-player-card__top{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.roster-player-card__platform{font-size:.68rem;color:#c6cad1;font-weight:800;letter-spacing:.04em}
+.roster-player-card__name{font-family:"Barlow Condensed",Impact,sans-serif;font-size:clamp(1.7rem,3vw,2.4rem);line-height:.95;overflow-wrap:anywhere;margin:25px 0 9px}
+.roster-player-card__division{font-size:.78rem;color:var(--muted);margin:0}
+.roster-sections .empty-state{min-height:150px}
+@media(max-width:800px){.roster-player-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:520px){.roster-player-grid{grid-template-columns:1fr}.roster-player-card{padding:18px}}
