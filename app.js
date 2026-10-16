@@ -94,6 +94,37 @@
   });
 
 
+  // Accessible keyboard- and click-operated focus tabs on the homepage.
+  const focusTabs = $("[data-focus-tab]");
+  const focusPanels = $("[data-focus-panel]");
+  if (focusTabs.length && focusPanels.length) {
+    const activateFocusTab = (activeTab, moveFocus = false) => {
+      const activeName = activeTab.dataset.focusTab;
+      focusTabs.forEach((tab) => {
+        const selected = tab === activeTab;
+        tab.setAttribute("aria-selected", String(selected));
+        tab.tabIndex = selected ? 0 : -1;
+      });
+      focusPanels.forEach((panel) => {
+        panel.hidden = panel.dataset.focusPanel !== activeName;
+      });
+      if (moveFocus) activeTab.focus({ preventScroll: true });
+    };
+    focusTabs.forEach((tab, index) => {
+      tab.addEventListener("click", () => activateFocusTab(tab));
+      tab.addEventListener("keydown", (event) => {
+        let nextIndex = index;
+        if (event.key === "ArrowRight") nextIndex = (index + 1) % focusTabs.length;
+        else if (event.key === "ArrowLeft") nextIndex = (index - 1 + focusTabs.length) % focusTabs.length;
+        else if (event.key === "Home") nextIndex = 0;
+        else if (event.key === "End") nextIndex = focusTabs.length - 1;
+        else return;
+        event.preventDefault();
+        activateFocusTab(focusTabs[nextIndex], true);
+      });
+    });
+  }
+
   // Update active section cues without requiring a framework.
   if ("IntersectionObserver" in window) {
     const sections = $$(".section-anchor[id]");
