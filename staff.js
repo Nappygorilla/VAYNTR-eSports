@@ -161,6 +161,8 @@
       if (error.status === 401 || error.status === 403) {
         signOut();
         setStatus(loginStatus, "Access denied. Check that STAFF_REVIEW_TOKEN is configured correctly in Render and paste the exact value here.", "error");
+      } else if (reviewPanel.hidden) {
+        setStatus(loginStatus, error.message || "Unable to connect to the review service.", "error");
       } else {
         setStatus(reviewStatus, error.message || "Unable to load applications.", "error");
       }
