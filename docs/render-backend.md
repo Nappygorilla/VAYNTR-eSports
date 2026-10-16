@@ -10,7 +10,7 @@ Node.js API for the static VAYNTR Esports site hosted on GitHub Pages. The Rende
 - \`POST /api/recruitment/applications\` stores the application, then attempts a branded confirmation email.
 - \`GET /api/staff/applications\` lists recent submissions and YouTube links; \`POST /api/staff/applications/:id/status\` changes status and sends an email when the status becomes \`accepted\` or \`declined\`.
 - Status updates are protected by a staff access token or a pre-existing staff/admin JWT. The unlinked \`staff-applications.html\` screen is not linked from the public navigation and only displays application data after the API authorizes it.
-- The former public login, registration, and member-dashboard pages are not part of the intended public site. Account endpoints remain in the backend for any existing staff/admin JWTs but do not accept or approve recruitment applications.
+- The former public login, registration, and member-dashboard pages are not part of the intended public site. Public account registration returns 404 unless `ENABLE_PUBLIC_REGISTRATION=true`; leave this unset. Existing staff/admin JWTs may still access staff routes, but the preferred staff console uses `STAFF_REVIEW_TOKEN`.
 
 ## Render environment variables
 
