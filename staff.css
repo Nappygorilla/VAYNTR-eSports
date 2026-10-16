@@ -3,3 +3,8 @@
 .staff-roster-toolbar{margin-bottom:18px}
 .staff-roster-player .staff-application__details{grid-template-columns:repeat(3,minmax(0,1fr))}
 @media(max-width:700px){.staff-roster-player .staff-application__details{grid-template-columns:1fr}}
+
+.manual-email-followup{margin:0 0 28px;border-left:3px solid var(--red)}
+.manual-email-followup .staff-application__name{font-family:"Barlow Condensed",Impact,sans-serif;font-size:clamp(1.8rem,4vw,2.5rem);margin:12px 0}
+.manual-email-followup>p:not(.eyebrow){color:#c6cad1;font-size:.82rem;max-width:760px}
+.manual-email-followup .button{margin-top:8px}
