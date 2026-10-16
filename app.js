@@ -32,8 +32,8 @@
   $("#primaryNav a").forEach((link) => link.addEventListener("click", closeMenu));
 
   // Accessible homepage division tabs. Switching a tab swaps the panel in place.
-  const divisionTabs = $("[data-division-tab]");
-  const divisionPanels = $("[data-division-panel]");
+  const divisionTabs = $$("[data-division-tab]");
+  const divisionPanels = $$("[data-division-panel]");
   if (divisionTabs.length && divisionPanels.length) {
     const activateDivision = (key, moveFocus = false) => {
       const selectedTab = divisionTabs.find((tab) => tab.dataset.divisionTab === key);
