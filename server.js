@@ -230,7 +230,7 @@ app.get("/health", async (_req, res) => {
   }
   res.status(database === "unavailable" ? 503 : 200).json({ ok: database !== "unavailable", service: "vayntr-api", database, time: new Date().toISOString() });
 });
-app.get("/api/status", (_req, res) => res.json({ service: "VAYNTR API", status: "online", features: { health: true, accounts: Boolean(pool), recruitmentApplications: Boolean(pool), staffTools: Boolean(pool), emailNotifications: Boolean(RESEND_API_KEY && RESEND_FROM_EMAIL) } }));
+app.get("/api/status", (_req, res) => res.json({ service: "VAYNTR API", status: "online", features: { health: true, accounts: Boolean(pool), recruitmentApplications: Boolean(pool), staffTools: Boolean(pool), emailNotifications: Boolean(RESEND_API_KEY && RESEND_FROM_EMAIL), staffReviewConfigured: Boolean(STAFF_REVIEW_TOKEN) } }));
 
 app.post("/api/auth/register", authLimiter, requireDatabase, async (req, res, next) => {
   try {
@@ -264,6 +264,9 @@ app.post("/api/auth/login", authLimiter, requireDatabase, async (req, res, next)
 app.get("/api/auth/me", requireDatabase, authenticate, (req, res) => res.json({ user: req.user }));
 
 app.post("/api/recruitment/applications", requireDatabase, async (req, res, next) => {
+  if (!RESEND_API_KEY || !RESEND_FROM_EMAIL || !STAFF_REVIEW_TOKEN) {
+    return res.status(503).json({ error: "Recruitment applications are temporarily paused while official email delivery and secure staff review are configured." });
+  }
   try {
     const displayName = typeof req.body.displayName === "string" ? req.body.displayName.trim() : "";
     const email = typeof req.body.email === "string" ? req.body.email.trim().toLowerCase() : "";
