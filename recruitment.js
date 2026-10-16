@@ -14,15 +14,17 @@
     try {
       const response = await fetch(API_BASE + "/api/status");
       const data = await response.json().catch(() => ({}));
+      const features = data.features || {};
       recruitmentAvailable = response.ok &&
-        Boolean(data.features && data.features.recruitmentApplications &&
-          data.features.emailNotifications && data.features.staffReviewConfigured);
+        Boolean(features.recruitmentApplications && features.staffReviewConfigured);
       if (recruitmentAvailable) {
         controls.forEach((control) => { control.disabled = false; });
-        status.textContent = "Applications are open. Make sure your YouTube video is Unlisted or Public before submitting.";
-        status.dataset.state = "success";
+        status.textContent = features.emailNotifications
+          ? "Applications are open. Make sure your YouTube video is Unlisted or Public before submitting."
+          : "Applications are open. Automatic email confirmations are not configured yet, but your application can still be submitted and reviewed. Make sure your YouTube video is Unlisted or Public.";
+        status.dataset.state = features.emailNotifications ? "success" : "warning";
       } else {
-        status.textContent = "Applications are temporarily paused while VAYNTR completes email-delivery and secure staff-review setup. No application details have been submitted.";
+        status.textContent = "Applications are temporarily paused until the database and secure staff-review access are ready. No application details have been submitted.";
         status.dataset.state = "warning";
       }
     } catch {
