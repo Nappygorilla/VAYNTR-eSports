@@ -6,7 +6,7 @@ VAYNTR is an independent esports organization website focused on competition, pl
 
 - The only public path to apply to join VAYNTR is \`recruitment.html\`.
 - Recruitment requires a direct YouTube video link explaining why the applicant wants to join. Unlisted links are allowed; private videos may not be viewable by reviewers.
-- Public sign-in, registration, and member-dashboard pages have been removed. Public account registration is disabled in the API unless an operator explicitly enables it.
+- Public sign-in, registration, and member-dashboard pages have been removed. The API does not expose public account login or registration endpoints; staff access uses the private staff-review token.
 - Recruitment requires the database and private staff-review token; email notifications are optional because the operator contacts applicants manually. The staff page has one-click Accept and Deny actions.
 
 ## Render backend
