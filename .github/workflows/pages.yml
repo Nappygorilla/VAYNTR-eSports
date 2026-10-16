@@ -27,7 +27,20 @@ jobs:
           test -s index.html
           test -s styles.css
           test -s app.js
+          test -s recruitment.html
+          test -s recruitment.js
+          test -s server.js
+          test -s staff-applications.html
+          test -s staff.js
+          test -s staff.css
+          test -s roster.html
+          test -s roster.js
           test -s assets/vayntr-mark.svg
+          node --check app.js
+          node --check server.js
+          node --check recruitment.js
+          node --check staff.js
+          node --check roster.js
           grep -q 'name="viewport"' index.html
           grep -q 'prefers-reduced-motion' styles.css
       - name: Configure Pages
