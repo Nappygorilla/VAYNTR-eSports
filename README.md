@@ -19,7 +19,7 @@ Before opening recruitment, check `/health` for `ok: true` and `database: connec
 
 Use the Content Desk in the staff portal to write a news item, add a match result, or publish an approved media link. Result entries are visible publicly only when both **Published** and **Verified** are enabled. Player contact emails remain staff-only; player profile fields are public. Use only HTTPS URLs and images the organization is allowed to display.
 
-GitHub Actions checks JavaScript syntax and required public files. Before launch, review mobile layouts, contrast, keyboard navigation, feed behavior while the API is unavailable, roster profile links, and draft/publish/verify/delete flows against a test record. The sitemap and robots file cover public pages; the staff page is also marked `noindex,nofollow`, but the portal still depends on API authorization for data and actions.
+The GitHub Actions workflow runs `npm run check` on pushes to `main` and pull requests targeting `main`. This checks the configured JavaScript files and validates local links, anchor targets, duplicate IDs, ARIA references, and Results URL handling. Before launch, review mobile layouts, contrast, keyboard navigation, feed behavior while the API is unavailable, roster profile links, and draft/publish/verify/delete flows against a test record. The sitemap and robots file cover public pages; the staff page is also marked `noindex,nofollow`, but the portal still depends on API authorization for data and actions.
 
 ## Secrets and privacy
 
