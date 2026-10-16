@@ -395,9 +395,11 @@ app.post("/api/staff/applications/:id/decision", requireDatabase, requireStaffAc
       decision,
       applicationDeleted: true,
       rosterPlayer,
+      // Returned only from this staff-token-protected route, so the operator can compose a manual follow-up after the application is deleted.
+      contact: { displayName: applicant.display_name, email: applicant.email },
       message: decision === "accept"
-        ? "Applicant added to the VAYNTR roster and application deleted. Email them manually using the staff roster contact list."
-        : "Application denied and permanently deleted."
+        ? "Applicant added to the VAYNTR roster and application deleted. Their email is also available in the staff roster."
+        : "Application denied and permanently deleted. You can compose the manual response from the follow-up panel."
     });
   } catch (error) {
     if (client) await client.query("ROLLBACK").catch(() => {});
