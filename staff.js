@@ -11,13 +11,67 @@
   const list = $("#applicationsList");
   const manualEmailFollowup = $("#manualEmailFollowup");
   const loginButton = $("#staffLoginButton");
+  let activeView = "overview";
   let token = "";
   try { token = sessionStorage.getItem(TOKEN_KEY) || ""; } catch {}
 
   function setStatus(node, message, state) {
+    if (!node) return;
     node.textContent = message || "";
     if (state) node.dataset.state = state;
     else delete node.dataset.state;
+  }
+
+  function activateView(name) {
+    const requested = document.querySelector('[data-staff-view="' + name + '"]');
+    if (!requested) return;
+    activeView = name;
+    document.querySelectorAll("[data-staff-view]").forEach((view) => {
+      view.hidden = view.dataset.staffView !== name;
+    });
+    document.querySelectorAll("[data-staff-tab]").forEach((tab) => {
+      const active = tab.dataset.staffTab === name;
+      tab.classList.toggle("is-active", active);
+      if (active) tab.setAttribute("aria-current", "page");
+      else tab.removeAttribute("aria-current");
+    });
+  }
+
+  async function loadOverview() {
+    const databaseStatus = $("#overviewDatabaseStatus");
+    const databaseNote = $("#overviewDatabaseNote");
+    try {
+      const data = await api("/api/status");
+      const features = data.features || {};
+      const ready = Boolean(features.recruitmentApplications && features.staffReviewConfigured);
+      if (databaseStatus) {
+        databaseStatus.textContent = features.recruitmentApplications ? "CONNECTED" : "CHECK";
+        databaseStatus.dataset.state = features.recruitmentApplications ? "success" : "warning";
+      }
+      if (databaseNote) databaseNote.textContent = features.recruitmentApplications
+        ? (ready ? "API and database are reachable." : "Database is reachable; check staff-token configuration.")
+        : "Database/API readiness needs attention.";
+      setStatus($("#portalActionStatus"),
+        ready ? "Portal connected. Recruitment and staff review are configured." : "Portal loaded, but recruitment readiness needs attention.",
+        ready ? "success" : "warning");
+    } catch (error) {
+      if (databaseStatus) {
+        databaseStatus.textContent = "OFFLINE";
+        databaseStatus.dataset.state = "error";
+      }
+      if (databaseNote) databaseNote.textContent = "Could not read the API feature status.";
+      setStatus($("#portalActionStatus"), error.message || "Unable to check backend status.", "error");
+    }
+  }
+
+  async function refreshActiveView() {
+    if (activeView === "applications") return loadApplications();
+    if (activeView === "roster") return loadRoster();
+    if (activeView === "overview") {
+      await loadApplications(false);
+      return;
+    }
+    await loadOverview();
   }
 
   async function api(path, options = {}) {
@@ -40,6 +94,7 @@
     loginPanel.hidden = false;
     loginForm.reset();
     list.replaceChildren();
+    activateView("overview");
     if (manualEmailFollowup) {
       manualEmailFollowup.hidden = true;
       manualEmailFollowup.replaceChildren();
@@ -181,18 +236,26 @@
     if (showLoading) setStatus(reviewStatus, "Loading applications…");
     list.replaceChildren();
     try {
+      const firstOpen = reviewPanel.hidden;
       const result = await api("/api/staff/applications");
       loginPanel.hidden = true;
       reviewPanel.hidden = false;
-      if (!result.applications || result.applications.length === 0) {
+      const applications = Array.isArray(result.applications) ? result.applications : [];
+      const appCount = String(applications.length);
+      if ($("#overviewApplicationCount")) $("#overviewApplicationCount").textContent = appCount;
+      if ($("#applicationTabCount")) $("#applicationTabCount").textContent = appCount;
+      if (firstOpen) activateView("overview");
+      if (applications.length === 0) {
         addText(list, "div", "empty-state", "No applications have been submitted yet.");
         await loadRoster(false);
+        await loadOverview();
         setStatus(reviewStatus, "Queue loaded. No applications are waiting.", "success");
         return;
       }
-      for (const application of result.applications) list.appendChild(renderApplication(application));
+      for (const application of applications) list.appendChild(renderApplication(application));
       await loadRoster(false);
-      setStatus(reviewStatus, "Loaded " + result.applications.length + " application(s).", "success");
+      await loadOverview();
+      setStatus(reviewStatus, "Loaded " + applications.length + " application(s).", "success");
     } catch (error) {
       if (error.status === 401 || error.status === 403) {
         signOut();
@@ -214,6 +277,9 @@
     try {
       const result = await api("/api/staff/roster");
       const players = Array.isArray(result.players) ? result.players : [];
+      const rosterCount = String(players.length);
+      if ($("#overviewRosterCount")) $("#overviewRosterCount").textContent = rosterCount;
+      if ($("#rosterTabCount")) $("#rosterTabCount").textContent = rosterCount;
       if (players.length === 0) {
         addText(rosterList, "div", "empty-state", "No players have been accepted yet.");
         setStatus(rosterStatus, "Accepted roster is empty.", "success");
@@ -236,6 +302,40 @@
         addText(details, "p", "", "Platform: " + player.platform);
         addText(details, "p", "", "Added: " + (player.accepted_at ? new Date(player.accepted_at).toLocaleDateString() : "Unknown"));
         card.appendChild(details);
+
+        const actions = document.createElement("div");
+        actions.className = "staff-roster-actions";
+        const emailLink = document.createElement("a");
+        emailLink.className = "button button--outline";
+        emailLink.href = "mailto:" + encodeURIComponent(String(player.email || "")).replace("%40", "@") +
+          "?subject=" + encodeURIComponent("VAYNTR Esports | Player Check-In");
+        emailLink.textContent = "Email player ↗";
+        emailLink.setAttribute("aria-label", "Compose email to " + player.display_name);
+        actions.appendChild(emailLink);
+
+        const removeButton = document.createElement("button");
+        removeButton.type = "button";
+        removeButton.className = "button button--outline staff-remove-player";
+        removeButton.textContent = "Remove from roster";
+        removeButton.addEventListener("click", async () => {
+          const message = "Remove " + player.display_name + " from the public VAYNTR roster? Their roster contact record will also be deleted. This cannot be undone.";
+          if (!window.confirm(message)) return;
+          removeButton.disabled = true;
+          setStatus(rosterStatus, "Removing player from roster…");
+          try {
+            const result = await api("/api/staff/roster/" + encodeURIComponent(player.id) + "/remove", { method: "POST" });
+            await loadRoster(false);
+            setStatus(rosterStatus, result.message || "Player removed from the public roster.", "success");
+            setStatus($("#portalActionStatus"), result.message || "Player removed.", "success");
+          } catch (error) {
+            if (error.status === 401 || error.status === 403) signOut();
+            setStatus(rosterStatus, error.message || "Unable to remove this player.", "error");
+          } finally {
+            removeButton.disabled = false;
+          }
+        });
+        actions.appendChild(removeButton);
+        card.appendChild(actions);
         rosterList.appendChild(card);
       }
       setStatus(rosterStatus, players.length + " roster member(s). Email addresses are visible only in this protected staff area.", "success");
@@ -260,8 +360,26 @@
     }
   });
 
+  document.querySelectorAll("[data-staff-tab]").forEach((tab) => {
+    tab.addEventListener("click", async () => {
+      activateView(tab.dataset.staffTab);
+      if (activeView === "applications") await loadApplications();
+      else if (activeView === "roster") await loadRoster();
+      else if (activeView === "overview") await loadApplications(false);
+      else await loadOverview();
+    });
+  });
+  document.querySelectorAll("[data-open-view]").forEach((button) => {
+    button.addEventListener("click", async () => {
+      activateView(button.dataset.openView);
+      if (activeView === "applications") await loadApplications();
+      else if (activeView === "roster") await loadRoster();
+      else await loadOverview();
+    });
+  });
   $("#refreshApplications").addEventListener("click", () => loadApplications());
   $("#refreshRoster")?.addEventListener("click", () => loadRoster());
+  $("#refreshCurrentView").addEventListener("click", () => refreshActiveView());
   $("#staffSignOut").addEventListener("click", signOut);
   if (token) loadApplications();
 })();

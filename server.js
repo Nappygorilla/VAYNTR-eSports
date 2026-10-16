@@ -409,6 +409,20 @@ app.post("/api/staff/applications/:id/decision", requireDatabase, requireStaffAc
   }
 });
 
+// Removing a roster player is staff-only and never sends an email.
+app.post("/api/staff/roster/:id/remove", requireDatabase, requireStaffAccess, async (req, res, next) => {
+  const id = Number(req.params.id);
+  if (!Number.isSafeInteger(id) || id < 1) return res.status(400).json({ error: "Invalid roster player ID." });
+  try {
+    const result = await pool.query(
+      "DELETE FROM roster_players WHERE id = $1 RETURNING id, display_name, game, platform",
+      [id]
+    );
+    if (!result.rowCount) return res.status(404).json({ error: "This roster player no longer exists. Refresh the roster." });
+    res.json({ removed: true, player: result.rows[0], message: "Player removed from the public VAYNTR roster." });
+  } catch (error) { next(error); }
+});
+
 app.post("/api/staff/applications/:id/confirmation-email", requireDatabase, requireStaffAccess, async (req, res, next) => {
   const id = Number(req.params.id);
   if (!Number.isSafeInteger(id) || id < 1) return res.status(400).json({ error: "Invalid application ID." });

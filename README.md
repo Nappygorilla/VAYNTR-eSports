@@ -11,7 +11,7 @@ VAYNTR is an independent esports organization website focused on competition, pl
 
 ## Render backend
 
-The Node.js API validates applications and YouTube video links, stores accepted players in PostgreSQL, and exposes protected staff tools. In `staff-applications.html`, Accept adds a player to the database-backed public roster and deletes the application; Deny deletes the application without adding the applicant. Accepted player email addresses remain visible only in the protected staff roster for manual contact. After either decision, the protected staff page offers a prefilled manual email draft. The public `roster.html` page loads approved players from the API without exposing email addresses.
+The Node.js API validates applications and YouTube video links, stores accepted players in PostgreSQL, and exposes protected staff tools. The protected `staff-applications.html` page is the staff portal: it has an overview dashboard, recruitment queue, roster/contact management, and site-operations shortcuts. Accept adds a player to the database-backed public roster and deletes the application; Deny deletes the application without adding the applicant. Staff can compose manual email follow-ups, contact accepted players, and remove players from the public roster. Public roster responses never include email addresses. The public `roster.html` page loads approved players from the API.
 
 Before opening recruitment, check `/health` for `ok: true` and `database: connected`, and `/api/status` for `recruitmentApplications: true` and `staffReviewConfigured: true`. `emailNotifications: false` is expected while the operator sends emails manually.
 
