@@ -29,6 +29,15 @@ function escapeHtml(value) {
   })[character]);
 }
 
+function parseOptionalHttpsUrl(value) {
+  if (value == null || String(value).trim() === "") return null;
+  try {
+    const url = new URL(String(value).trim());
+    if (url.protocol !== "https:" || url.username || url.password) return undefined;
+    return url.toString();
+  } catch { return undefined; }
+}
+
 function parseYouTubeVideoUrl(value) {
   if (typeof value !== "string" || value.length > 500) return null;
   let url;
@@ -254,7 +263,7 @@ app.get("/api/roster", requireDatabase, async (_req, res, next) => {
   try {
     // Public roster data intentionally excludes email addresses and other applicant-only information.
     const result = await pool.query(
-      "SELECT id, display_name, game, platform, accepted_at FROM roster_players ORDER BY game ASC, display_name ASC"
+      "SELECT id, display_name, game, platform, role, bio, social_url, highlight_url, profile_image_url, accepted_at FROM roster_players ORDER BY game ASC, display_name ASC"
     );
     res.set("Cache-Control", "no-store");
     res.json({ players: result.rows });
@@ -345,9 +354,116 @@ app.get("/api/staff/roster", requireDatabase, requireStaffAccess, async (_req, r
   try {
     // Email is exposed only inside this authenticated staff endpoint so the operator can contact players manually.
     const result = await pool.query(
-      "SELECT id, display_name, email, game, platform, accepted_at FROM roster_players ORDER BY accepted_at DESC"
+      "SELECT id, display_name, email, game, platform, role, bio, social_url, highlight_url, profile_image_url, accepted_at FROM roster_players ORDER BY accepted_at DESC"
     );
     res.json({ players: result.rows });
+  } catch (error) { next(error); }
+});
+
+
+// Public feeds return published items only. Match results also require staff verification.
+app.get("/api/news", requireDatabase, async (_req, res, next) => {
+  try {
+    const result = await pool.query("SELECT id, content_type, title, category, excerpt, body, game, event_name, opponent, score, outcome, played_at, source_url, image_url, created_at, updated_at FROM site_content WHERE content_type='news' AND published=TRUE ORDER BY created_at DESC LIMIT 50");
+    res.set("Cache-Control", "no-store"); res.json({ items: result.rows });
+  } catch (error) { next(error); }
+});
+app.get("/api/results", requireDatabase, async (_req, res, next) => {
+  try {
+    const result = await pool.query("SELECT id, content_type, title, category, excerpt, body, game, event_name, opponent, score, outcome, played_at, source_url, image_url, created_at, updated_at FROM site_content WHERE content_type='result' AND published=TRUE AND verified=TRUE ORDER BY played_at DESC NULLS LAST, created_at DESC LIMIT 100");
+    res.set("Cache-Control", "no-store"); res.json({ items: result.rows });
+  } catch (error) { next(error); }
+});
+app.get("/api/media", requireDatabase, async (_req, res, next) => {
+  try {
+    const result = await pool.query("SELECT id, content_type, title, category, excerpt, body, game, event_name, opponent, score, outcome, played_at, source_url, image_url, created_at, updated_at FROM site_content WHERE content_type='media' AND published=TRUE ORDER BY created_at DESC LIMIT 100");
+    res.set("Cache-Control", "no-store"); res.json({ items: result.rows });
+  } catch (error) { next(error); }
+});
+
+app.post("/api/staff/roster/:id/update", requireDatabase, requireStaffAccess, async (req, res, next) => {
+  const id = Number(req.params.id);
+  const displayName = typeof req.body.displayName === "string" ? req.body.displayName.trim() : "";
+  const game = typeof req.body.game === "string" ? req.body.game.trim() : "";
+  const platform = typeof req.body.platform === "string" ? req.body.platform.trim() : "";
+  const role = typeof req.body.role === "string" ? req.body.role.trim() : "Player";
+  const bio = typeof req.body.bio === "string" ? req.body.bio.trim() : "";
+  const socialUrl = parseOptionalHttpsUrl(req.body.socialUrl);
+  const highlightUrl = parseOptionalHttpsUrl(req.body.highlightUrl);
+  const profileImageUrl = parseOptionalHttpsUrl(req.body.profileImageUrl);
+  if (!Number.isSafeInteger(id) || id < 1) return res.status(400).json({ error: "Invalid roster player ID." });
+  if (displayName.length < 2 || displayName.length > 50) return res.status(400).json({ error: "Display name must be 2–50 characters." });
+  if (game.length < 2 || game.length > 80) return res.status(400).json({ error: "Game/division must be 2–80 characters." });
+  if (!["PlayStation", "Xbox", "PC", "Cross-platform"].includes(platform)) return res.status(400).json({ error: "Choose a valid platform." });
+  if (role.length < 2 || role.length > 60 || bio.length > 500) return res.status(400).json({ error: "Role must be 2–60 characters and bio 500 characters or fewer." });
+  if ([socialUrl, highlightUrl, profileImageUrl].some((url) => url === undefined)) return res.status(400).json({ error: "Profile, highlight, and image links must be valid HTTPS URLs." });
+  try {
+    const result = await pool.query(
+      "UPDATE roster_players SET display_name=$1, game=$2, platform=$3, role=$4, bio=$5, social_url=$6, highlight_url=$7, profile_image_url=$8 WHERE id=$9 RETURNING id, display_name, game, platform, role, bio, social_url, highlight_url, profile_image_url, accepted_at",
+      [displayName, game, platform, role, bio, socialUrl, highlightUrl, profileImageUrl, id]
+    );
+    if (!result.rowCount) return res.status(404).json({ error: "This roster player no longer exists. Refresh the roster." });
+    res.json({ player: result.rows[0], message: "Player profile updated." });
+  } catch (error) { next(error); }
+});
+
+app.get("/api/staff/content", requireDatabase, requireStaffAccess, async (_req, res, next) => {
+  try {
+    const result = await pool.query("SELECT id, content_type, title, category, excerpt, body, game, event_name, opponent, score, outcome, played_at, source_url, image_url, published, verified, created_at, updated_at FROM site_content ORDER BY updated_at DESC LIMIT 200");
+    res.json({ items: result.rows });
+  } catch (error) { next(error); }
+});
+app.post("/api/staff/content", requireDatabase, requireStaffAccess, async (req, res, next) => {
+  const type = req.body.type;
+  const id = req.body.id == null || req.body.id === "" ? null : Number(req.body.id);
+  const title = typeof req.body.title === "string" ? req.body.title.trim() : "";
+  const category = typeof req.body.category === "string" ? req.body.category.trim() : "";
+  const excerpt = typeof req.body.excerpt === "string" ? req.body.excerpt.trim() : "";
+  const body = typeof req.body.body === "string" ? req.body.body.trim() : "";
+  const game = typeof req.body.game === "string" ? req.body.game.trim() : "";
+  const eventName = typeof req.body.eventName === "string" ? req.body.eventName.trim() : "";
+  const opponent = typeof req.body.opponent === "string" ? req.body.opponent.trim() : "";
+  const score = typeof req.body.score === "string" ? req.body.score.trim() : "";
+  const outcome = typeof req.body.outcome === "string" ? req.body.outcome.trim() : "";
+  const playedAt = typeof req.body.playedAt === "string" && req.body.playedAt.trim() ? req.body.playedAt.trim() : null;
+  const sourceUrl = parseOptionalHttpsUrl(req.body.sourceUrl);
+  const imageUrl = parseOptionalHttpsUrl(req.body.imageUrl);
+  const published = req.body.published === true;
+  const verified = req.body.verified === true;
+  if (!["news", "result", "media"].includes(type)) return res.status(400).json({ error: "Choose news, results, or media content." });
+  if (id !== null && (!Number.isSafeInteger(id) || id < 1)) return res.status(400).json({ error: "Invalid content ID." });
+  if (title.length < 3 || title.length > 140) return res.status(400).json({ error: "Title must be 3–140 characters." });
+  if (category.length > 80 || excerpt.length > 600 || body.length > 10000) return res.status(400).json({ error: "Category, summary, or body is too long." });
+  if (game.length > 80 || eventName.length > 140 || opponent.length > 120 || score.length > 60 || outcome.length > 40) return res.status(400).json({ error: "One or more match fields are too long." });
+  if (playedAt && !/^\d{4}-\d{2}-\d{2}$/.test(playedAt)) return res.status(400).json({ error: "Match date must use YYYY-MM-DD." });
+  if (type === "result" && (!game || !eventName)) return res.status(400).json({ error: "A result needs both the game/division and event name." });
+  if ([sourceUrl, imageUrl].some((url) => url === undefined)) return res.status(400).json({ error: "Source and image links must be valid HTTPS URLs." });
+  const values = [type, title, category || (type === "result" ? "Match result" : type === "media" ? "Media" : "Announcement"), excerpt, body, game, eventName, opponent, score, outcome, playedAt, sourceUrl, imageUrl, published, verified];
+  try {
+    let result;
+    if (id !== null) {
+      result = await pool.query(
+        "UPDATE site_content SET content_type=$1, title=$2, category=$3, excerpt=$4, body=$5, game=$6, event_name=$7, opponent=$8, score=$9, outcome=$10, played_at=$11, source_url=$12, image_url=$13, published=$14, verified=$15, updated_at=NOW() WHERE id=$16 RETURNING id, content_type, title, category, excerpt, body, game, event_name, opponent, score, outcome, played_at, source_url, image_url, published, verified, created_at, updated_at",
+        [...values, id]
+      );
+      if (!result.rowCount) return res.status(404).json({ error: "Content item not found. Refresh the content desk." });
+    } else {
+      result = await pool.query(
+        "INSERT INTO site_content (content_type, title, category, excerpt, body, game, event_name, opponent, score, outcome, played_at, source_url, image_url, published, verified) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15) RETURNING id, content_type, title, category, excerpt, body, game, event_name, opponent, score, outcome, played_at, source_url, image_url, published, verified, created_at, updated_at",
+        values
+      );
+    }
+    res.status(id === null ? 201 : 200).json({ item: result.rows[0], message: id === null ? "Content created." : "Content updated." });
+  } catch (error) { next(error); }
+});
+app.post("/api/staff/content/delete", requireDatabase, requireStaffAccess, async (req, res, next) => {
+  const id = Number(req.body.id);
+  const type = req.body.type;
+  if (!Number.isSafeInteger(id) || id < 1 || !["news", "result", "media"].includes(type)) return res.status(400).json({ error: "Invalid content type or ID." });
+  try {
+    const result = await pool.query("DELETE FROM site_content WHERE id=$1 AND content_type=$2 RETURNING id", [id, type]);
+    if (!result.rowCount) return res.status(404).json({ error: "Content item not found." });
+    res.json({ deleted: true, message: "Content deleted." });
   } catch (error) { next(error); }
 });
 
@@ -543,6 +659,33 @@ CREATE TABLE IF NOT EXISTS roster_players (
  accepted_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 CREATE INDEX IF NOT EXISTS roster_players_game_name_idx ON roster_players (game, display_name);
+ALTER TABLE roster_players ADD COLUMN IF NOT EXISTS role TEXT NOT NULL DEFAULT 'Player';
+ALTER TABLE roster_players ADD COLUMN IF NOT EXISTS bio TEXT NOT NULL DEFAULT '';
+ALTER TABLE roster_players ADD COLUMN IF NOT EXISTS social_url TEXT;
+ALTER TABLE roster_players ADD COLUMN IF NOT EXISTS highlight_url TEXT;
+ALTER TABLE roster_players ADD COLUMN IF NOT EXISTS profile_image_url TEXT;
+
+CREATE TABLE IF NOT EXISTS site_content (
+ id BIGSERIAL PRIMARY KEY,
+ content_type TEXT NOT NULL CHECK (content_type IN ('news', 'result', 'media')),
+ title TEXT NOT NULL,
+ category TEXT NOT NULL DEFAULT '',
+ excerpt TEXT NOT NULL DEFAULT '',
+ body TEXT NOT NULL DEFAULT '',
+ game TEXT NOT NULL DEFAULT '',
+ event_name TEXT NOT NULL DEFAULT '',
+ opponent TEXT NOT NULL DEFAULT '',
+ score TEXT NOT NULL DEFAULT '',
+ outcome TEXT NOT NULL DEFAULT '',
+ played_at DATE,
+ source_url TEXT,
+ image_url TEXT,
+ published BOOLEAN NOT NULL DEFAULT FALSE,
+ verified BOOLEAN NOT NULL DEFAULT FALSE,
+ created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+ updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS site_content_public_feed_idx ON site_content (content_type, published, created_at DESC);
 `;
 async function start() {
   if (pool) { await pool.query(schema); console.log("Database schema is ready."); }
