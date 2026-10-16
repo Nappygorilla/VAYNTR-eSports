@@ -230,7 +230,7 @@ app.get("/health", async (_req, res) => {
   }
   res.status(database === "unavailable" ? 503 : 200).json({ ok: database !== "unavailable", service: "vayntr-api", database, time: new Date().toISOString() });
 });
-app.get("/api/status", (_req, res) => res.json({ service: "VAYNTR API", status: "online", features: { health: true, accounts: Boolean(pool), recruitmentApplications: Boolean(pool), staffTools: Boolean(pool), emailNotifications: Boolean(RESEND_API_KEY && RESEND_FROM_EMAIL), staffReviewConfigured: Boolean(STAFF_REVIEW_TOKEN) } }));
+app.get("/api/status", (_req, res) => res.json({ service: "VAYNTR API", status: "online", features: { health: true, accounts: false, recruitmentApplications: Boolean(pool), staffTools: Boolean(pool), emailNotifications: Boolean(RESEND_API_KEY && RESEND_FROM_EMAIL), staffReviewConfigured: Boolean(STAFF_REVIEW_TOKEN) } }));
 
 app.post("/api/auth/register", authLimiter, requireDatabase, async (req, res, next) => {
   if (process.env.ENABLE_PUBLIC_REGISTRATION !== "true") return res.status(404).json({ error: "Public account registration is disabled." });
@@ -343,8 +343,9 @@ app.post("/api/staff/applications/:id/status", requireDatabase, requireStaffAcce
 
   let current;
   let updated;
-  const client = await pool.connect();
+  let client;
   try {
+    client = await pool.connect();
     await client.query("BEGIN");
     const currentResult = await client.query(
       "SELECT id, display_name, email, status, decision_notified_status FROM recruitment_applications WHERE id = $1 FOR UPDATE",
@@ -362,10 +363,10 @@ app.post("/api/staff/applications/:id/status", requireDatabase, requireStaffAcce
     updated = updateResult.rows[0];
     await client.query("COMMIT");
   } catch (error) {
-    await client.query("ROLLBACK").catch(() => {});
+    if (client) await client.query("ROLLBACK").catch(() => {});
     return next(error);
   } finally {
-    client.release();
+    if (client) client.release();
   }
 
   let notification = null;
