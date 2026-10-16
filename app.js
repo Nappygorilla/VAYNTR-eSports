@@ -109,4 +109,64 @@
     }, { rootMargin: "-25% 0px -65% 0px" });
     sections.forEach((section) => observer.observe(section));
   }
+
+  // Scroll polish: progress indicator, reveal-on-scroll, and a back-to-top control.
+  // Everything is progressively enhanced; reduced-motion users see content immediately.
+  const publicPage = !document.querySelector("[data-staff-view]");
+  if (publicPage) {
+    const progress = document.createElement("div");
+    progress.className = "scroll-progress";
+    progress.setAttribute("aria-hidden", "true");
+    const progressBar = document.createElement("span");
+    progressBar.className = "scroll-progress__bar";
+    progress.appendChild(progressBar);
+    document.body.appendChild(progress);
+
+    const backToTop = document.createElement("button");
+    backToTop.className = "back-to-top";
+    backToTop.type = "button";
+    backToTop.setAttribute("aria-label", "Back to top");
+    backToTop.setAttribute("title", "Back to top");
+    backToTop.innerHTML = '<span aria-hidden="true">↑</span>';
+    document.body.appendChild(backToTop);
+    backToTop.addEventListener("click", () => {
+      window.scrollTo({ top: 0, behavior: reducedMotion ? "auto" : "smooth" });
+    });
+
+    let scrollFrame = 0;
+    const updateScrollChrome = () => {
+      scrollFrame = 0;
+      const scrollable = document.documentElement.scrollHeight - window.innerHeight;
+      const amount = scrollable > 0 ? Math.min(1, Math.max(0, window.scrollY / scrollable)) : 0;
+      progressBar.style.transform = "scaleX(" + amount + ")";
+      backToTop.classList.toggle("is-visible", window.scrollY > 520);
+    };
+    const scheduleScrollChrome = () => {
+      if (scrollFrame) return;
+      scrollFrame = window.requestAnimationFrame(updateScrollChrome);
+    };
+    window.addEventListener("scroll", scheduleScrollChrome, { passive: true });
+    window.addEventListener("resize", scheduleScrollChrome, { passive: true });
+    updateScrollChrome();
+
+    if (!reducedMotion && "IntersectionObserver" in window) {
+      const revealTargets = $$(".section > .container, .page-hero .container, .feature-card, .content-card, .roster-player-card, .recruit-cta, .application-panel");
+      const revealObserver = new IntersectionObserver((entries, observer) => {
+        entries.forEach((entry) => {
+          if (!entry.isIntersecting) return;
+          entry.target.classList.add("is-revealed");
+          observer.unobserve(entry.target);
+        });
+      }, { root: null, rootMargin: "0px 0px -7% 0px", threshold: 0.08 });
+
+      revealTargets.forEach((element, index) => {
+        if (element.closest("[hidden]")) return;
+        element.classList.add("scroll-reveal");
+        const siblings = element.parentElement ? [...element.parentElement.children].filter((node) => node.matches(".feature-card, .content-card, .roster-player-card")) : [];
+        if (siblings.length > 1) element.style.setProperty("--reveal-delay", Math.min(siblings.indexOf(element), 3) * 75 + "ms");
+        revealObserver.observe(element);
+      });
+    }
+  }
+
 })();
