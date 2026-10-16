@@ -17,6 +17,135 @@ const JWT_SECRET = process.env.JWT_SECRET;
 const FRONTEND_ORIGINS = (process.env.FRONTEND_ORIGINS || "https://nappygorilla.github.io")
   .split(",").map((s) => s.trim()).filter(Boolean);
 
+const RESEND_API_KEY = process.env.RESEND_API_KEY || "";
+const RESEND_FROM_EMAIL = process.env.RESEND_FROM_EMAIL || "";
+const RESEND_REPLY_TO = process.env.RESEND_REPLY_TO || "";
+
+function escapeHtml(value) {
+  return String(value ?? "").replace(/[&<>"']/g, (character) => ({
+    "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"
+  })[character]);
+}
+
+function parseYouTubeVideoUrl(value) {
+  if (typeof value !== "string" || value.length > 500) return null;
+  let url;
+  try { url = new URL(value.trim()); } catch { return null; }
+  if (url.protocol !== "https:" || url.username || url.password) return null;
+  const host = url.hostname.toLowerCase().replace(/^www\./, "");
+  let videoId = "";
+  let outputUrl = "";
+  if (host === "youtu.be") {
+    videoId = url.pathname.split("/").filter(Boolean)[0] || "";
+    outputUrl = "https://www.youtube.com/watch?v=" + videoId;
+  } else if (host === "youtube.com" || host === "m.youtube.com" || host === "youtube-nocookie.com") {
+    if (url.pathname === "/watch") {
+      videoId = url.searchParams.get("v") || "";
+      outputUrl = "https://www.youtube.com/watch?v=" + videoId;
+    } else {
+      const parts = url.pathname.split("/").filter(Boolean);
+      if (parts.length >= 2 && ["shorts", "embed", "live"].includes(parts[0])) {
+        videoId = parts[1];
+        outputUrl = "https://www.youtube.com/" + parts[0] + "/" + videoId;
+      }
+    }
+  }
+  if (!/^[A-Za-z0-9_-]{11}$/.test(videoId)) return null;
+  return outputUrl;
+}
+
+function emailHtml({ preheader, title, displayName, paragraphs, statusLabel }) {
+  const paragraphHtml = paragraphs.map((paragraph) =>
+    '<p style="margin:0 0 16px;color:#c7c9d0;font:15px/1.7 Arial,Helvetica,sans-serif;">' +
+    escapeHtml(paragraph) + '</p>'
+  ).join("");
+  return '<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width"></head>' +
+    '<body style="margin:0;padding:0;background:#08090b;color:#f4f5f7;">' +
+    '<div style="display:none;max-height:0;overflow:hidden;opacity:0;">' + escapeHtml(preheader) + '</div>' +
+    '<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#08090b;padding:30px 12px;">' +
+    '<tr><td align="center"><table role="presentation" width="600" cellspacing="0" cellpadding="0" style="max-width:600px;width:100%;background:#101216;border:1px solid #2b2f37;">' +
+    '<tr><td style="padding:28px 30px 22px;border-bottom:1px solid #2b2f37;">' +
+    '<div style="font:900 28px/1 Arial,Helvetica,sans-serif;letter-spacing:5px;color:#fff;">VAYNTR<span style="color:#e32135;">.</span></div>' +
+    '<div style="margin-top:9px;color:#ff6574;font:700 10px/1.5 Arial,Helvetica,sans-serif;letter-spacing:2px;">ESPORTS / RECRUITMENT DIVISION</div>' +
+    '</td></tr><tr><td style="padding:30px;">' +
+    '<div style="font:800 10px/1.5 Arial,Helvetica,sans-serif;letter-spacing:2px;color:#ff6574;text-transform:uppercase;">Official recruitment communication</div>' +
+    '<h1 style="margin:12px 0 20px;color:#fff;font:900 30px/1.1 Arial,Helvetica,sans-serif;letter-spacing:-.5px;">' + escapeHtml(title) + '</h1>' +
+    '<p style="margin:0 0 16px;color:#f4f5f7;font:15px/1.7 Arial,Helvetica,sans-serif;">Hi ' + escapeHtml(displayName) + ',</p>' +
+    paragraphHtml +
+    (statusLabel ? '<div style="margin:24px 0;padding:16px 18px;border:1px solid #393d45;background:#17191e;"><div style="color:#9ba1ab;font:700 10px/1.4 Arial,Helvetica,sans-serif;letter-spacing:2px;">APPLICATION STATUS</div><div style="margin-top:7px;color:#ff6574;font:800 14px/1.5 Arial,Helvetica,sans-serif;letter-spacing:1px;">' + escapeHtml(statusLabel) + '</div></div>' : '') +
+    '<div style="margin-top:26px;padding-top:18px;border-top:1px solid #2b2f37;color:#7e8590;font:11px/1.7 Arial,Helvetica,sans-serif;">This email was sent by the VAYNTR Esports recruitment system. If you did not submit an application, you can ignore this message.</div>' +
+    '</td></tr><tr><td style="padding:16px 30px;background:#0b0d10;color:#727984;font:10px/1.6 Arial,Helvetica,sans-serif;letter-spacing:1px;">VAYNTR ESPORTS · BUILT TO COMPETE. MADE TO ENDURE.</td></tr>' +
+    '</table></td></tr></table></body></html>';
+}
+
+async function sendVayntrEmail({ to, subject, title, displayName, paragraphs, preheader, statusLabel }) {
+  if (!RESEND_API_KEY || !RESEND_FROM_EMAIL) {
+    console.warn("VAYNTR email notification skipped: RESEND_API_KEY or RESEND_FROM_EMAIL is missing.");
+    return { sent: false, reason: "email_not_configured" };
+  }
+  try {
+    const message = {
+      from: RESEND_FROM_EMAIL,
+      to: [to],
+      subject,
+      html: emailHtml({ preheader, title, displayName, paragraphs, statusLabel }),
+      text: [title, "", "Hi " + displayName + ",", "", ...paragraphs, "", statusLabel ? "APPLICATION STATUS: " + statusLabel : "", "", "VAYNTR Esports"].filter(Boolean).join("\n")
+    };
+    if (RESEND_REPLY_TO) message.reply_to = RESEND_REPLY_TO;
+    const response = await fetch("https://api.resend.com/emails", {
+      method: "POST",
+      headers: { "Authorization": "Bearer " + RESEND_API_KEY, "Content-Type": "application/json" },
+      body: JSON.stringify(message),
+      signal: AbortSignal.timeout(10000)
+    });
+    if (!response.ok) {
+      console.error("Resend rejected a VAYNTR email. HTTP status:", response.status);
+      return { sent: false, reason: "provider_error" };
+    }
+    return { sent: true, reason: "accepted_by_provider" };
+  } catch (error) {
+    console.error("VAYNTR email request failed:", error.name || "UnknownError");
+    return { sent: false, reason: "provider_unavailable" };
+  }
+}
+
+async function sendApplicationReceivedEmail(application) {
+  return sendVayntrEmail({
+    to: application.email,
+    subject: "VAYNTR Esports | Application Received",
+    title: "APPLICATION RECEIVED",
+    displayName: application.display_name,
+    preheader: "Your VAYNTR Esports recruitment application has been received.",
+    statusLabel: "UNDER REVIEW",
+    paragraphs: [
+      "Thank you for applying to VAYNTR Esports. We have received your application and YouTube video link.",
+      "Our recruitment team will review your submission. Sending an application does not guarantee acceptance; we will email you when a decision is recorded."
+    ]
+  });
+}
+
+async function sendApplicationDecisionEmail(application, status) {
+  const accepted = status === "accepted";
+  return sendVayntrEmail({
+    to: application.email,
+    subject: "VAYNTR Esports | Recruitment Decision",
+    title: accepted ? "WELCOME TO VAYNTR" : "RECRUITMENT DECISION",
+    displayName: application.display_name,
+    preheader: accepted ? "A decision has been recorded on your VAYNTR application." : "Your VAYNTR Esports recruitment decision is ready.",
+    statusLabel: accepted ? "APPROVED" : "NOT SELECTED",
+    paragraphs: accepted
+      ? [
+          "We're pleased to let you know that your VAYNTR Esports application has been approved.",
+          "Welcome to VAYNTR. Our team will follow up with any onboarding steps and the information you need next."
+        ]
+      : [
+          "Thank you for taking the time to apply to VAYNTR Esports and share your video.",
+          "After reviewing your application, we've decided not to move forward at this time. We appreciate your interest and wish you the best in your continued progress."
+        ]
+  });
+}
+
+
 if (!JWT_SECRET || JWT_SECRET.length < 32) {
   console.error("JWT_SECRET must be set in Render and contain at least 32 characters.");
   process.exit(1);
@@ -79,7 +208,7 @@ app.get("/health", async (_req, res) => {
   }
   res.status(database === "unavailable" ? 503 : 200).json({ ok: database !== "unavailable", service: "vayntr-api", database, time: new Date().toISOString() });
 });
-app.get("/api/status", (_req, res) => res.json({ service: "VAYNTR API", status: "online", features: { health: true, accounts: Boolean(pool), recruitmentApplications: Boolean(pool), staffTools: Boolean(pool) } }));
+app.get("/api/status", (_req, res) => res.json({ service: "VAYNTR API", status: "online", features: { health: true, accounts: Boolean(pool), recruitmentApplications: Boolean(pool), staffTools: Boolean(pool), emailNotifications: Boolean(RESEND_API_KEY && RESEND_FROM_EMAIL) } }));
 
 app.post("/api/auth/register", authLimiter, requireDatabase, async (req, res, next) => {
   try {
@@ -119,30 +248,99 @@ app.post("/api/recruitment/applications", requireDatabase, async (req, res, next
     const platform = typeof req.body.platform === "string" ? req.body.platform.trim() : "";
     const game = typeof req.body.game === "string" ? req.body.game.trim() : "";
     const message = typeof req.body.message === "string" ? req.body.message.trim() : "";
+    const youtubeUrl = parseYouTubeVideoUrl(req.body.youtubeUrl);
+
     if (displayName.length < 2 || displayName.length > 50) return res.status(400).json({ error: "Display name must be 2–50 characters." });
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || email.length > 254) return res.status(400).json({ error: "Enter a valid email address." });
     if (!["PlayStation", "Xbox", "PC", "Cross-platform"].includes(platform)) return res.status(400).json({ error: "Choose a valid platform." });
     if (game.length < 2 || game.length > 80) return res.status(400).json({ error: "Enter the game or division you are applying for." });
-    if (message.length > 2000) return res.status(400).json({ error: "Message must be 2,000 characters or fewer." });
-    const result = await pool.query("INSERT INTO recruitment_applications (display_name, email, platform, game, message) VALUES ($1, $2, $3, $4, $5) RETURNING id, status, created_at", [displayName, email, platform, game, message]);
-    res.status(201).json({ application: result.rows[0], message: "Application received. This is not a guarantee of acceptance." });
-  } catch (error) { next(error); }
+    if (!youtubeUrl) return res.status(400).json({ error: "Submit a valid YouTube video link, not a channel or playlist link." });
+    if (message.length > 2000) return res.status(400).json({ error: "Additional information must be 2,000 characters or fewer." });
+
+    const result = await pool.query(
+      "INSERT INTO recruitment_applications (display_name, email, platform, game, message, youtube_url) VALUES ($1, $2, $3, $4, $5, $6) RETURNING id, status, created_at",
+      [displayName, email, platform, game, message, youtubeUrl]
+    );
+    const application = { ...result.rows[0], display_name: displayName, email };
+    const notification = await sendApplicationReceivedEmail(application);
+    await pool.query(
+      "UPDATE recruitment_applications SET confirmation_email_status = $1, confirmation_email_sent_at = CASE WHEN $1 = 'sent' THEN NOW() ELSE NULL END WHERE id = $2",
+      [notification.sent ? "sent" : notification.reason, application.id]
+    );
+
+    res.status(201).json({
+      application: result.rows[0],
+      notification,
+      message: notification.sent
+        ? "Application received. Your confirmation email has been queued."
+        : "Application received, but the confirmation email could not be sent yet. Your application is saved."
+    });
+  } catch (error) {
+    next(error);
+  }
 });
+
 app.get("/api/staff/applications", requireDatabase, authenticate, requireRole("admin", "staff"), async (_req, res, next) => {
   try {
-    const result = await pool.query("SELECT id, display_name, email, platform, game, message, status, created_at FROM recruitment_applications ORDER BY created_at DESC LIMIT 100");
+    const result = await pool.query("SELECT id, display_name, email, platform, game, message, youtube_url, status, created_at, confirmation_email_status, decision_notified_status FROM recruitment_applications ORDER BY created_at DESC LIMIT 100");
     res.json({ applications: result.rows });
   } catch (error) { next(error); }
 });
 app.post("/api/staff/applications/:id/status", requireDatabase, authenticate, requireRole("admin", "staff"), async (req, res, next) => {
+  const id = Number(req.params.id);
+  const status = req.body.status;
+  if (!Number.isSafeInteger(id) || id < 1 || !["received", "reviewing", "accepted", "declined"].includes(status)) {
+    return res.status(400).json({ error: "Invalid application ID or status." });
+  }
+
+  let current;
+  let updated;
+  const client = await pool.connect();
   try {
-    const id = Number(req.params.id);
-    const status = req.body.status;
-    if (!Number.isSafeInteger(id) || id < 1 || !["received", "reviewing", "accepted", "declined"].includes(status)) return res.status(400).json({ error: "Invalid application ID or status." });
-    const result = await pool.query("UPDATE recruitment_applications SET status = $1, updated_at = NOW() WHERE id = $2 RETURNING id, status, updated_at", [status, id]);
-    if (!result.rowCount) return res.status(404).json({ error: "Application not found." });
-    res.json({ application: result.rows[0] });
-  } catch (error) { next(error); }
+    await client.query("BEGIN");
+    const currentResult = await client.query(
+      "SELECT id, display_name, email, status, decision_notified_status FROM recruitment_applications WHERE id = $1 FOR UPDATE",
+      [id]
+    );
+    if (!currentResult.rowCount) {
+      await client.query("ROLLBACK");
+      return res.status(404).json({ error: "Application not found." });
+    }
+    current = currentResult.rows[0];
+    const updateResult = await client.query(
+      "UPDATE recruitment_applications SET status = $1, updated_at = NOW() WHERE id = $2 RETURNING id, status, updated_at",
+      [status, id]
+    );
+    updated = updateResult.rows[0];
+    await client.query("COMMIT");
+  } catch (error) {
+    await client.query("ROLLBACK").catch(() => {});
+    return next(error);
+  } finally {
+    client.release();
+  }
+
+  let notification = null;
+  if (status === "accepted" || status === "declined") {
+    if (current.decision_notified_status === status) {
+      notification = { sent: true, reason: "already_notified" };
+    } else {
+      notification = await sendApplicationDecisionEmail(current, status);
+      if (notification.sent) {
+        await pool.query(
+          "UPDATE recruitment_applications SET decision_notified_status = $1, decision_email_error = NULL WHERE id = $2",
+          [status, id]
+        );
+      } else {
+        await pool.query(
+          "UPDATE recruitment_applications SET decision_email_error = $1 WHERE id = $2",
+          [notification.reason, id]
+        );
+      }
+    }
+  }
+
+  res.json({ application: updated, notification });
 });
 
 app.use((req, res) => res.status(404).json({ error: "Endpoint not found." }));
@@ -161,10 +359,18 @@ CREATE TABLE IF NOT EXISTS users (
 CREATE TABLE IF NOT EXISTS recruitment_applications (
  id BIGSERIAL PRIMARY KEY, display_name TEXT NOT NULL, email TEXT NOT NULL,
  platform TEXT NOT NULL CHECK (platform IN ('PlayStation', 'Xbox', 'PC', 'Cross-platform')),
- game TEXT NOT NULL, message TEXT NOT NULL DEFAULT '',
+ game TEXT NOT NULL, message TEXT NOT NULL DEFAULT '', youtube_url TEXT,
  status TEXT NOT NULL DEFAULT 'received' CHECK (status IN ('received', 'reviewing', 'accepted', 'declined')),
+ confirmation_email_status TEXT NOT NULL DEFAULT 'pending', confirmation_email_sent_at TIMESTAMPTZ,
+ decision_notified_status TEXT CHECK (decision_notified_status IN ('accepted', 'declined')),
+ decision_email_error TEXT,
  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(), updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
+ALTER TABLE recruitment_applications ADD COLUMN IF NOT EXISTS youtube_url TEXT;
+ALTER TABLE recruitment_applications ADD COLUMN IF NOT EXISTS confirmation_email_status TEXT NOT NULL DEFAULT 'pending';
+ALTER TABLE recruitment_applications ADD COLUMN IF NOT EXISTS confirmation_email_sent_at TIMESTAMPTZ;
+ALTER TABLE recruitment_applications ADD COLUMN IF NOT EXISTS decision_notified_status TEXT;
+ALTER TABLE recruitment_applications ADD COLUMN IF NOT EXISTS decision_email_error TEXT;
 CREATE INDEX IF NOT EXISTS recruitment_applications_created_at_idx ON recruitment_applications (created_at DESC);
 `;
 async function start() {
