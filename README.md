@@ -1,6 +1,6 @@
 # VAYNTR Esports Website
 
-A responsive, dark tactical website foundation for the VAYNTR esports organization. The initial build uses plain HTML, CSS, and JavaScript so it can run on GitHub Pages without a build step.
+A responsive, dark tactical website for an independent esports organization for the VAYNTR esports organization. The initial build uses plain HTML, CSS, and JavaScript so it can run on GitHub Pages without a build step.
 
 ## Local preview
 
@@ -13,13 +13,13 @@ Open `index.html` in a modern browser, or run a local static server from the rep
 - Organization overview and multi-game division section
 - Interactive local Warzone settings profile
 - Meta/news editorial layouts with explicit unverified-data messaging
-- Recruitment form interaction preview
+- Honest recruitment availability status (no fake submission form)
 - Responsive mobile/tablet/desktop styling
 - GitHub Pages deployment workflow
 
 ## Important limitations
 
-This is the first real repository implementation, not a finished full-stack platform. It currently has no server, database, real user accounts, authentication, admin dashboard, live meta integration, real roster feed, or secure application submission. The recruitment form is a front-end demonstration and must not be used to collect real personal information until a secure backend and privacy notice are implemented.
+This is the first real repository implementation, not a finished full-stack platform. It currently has no server, database, real user accounts, authentication, admin dashboard, live meta integration, real roster feed, or secure application submission. Online recruitment submissions and member sign-in are disabled until a secure backend, access controls, and privacy controls are ready. The site does not display fake submission or account flows.
 
 No players, sponsors, scores, achievements, social links, or current meta claims have been invented. Add real, approved information when available.
 
