@@ -67,6 +67,7 @@
   async function refreshActiveView() {
     if (activeView === "applications") return loadApplications();
     if (activeView === "roster") return loadRoster();
+    if (activeView === "content") return loadContent();
     if (activeView === "overview") {
       await loadApplications(false);
       return;
@@ -335,6 +336,71 @@
           }
         });
         actions.appendChild(removeButton);
+        const editProfileButton = document.createElement("button");
+        editProfileButton.type = "button";
+        editProfileButton.className = "button button--outline";
+        editProfileButton.textContent = "Edit public profile";
+        editProfileButton.setAttribute("aria-expanded", "false");
+        actions.appendChild(editProfileButton);
+        const editForm = document.createElement("form");
+        editForm.className = "staff-profile-form";
+        editForm.hidden = true;
+        const profileFields = [
+          ["displayName", "Display name", player.display_name || "", "text", 50],
+          ["game", "Game / division", player.game || "", "text", 80],
+          ["platform", "Platform", player.platform || "Cross-platform", "select", 0],
+          ["role", "Team role", player.role || "Player", "text", 60],
+          ["socialUrl", "Social profile URL", player.social_url || "", "url", 500],
+          ["highlightUrl", "Highlights URL", player.highlight_url || "", "url", 500],
+          ["profileImageUrl", "Profile image URL", player.profile_image_url || "", "url", 500],
+          ["bio", "Public bio", player.bio || "", "textarea", 500]
+        ];
+        for (const [name, label, value, type, maxLength] of profileFields) {
+          const field = document.createElement("div");
+          field.className = "field" + (name === "bio" ? " field--full" : "");
+          const labelNode = addText(field, "label", "", label);
+          let input;
+          if (type === "select") {
+            input = document.createElement("select");
+            for (const optionValue of ["PlayStation", "Xbox", "PC", "Cross-platform"]) {
+              const option = document.createElement("option"); option.value = optionValue; option.textContent = optionValue; input.appendChild(option);
+            }
+            input.value = value;
+          } else if (type === "textarea") {
+            input = document.createElement("textarea"); input.rows = 3; input.maxLength = maxLength;
+          } else {
+            input = document.createElement("input"); input.type = type; if (maxLength) input.maxLength = maxLength;
+          }
+          input.name = name; input.value = value;
+          const inputId = "profile-" + player.id + "-" + name;
+          input.id = inputId; labelNode.htmlFor = inputId;
+          field.appendChild(input); editForm.appendChild(field);
+        }
+        const profileActions = document.createElement("div");
+        profileActions.className = "staff-profile-form__actions";
+        const saveProfile = document.createElement("button");
+        saveProfile.type = "submit"; saveProfile.className = "button button--primary"; saveProfile.textContent = "Save public profile";
+        const cancelProfile = document.createElement("button");
+        cancelProfile.type = "button"; cancelProfile.className = "button button--outline"; cancelProfile.textContent = "Cancel";
+        cancelProfile.addEventListener("click", () => { editForm.hidden = true; editProfileButton.setAttribute("aria-expanded", "false"); });
+        profileActions.append(saveProfile, cancelProfile); editForm.appendChild(profileActions);
+        const profileStatus = addText(editForm, "p", "form-note", "");
+        profileStatus.setAttribute("role", "status"); profileStatus.setAttribute("aria-live", "polite");
+        editProfileButton.addEventListener("click", () => { editForm.hidden = !editForm.hidden; editProfileButton.setAttribute("aria-expanded", String(!editForm.hidden)); });
+        editForm.addEventListener("submit", async (event) => {
+          event.preventDefault(); if (!editForm.reportValidity()) return;
+          saveProfile.disabled = true; setStatus(profileStatus, "Saving profile…");
+          try {
+            const payload = Object.fromEntries(new FormData(editForm).entries());
+            const updated = await api("/api/staff/roster/" + encodeURIComponent(player.id) + "/update", { method: "POST", body: JSON.stringify(payload) });
+            setStatus($("#portalActionStatus"), updated.message || "Player profile updated.", "success");
+            await loadRoster(false);
+          } catch (error) {
+            if (error.status === 401 || error.status === 403) signOut();
+            setStatus(profileStatus, error.message || "Unable to save profile.", "error");
+          } finally { saveProfile.disabled = false; }
+        });
+        card.appendChild(editForm);
         card.appendChild(actions);
         rosterList.appendChild(card);
       }
@@ -342,6 +408,110 @@
     } catch (error) {
       if (error.status === 401 || error.status === 403) signOut();
       setStatus(rosterStatus, error.message || "Unable to load the accepted roster.", "error");
+    }
+  }
+
+
+  const contentForm = $("#contentEditorForm");
+  const contentList = $("#contentItemsList");
+  function resetContentEditor() {
+    if (!contentForm) return;
+    contentForm.reset();
+    contentForm.elements.id.value = "";
+    contentForm.elements.published.checked = true;
+    contentForm.elements.verified.checked = false;
+    setStatus($("#contentEditorStatus"), "Ready for a new content item.", "success");
+    $("#saveContentButton").textContent = "Publish / save item";
+  }
+  function renderContentItem(item) {
+    const card = document.createElement("article");
+    card.className = "application-panel staff-application staff-content-item";
+    const top = document.createElement("div");
+    top.className = "staff-application__top";
+    const identity = document.createElement("div");
+    addText(identity, "h3", "staff-application__name", item.title);
+    addText(identity, "p", "staff-application__meta", (item.content_type || "content").toUpperCase() + " · " + (item.category || "Uncategorized"));
+    top.appendChild(identity);
+    const status = item.published && (item.content_type !== "result" || item.verified) ? "PUBLIC" : item.published ? "NEEDS VERIFICATION" : "DRAFT";
+    addText(top, "span", "pill" + (status === "PUBLIC" ? " pill--red" : ""), status);
+    card.appendChild(top);
+    addText(card, "p", "staff-content-item__summary", item.excerpt || item.body || "No summary added.");
+    const meta = addText(card, "div", "staff-content-item__meta",
+      (item.content_type || "").toUpperCase() + " · Updated " + (item.updated_at ? new Date(item.updated_at).toLocaleString() : "unknown"));
+    if (item.source_url) {
+      const link = document.createElement("a"); link.href = item.source_url; link.target = "_blank"; link.rel = "noopener noreferrer";
+      link.textContent = "Open source ↗"; meta.appendChild(link);
+    }
+    const actions = document.createElement("div");
+    actions.className = "staff-content-item__actions";
+    const edit = document.createElement("button");
+    edit.type = "button"; edit.className = "button button--outline"; edit.textContent = "Edit item";
+    edit.addEventListener("click", () => {
+      contentForm.elements.id.value = item.id;
+      contentForm.elements.type.value = item.content_type;
+      contentForm.elements.title.value = item.title || "";
+      contentForm.elements.category.value = item.category || "";
+      contentForm.elements.excerpt.value = item.excerpt || "";
+      contentForm.elements.body.value = item.body || "";
+      contentForm.elements.game.value = item.game || "";
+      contentForm.elements.eventName.value = item.event_name || "";
+      contentForm.elements.opponent.value = item.opponent || "";
+      contentForm.elements.score.value = item.score || "";
+      contentForm.elements.outcome.value = item.outcome || "";
+      contentForm.elements.playedAt.value = item.played_at ? String(item.played_at).slice(0, 10) : "";
+      contentForm.elements.sourceUrl.value = item.source_url || "";
+      contentForm.elements.imageUrl.value = item.image_url || "";
+      contentForm.elements.published.checked = Boolean(item.published);
+      contentForm.elements.verified.checked = Boolean(item.verified);
+      $("#saveContentButton").textContent = "Update content item";
+      setStatus($("#contentEditorStatus"), "Editing: " + item.title, "success");
+      contentForm.scrollIntoView({ behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth", block: "start" });
+      contentForm.elements.title.focus();
+    });
+    const togglePublish = document.createElement("button");
+    togglePublish.type = "button"; togglePublish.className = "button button--outline";
+    togglePublish.textContent = item.published ? "Unpublish" : "Publish";
+    togglePublish.addEventListener("click", async () => {
+      togglePublish.disabled = true;
+      try {
+        await api("/api/staff/content", { method: "POST", body: JSON.stringify({
+          id: Number(item.id), type: item.content_type, title: item.title, category: item.category, excerpt: item.excerpt, body: item.body,
+          game: item.game, eventName: item.event_name, opponent: item.opponent, score: item.score, outcome: item.outcome,
+          playedAt: item.played_at ? String(item.played_at).slice(0, 10) : "", sourceUrl: item.source_url, imageUrl: item.image_url,
+          published: !item.published, verified: Boolean(item.verified)
+        }) });
+        await loadContent(false); setStatus($("#portalActionStatus"), "Content visibility updated.", "success");
+      } catch (error) { setStatus($("#portalActionStatus"), error.message || "Unable to update visibility.", "error"); }
+      finally { togglePublish.disabled = false; }
+    });
+    const remove = document.createElement("button");
+    remove.type = "button"; remove.className = "button button--outline"; remove.textContent = "Delete";
+    remove.addEventListener("click", async () => {
+      if (!window.confirm("Permanently delete this " + item.content_type + " item?")) return;
+      remove.disabled = true;
+      try {
+        await api("/api/staff/content/delete", { method: "POST", body: JSON.stringify({ id: Number(item.id), type: item.content_type }) });
+        if (String(contentForm.elements.id.value) === String(item.id)) resetContentEditor();
+        await loadContent(false); setStatus($("#portalActionStatus"), "Content item deleted.", "success");
+      } catch (error) { setStatus($("#portalActionStatus"), error.message || "Unable to delete item.", "error"); }
+      finally { remove.disabled = false; }
+    });
+    actions.append(edit, togglePublish, remove); card.appendChild(actions);
+    return card;
+  }
+  async function loadContent(showLoading = true) {
+    if (!contentList) return;
+    if (showLoading) setStatus($("#contentEditorStatus"), "Loading saved content…");
+    contentList.replaceChildren();
+    try {
+      const result = await api("/api/staff/content");
+      const items = Array.isArray(result.items) ? result.items : [];
+      if (!items.length) addText(contentList, "div", "empty-state", "No saved content yet. Use the editor above to publish the first item.");
+      else for (const item of items) contentList.appendChild(renderContentItem(item));
+      setStatus($("#contentEditorStatus"), items.length + " saved content item(s).", "success");
+    } catch (error) {
+      if (error.status === 401 || error.status === 403) signOut();
+      setStatus($("#contentEditorStatus"), error.message || "Unable to load saved content.", "error");
     }
   }
 
@@ -365,6 +535,7 @@
       activateView(tab.dataset.staffTab);
       if (activeView === "applications") await loadApplications();
       else if (activeView === "roster") await loadRoster();
+      else if (activeView === "content") await loadContent();
       else if (activeView === "overview") await loadApplications(false);
       else await loadOverview();
     });
@@ -374,11 +545,38 @@
       activateView(button.dataset.openView);
       if (activeView === "applications") await loadApplications();
       else if (activeView === "roster") await loadRoster();
+      else if (activeView === "content") await loadContent();
       else await loadOverview();
     });
   });
   $("#refreshApplications").addEventListener("click", () => loadApplications());
   $("#refreshRoster")?.addEventListener("click", () => loadRoster());
+  $("#refreshContent")?.addEventListener("click", () => loadContent());
+  contentForm?.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    if (!contentForm.reportValidity()) return;
+    const saveButton = $("#saveContentButton");
+    saveButton.disabled = true; contentForm.setAttribute("aria-busy", "true");
+    setStatus($("#contentEditorStatus"), "Saving content…");
+    const form = contentForm.elements;
+    const payload = {
+      id: form.id.value ? Number(form.id.value) : null, type: form.type.value, title: form.title.value,
+      category: form.category.value, excerpt: form.excerpt.value, body: form.body.value, game: form.game.value,
+      eventName: form.eventName.value, opponent: form.opponent.value, score: form.score.value, outcome: form.outcome.value,
+      playedAt: form.playedAt.value, sourceUrl: form.sourceUrl.value, imageUrl: form.imageUrl.value,
+      published: form.published.checked, verified: form.verified.checked
+    };
+    try {
+      const result = await api("/api/staff/content", { method: "POST", body: JSON.stringify(payload) });
+      setStatus($("#contentEditorStatus"), result.message || "Content saved.", "success");
+      resetContentEditor(); await loadContent(false);
+      setStatus($("#portalActionStatus"), result.message || "Content saved.", "success");
+    } catch (error) {
+      if (error.status === 401 || error.status === 403) signOut();
+      setStatus($("#contentEditorStatus"), error.message || "Unable to save content.", "error");
+    } finally { saveButton.disabled = false; contentForm.removeAttribute("aria-busy"); }
+  });
+  $("#resetContentEditor")?.addEventListener("click", resetContentEditor);
   $("#refreshCurrentView").addEventListener("click", () => refreshActiveView());
   $("#staffSignOut").addEventListener("click", signOut);
   if (token) loadApplications();
