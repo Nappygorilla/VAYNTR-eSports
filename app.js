@@ -29,7 +29,43 @@
     menuToggle.setAttribute("aria-expanded", String(open));
     menuToggle.setAttribute("aria-label", open ? "Close navigation" : "Open navigation");
   });
-  $$("#primaryNav a").forEach((link) => link.addEventListener("click", closeMenu));
+  $("#primaryNav a").forEach((link) => link.addEventListener("click", closeMenu));
+
+  // Accessible homepage division tabs. Switching a tab swaps the panel in place.
+  const divisionTabs = $$("[data-division-tab]");
+  const divisionPanels = $$("[data-division-panel]");
+  if (divisionTabs.length && divisionPanels.length) {
+    const activateDivision = (key, moveFocus = false) => {
+      const selectedTab = divisionTabs.find((tab) => tab.dataset.divisionTab === key);
+      if (!selectedTab) return;
+
+      divisionTabs.forEach((tab) => {
+        const selected = tab === selectedTab;
+        tab.setAttribute("aria-selected", String(selected));
+        tab.tabIndex = selected ? 0 : -1;
+      });
+      divisionPanels.forEach((panel) => {
+        panel.hidden = panel.dataset.divisionPanel !== key;
+      });
+      if (moveFocus) selectedTab.focus();
+    };
+
+    divisionTabs.forEach((tab, index) => {
+      tab.addEventListener("click", () => activateDivision(tab.dataset.divisionTab));
+      tab.addEventListener("keydown", (event) => {
+        let nextIndex = index;
+        if (event.key === "ArrowRight") nextIndex = (index + 1) % divisionTabs.length;
+        else if (event.key === "ArrowLeft") nextIndex = (index - 1 + divisionTabs.length) % divisionTabs.length;
+        else if (event.key === "Home") nextIndex = 0;
+        else if (event.key === "End") nextIndex = divisionTabs.length - 1;
+        else return;
+
+        event.preventDefault();
+        activateDivision(divisionTabs[nextIndex].dataset.divisionTab, true);
+      });
+    });
+  }
+
   document.addEventListener("keydown", (event) => {
     if (event.key === "Escape") closeMenu();
   });
