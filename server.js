@@ -319,18 +319,16 @@ app.post("/api/recruitment/applications", requireDatabase, async (req, res, next
       [displayName, email, platform, game, message, youtubeUrl, privacyConsent]
     );
     const application = { ...result.rows[0], display_name: displayName, email };
-    const notification = await sendApplicationReceivedEmail(application);
+    // VAYNTR is using manual applicant contact for now; never send a confirmation email automatically.
     await pool.query(
-      "UPDATE recruitment_applications SET confirmation_email_status = $1, confirmation_email_sent_at = CASE WHEN $1 = 'sent' THEN NOW() ELSE NULL END WHERE id = $2",
-      [notification.sent ? "sent" : notification.reason, application.id]
+      "UPDATE recruitment_applications SET confirmation_email_status = 'manual_contact', confirmation_email_sent_at = NULL WHERE id = $1",
+      [application.id]
     );
 
     res.status(201).json({
       application: result.rows[0],
-      notification,
-      message: notification.sent
-        ? "Application received. Your confirmation email has been queued."
-        : "Application received, but the confirmation email could not be sent yet. Your application is saved."
+      notification: { sent: false, reason: "manual_contact" },
+      message: "Application received. VAYNTR will review it and contact you by email manually."
     });
   } catch (error) {
     next(error);
