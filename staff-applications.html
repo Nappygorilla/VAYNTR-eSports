@@ -51,6 +51,14 @@
             <div class="staff-toolbar__actions"><button type="button" class="button button--outline" id="refreshApplications">Refresh</button><button type="button" class="button button--outline" id="staffSignOut">Sign out</button></div>
           </div>
           <div id="applicationsList" class="staff-applications" aria-live="polite"></div>
+          <section class="staff-roster-section" aria-labelledby="staffRosterHeading">
+            <div class="staff-toolbar staff-roster-toolbar">
+              <div><p class="eyebrow"><span></span> Active roster</p><h2 id="staffRosterHeading" class="staff-title">CONFIRMED PLAYERS.</h2><p id="staffRosterStatus" class="form-note" role="status" aria-live="polite"></p></div>
+              <button type="button" class="button button--outline" id="refreshRoster">Refresh roster</button>
+            </div>
+            <p class="form-note">Accepted players appear on the public roster automatically. Their email addresses are shown only here so you can contact them manually.</p>
+            <div id="staffRosterList" class="staff-applications" aria-live="polite"></div>
+          </section>
         </div>
       </div>
     </section>
