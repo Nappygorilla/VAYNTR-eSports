@@ -15,3 +15,11 @@ services:
         value: https://nappygorilla.github.io
       - key: DATABASE_URL
         sync: false
+      - key: RESEND_API_KEY
+        sync: false
+      - key: RESEND_FROM_EMAIL
+        sync: false
+      - key: RESEND_REPLY_TO
+        sync: false
+      - key: STAFF_REVIEW_TOKEN
+        sync: false
