@@ -22,7 +22,8 @@
     const panel = document.createElement("div");
     panel.className = "empty-state";
     addText(panel, "span", "pill", label);
-    addText(panel, "h2", "", title);
+    const heading = addText(panel, "h2", "", title);
+    heading.id = section.id + "RosterHeading";
     addText(panel, "p", "", message);
     if (state) panel.dataset.state = state;
     section.appendChild(panel);
@@ -98,7 +99,8 @@
         const heading = document.createElement("div");
         heading.className = "roster-section-heading";
         addText(heading, "p", "eyebrow", group.label + " / confirmed roster");
-        addText(heading, "h2", "", group.label.toUpperCase() + ".");
+        const rosterHeading = addText(heading, "h2", "", group.label.toUpperCase() + ".");
+        rosterHeading.id = group.id + "RosterHeading";
         section.appendChild(heading);
         const grid = document.createElement("div");
         grid.className = "roster-player-grid";

@@ -437,6 +437,7 @@ app.post("/api/staff/content", requireDatabase, requireStaffAccess, async (req, 
   if (game.length > 80 || eventName.length > 140 || opponent.length > 120 || score.length > 60 || outcome.length > 40) return res.status(400).json({ error: "One or more match fields are too long." });
   if (playedAt && !/^\d{4}-\d{2}-\d{2}$/.test(playedAt)) return res.status(400).json({ error: "Match date must use YYYY-MM-DD." });
   if (type === "result" && (!game || !eventName)) return res.status(400).json({ error: "A result needs both the game/division and event name." });
+  if (type === "result" && published && !sourceUrl) return res.status(400).json({ error: "A published result needs a source or evidence link. Save it as a draft until the link is available." });
   if ([sourceUrl, imageUrl].some((url) => url === undefined)) return res.status(400).json({ error: "Source and image links must be valid HTTPS URLs." });
   const values = [type, title, category || (type === "result" ? "Match result" : type === "media" ? "Media" : "Announcement"), excerpt, body, game, eventName, opponent, score, outcome, playedAt, sourceUrl, imageUrl, published, verified];
   try {

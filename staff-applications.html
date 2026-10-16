@@ -13,7 +13,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700;800;900&family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="styles.css?v=20261016-professional1">
   <link rel="stylesheet" href="staff.css?v=20261016-contentdesk">
-  <script src="staff.js?v=20261016-contentdesk" defer></script>
+  <script src="staff.js?v=20261016-sitefix" defer></script>
 </head>
 <body>
   <a class="skip-link" href="#main">Skip to content</a>
@@ -142,11 +142,11 @@
               <div class="field"><label for="contentSourceUrl">Source / video URL (HTTPS)</label><input id="contentSourceUrl" name="sourceUrl" type="url" placeholder="https://…"></div>
               <div class="field"><label for="contentImageUrl">Thumbnail image URL (HTTPS)</label><input id="contentImageUrl" name="imageUrl" type="url" placeholder="https://…"></div>
               <div class="staff-content-checks">
-                <label><input type="checkbox" name="published" checked> Publish publicly</label>
+                <label><input type="checkbox" name="published"> Publish publicly</label>
                 <label><input type="checkbox" name="verified"> Verified (required for public results)</label>
               </div>
               <div class="staff-content-actions field--full">
-                <button class="button button--primary" type="submit" id="saveContentButton">Publish / save item</button>
+                <button class="button button--primary" type="submit" id="saveContentButton">Save item</button>
                 <button class="button button--outline" type="button" id="resetContentEditor">New item / clear form</button>
               </div>
               <p class="form-note field--full" id="contentEditorStatus" role="status" aria-live="polite"></p>

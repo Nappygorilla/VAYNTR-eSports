@@ -418,10 +418,10 @@
     if (!contentForm) return;
     contentForm.reset();
     contentForm.elements.id.value = "";
-    contentForm.elements.published.checked = true;
+    contentForm.elements.published.checked = false;
     contentForm.elements.verified.checked = false;
     setStatus($("#contentEditorStatus"), "Ready for a new content item.", "success");
-    $("#saveContentButton").textContent = "Publish / save item";
+    $("#saveContentButton").textContent = "Save item";
   }
   function renderContentItem(item) {
     const card = document.createElement("article");

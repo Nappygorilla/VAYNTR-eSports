@@ -15,7 +15,7 @@
 
   const year = $("#year");
   if (year) year.textContent = String(new Date().getFullYear());
-  $("[data-year]").forEach((node) => { node.textContent = String(new Date().getFullYear()); });
+  $$("[data-year]").forEach((node) => { node.textContent = String(new Date().getFullYear()); });
 
   const menuToggle = $("#menuToggle");
   const primaryNav = $("#primaryNav");
@@ -150,7 +150,7 @@
     updateScrollChrome();
 
     if (!reducedMotion && "IntersectionObserver" in window) {
-      const revealTargets = $$(".section > .container, .page-hero .container, .feature-card, .content-card, .roster-player-card, .recruit-cta, .application-panel");
+      const revealSelector = ".section > .container, .page-hero .container, .feature-card, .content-card, .roster-player-card, .recruit-cta, .application-panel";
       const revealObserver = new IntersectionObserver((entries, observer) => {
         entries.forEach((entry) => {
           if (!entry.isIntersecting) return;
@@ -159,13 +159,30 @@
         });
       }, { root: null, rootMargin: "0px 0px -7% 0px", threshold: 0.08 });
 
-      revealTargets.forEach((element, index) => {
-        if (element.closest("[hidden]")) return;
+      const observeReveal = (element) => {
+        if (!(element instanceof Element) || !element.matches(revealSelector)) return;
+        if (element.closest("[hidden]") || element.classList.contains("scroll-reveal")) return;
         element.classList.add("scroll-reveal");
-        const siblings = element.parentElement ? [...element.parentElement.children].filter((node) => node.matches(".feature-card, .content-card, .roster-player-card")) : [];
-        if (siblings.length > 1) element.style.setProperty("--reveal-delay", Math.min(siblings.indexOf(element), 3) * 75 + "ms");
+        const siblings = element.parentElement
+          ? [...element.parentElement.children].filter((node) => node.matches(".feature-card, .content-card, .roster-player-card"))
+          : [];
+        if (siblings.length > 1) {
+          element.style.setProperty("--reveal-delay", Math.min(siblings.indexOf(element), 3) * 75 + "ms");
+        }
         revealObserver.observe(element);
+      };
+
+      const collectRevealTargets = (root) => {
+        if (root instanceof Element) observeReveal(root);
+        root.querySelectorAll?.(revealSelector).forEach(observeReveal);
+      };
+
+      collectRevealTargets(document);
+      // Feed and roster cards are rendered after their API calls complete; observe those too.
+      const revealMutationObserver = new MutationObserver((records) => {
+        records.forEach((record) => record.addedNodes.forEach(collectRevealTargets));
       });
+      revealMutationObserver.observe(document.body, { childList: true, subtree: true });
     }
   }
 
