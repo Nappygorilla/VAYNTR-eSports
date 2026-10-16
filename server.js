@@ -250,6 +250,17 @@ app.get("/api/status", async (_req, res) => {
   });
 });
 
+app.get("/api/roster", requireDatabase, async (_req, res, next) => {
+  try {
+    // Public roster data intentionally excludes email addresses and other applicant-only information.
+    const result = await pool.query(
+      "SELECT id, display_name, game, platform, accepted_at FROM roster_players ORDER BY game ASC, display_name ASC"
+    );
+    res.set("Cache-Control", "no-store");
+    res.json({ players: result.rows });
+  } catch (error) { next(error); }
+});
+
 app.post("/api/auth/register", authLimiter, requireDatabase, async (req, res, next) => {
   if (process.env.ENABLE_PUBLIC_REGISTRATION !== "true") return res.status(404).json({ error: "Public account registration is disabled." });
   try {
@@ -332,6 +343,72 @@ app.get("/api/staff/applications", requireDatabase, requireStaffAccess, async (_
     res.json({ applications: result.rows });
   } catch (error) { next(error); }
 });
+app.get("/api/staff/roster", requireDatabase, requireStaffAccess, async (_req, res, next) => {
+  try {
+    // Email is exposed only inside this authenticated staff endpoint so the operator can contact players manually.
+    const result = await pool.query(
+      "SELECT id, display_name, email, game, platform, accepted_at FROM roster_players ORDER BY accepted_at DESC"
+    );
+    res.json({ players: result.rows });
+  } catch (error) { next(error); }
+});
+
+// Accept or deny an applicant in one operation.
+// Accept atomically copies the minimum roster/contact fields and then deletes the application.
+// Deny deletes the application without adding the person to the roster. No email is sent automatically.
+app.post("/api/staff/applications/:id/decision", requireDatabase, requireStaffAccess, async (req, res, next) => {
+  const id = Number(req.params.id);
+  const decision = req.body.decision;
+  if (!Number.isSafeInteger(id) || id < 1 || !["accept", "deny"].includes(decision)) {
+    return res.status(400).json({ error: "Invalid application ID or decision." });
+  }
+
+  let client;
+  try {
+    client = await pool.connect();
+    await client.query("BEGIN");
+    const found = await client.query(
+      "SELECT id, display_name, email, game, platform FROM recruitment_applications WHERE id = $1 FOR UPDATE",
+      [id]
+    );
+    if (!found.rowCount) {
+      await client.query("ROLLBACK");
+      return res.status(404).json({ error: "This application no longer exists. Refresh the queue." });
+    }
+    const applicant = found.rows[0];
+    let rosterPlayer = null;
+    if (decision === "accept") {
+      const added = await client.query(
+        `INSERT INTO roster_players (display_name, email, game, platform, source_application_id)
+         VALUES ($1, $2, $3, $4, $5)
+         ON CONFLICT (source_application_id) DO UPDATE
+         SET display_name = EXCLUDED.display_name,
+             email = EXCLUDED.email,
+             game = EXCLUDED.game,
+             platform = EXCLUDED.platform
+         RETURNING id, display_name, game, platform, accepted_at`,
+        [applicant.display_name, applicant.email, applicant.game, applicant.platform, applicant.id]
+      );
+      rosterPlayer = added.rows[0];
+    }
+    await client.query("DELETE FROM recruitment_applications WHERE id = $1", [id]);
+    await client.query("COMMIT");
+    return res.json({
+      decision,
+      applicationDeleted: true,
+      rosterPlayer,
+      message: decision === "accept"
+        ? "Applicant added to the VAYNTR roster and application deleted. Email them manually using the staff roster contact list."
+        : "Application denied and permanently deleted."
+    });
+  } catch (error) {
+    if (client) await client.query("ROLLBACK").catch(() => {});
+    return next(error);
+  } finally {
+    if (client) client.release();
+  }
+});
+
 app.post("/api/staff/applications/:id/confirmation-email", requireDatabase, requireStaffAccess, async (req, res, next) => {
   const id = Number(req.params.id);
   if (!Number.isSafeInteger(id) || id < 1) return res.status(400).json({ error: "Invalid application ID." });
@@ -442,6 +519,16 @@ ALTER TABLE recruitment_applications ADD COLUMN IF NOT EXISTS confirmation_email
 ALTER TABLE recruitment_applications ADD COLUMN IF NOT EXISTS decision_notified_status TEXT;
 ALTER TABLE recruitment_applications ADD COLUMN IF NOT EXISTS decision_email_error TEXT;
 CREATE INDEX IF NOT EXISTS recruitment_applications_created_at_idx ON recruitment_applications (created_at DESC);
+CREATE TABLE IF NOT EXISTS roster_players (
+ id BIGSERIAL PRIMARY KEY,
+ display_name TEXT NOT NULL,
+ email TEXT NOT NULL,
+ game TEXT NOT NULL,
+ platform TEXT NOT NULL CHECK (platform IN ('PlayStation', 'Xbox', 'PC', 'Cross-platform')),
+ source_application_id BIGINT NOT NULL UNIQUE,
+ accepted_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS roster_players_game_name_idx ON roster_players (game, display_name);
 `;
 async function start() {
   if (pool) { await pool.query(schema); console.log("Database schema is ready."); }
