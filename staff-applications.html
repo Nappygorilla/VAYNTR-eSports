@@ -11,9 +11,9 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700;800;900&family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="styles.css?v=20261016-staffportal">
-  <link rel="stylesheet" href="staff.css?v=20261016-staffportal">
-  <script src="staff.js?v=20261016-staffportal" defer></script>
+  <link rel="stylesheet" href="styles.css?v=20261016-professional1">
+  <link rel="stylesheet" href="staff.css?v=20261016-contentdesk">
+  <script src="staff.js?v=20261016-contentdesk" defer></script>
 </head>
 <body>
   <a class="skip-link" href="#main">Skip to content</a>
@@ -63,7 +63,8 @@
             <button class="staff-portal-tab is-active" type="button" data-staff-tab="overview" aria-current="page"><span>01</span> Overview</button>
             <button class="staff-portal-tab" type="button" data-staff-tab="applications"><span>02</span> Applications <b id="applicationTabCount">—</b></button>
             <button class="staff-portal-tab" type="button" data-staff-tab="roster"><span>03</span> Roster & contacts <b id="rosterTabCount">—</b></button>
-            <button class="staff-portal-tab" type="button" data-staff-tab="operations"><span>04</span> Site operations</button>
+            <button class="staff-portal-tab" type="button" data-staff-tab="content"><span>04</span> Content desk</button>
+            <button class="staff-portal-tab" type="button" data-staff-tab="operations"><span>05</span> Site operations</button>
           </nav>
 
           <p id="portalActionStatus" class="form-note portal-action-status" role="status" aria-live="polite"></p>
@@ -118,6 +119,41 @@
             <div id="staffRosterList" class="staff-applications" aria-live="polite"></div>
           </section>
 
+
+          <section id="staffView-content" class="staff-portal-view" data-staff-view="content" aria-labelledby="contentHeading" hidden>
+            <div class="staff-view-heading">
+              <div><p class="eyebrow"><span></span> Publishing workspace</p><h2 id="contentHeading" class="staff-title">CONTENT DESK.</h2></div>
+              <button type="button" class="button button--outline" id="refreshContent">Refresh content</button>
+            </div>
+            <p class="form-note">Publish real announcements, verified match results, and approved media. Results are public only when both Published and Verified are checked. Unpublished drafts remain staff-only.</p>
+            <form id="contentEditorForm" class="application-panel staff-content-form">
+              <input type="hidden" name="id">
+              <div class="field"><label for="contentType">Content type</label><select id="contentType" name="type" required><option value="news">News / announcement</option><option value="result">Match result</option><option value="media">Media / highlight</option></select></div>
+              <div class="field"><label for="contentCategory">Category</label><input id="contentCategory" name="category" maxlength="80" placeholder="Announcement, tournament, player spotlight"></div>
+              <div class="field field--full"><label for="contentTitle">Title</label><input id="contentTitle" name="title" minlength="3" maxlength="140" required placeholder="Clear, specific headline"></div>
+              <div class="field field--full"><label for="contentExcerpt">Summary</label><textarea id="contentExcerpt" name="excerpt" rows="2" maxlength="600" placeholder="A concise public description"></textarea></div>
+              <div class="field field--full"><label for="contentBody">Article / media notes</label><textarea id="contentBody" name="body" rows="5" maxlength="10000" placeholder="Optional longer article, context, or credits"></textarea></div>
+              <div class="field"><label for="contentGame">Game / division (results)</label><input id="contentGame" name="game" maxlength="80" placeholder="Call of Duty: Warzone"></div>
+              <div class="field"><label for="contentEventName">Event name (results)</label><input id="contentEventName" name="eventName" maxlength="140" placeholder="Tournament or scrim name"></div>
+              <div class="field"><label for="contentOpponent">Opponent (optional)</label><input id="contentOpponent" name="opponent" maxlength="120"></div>
+              <div class="field"><label for="contentScore">Score / placement (optional)</label><input id="contentScore" name="score" maxlength="60" placeholder="Only verified information"></div>
+              <div class="field"><label for="contentOutcome">Outcome (optional)</label><input id="contentOutcome" name="outcome" maxlength="40" placeholder="Win, placement, etc."></div>
+              <div class="field"><label for="contentPlayedAt">Event date (optional)</label><input id="contentPlayedAt" name="playedAt" type="date"></div>
+              <div class="field"><label for="contentSourceUrl">Source / video URL (HTTPS)</label><input id="contentSourceUrl" name="sourceUrl" type="url" placeholder="https://…"></div>
+              <div class="field"><label for="contentImageUrl">Thumbnail image URL (HTTPS)</label><input id="contentImageUrl" name="imageUrl" type="url" placeholder="https://…"></div>
+              <div class="staff-content-checks">
+                <label><input type="checkbox" name="published" checked> Publish publicly</label>
+                <label><input type="checkbox" name="verified"> Verified (required for public results)</label>
+              </div>
+              <div class="staff-content-actions field--full">
+                <button class="button button--primary" type="submit" id="saveContentButton">Publish / save item</button>
+                <button class="button button--outline" type="button" id="resetContentEditor">New item / clear form</button>
+              </div>
+              <p class="form-note field--full" id="contentEditorStatus" role="status" aria-live="polite"></p>
+            </form>
+            <div class="staff-content-list-heading"><h3>Saved content</h3><p>Edit, unpublish, or remove items below.</p></div>
+            <div id="contentItemsList" class="staff-applications" aria-live="polite"></div>
+          </section>
           <section id="staffView-operations" class="staff-portal-view" data-staff-view="operations" aria-labelledby="operationsHeading" hidden>
             <div class="staff-view-heading">
               <div><p class="eyebrow"><span></span> Operations & shortcuts</p><h2 id="operationsHeading" class="staff-title">SITE OPERATIONS.</h2></div>
@@ -131,7 +167,9 @@
               <a class="staff-tool-card" href="https://github.com/Nappygorilla/VAYNTR-eSports" target="_blank" rel="noopener noreferrer"><span class="staff-tool-number">TOOL 05</span><h3>Website repository</h3><p>Review issues, pull requests, and website changes.</p><span>Open GitHub ↗</span></a>
               <a class="staff-tool-card" href="privacy.html"><span class="staff-tool-number">TOOL 06</span><h3>Privacy policy</h3><p>Read what application and roster data is handled.</p><span>Read policy ↗</span></a>
               <a class="staff-tool-card" href="recruitment-policy.html"><span class="staff-tool-number">TOOL 07</span><h3>Recruitment policy</h3><p>Review applicant safety, eligibility, and retention expectations.</p><span>Read policy ↗</span></a>
-              <article class="staff-tool-card staff-tool-card--notice"><span class="staff-tool-number">PLANNED / NOT CONNECTED</span><h3>News, results & match management</h3><p>These pages are currently static. They are not editable from this portal yet; future work would need protected database-backed content tools.</p></article>
+              <a class="staff-tool-card" href="about.html"><span class="staff-tool-number">TOOL 08</span><h3>About VAYNTR</h3><p>Review the public mission and organization story.</p><span>Open page ↗</span></a>
+              <a class="staff-tool-card" href="partnerships.html"><span class="staff-tool-number">TOOL 09</span><h3>Partnerships & media</h3><p>Review public contact and collaboration guidelines.</p><span>Open page ↗</span></a>
+              <article class="staff-tool-card"><span class="staff-tool-number">CONNECTED</span><h3>Content Desk</h3><p>Create drafts, publish news and media, and manage verified results in the Content Desk tab.</p><span>Database-backed publishing</span></article>
             </div>
           </section>
         </div>
