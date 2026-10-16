@@ -285,3 +285,16 @@ html{scroll-behavior:smooth}
 .scroll-reveal--from-left.is-revealed,.scroll-reveal--from-right.is-revealed{transform:translate3d(0,0,0)}
 @media(hover:hover) and (prefers-reduced-motion:no-preference){.feature-card,.content-card,.roster-player-card{transition:transform var(--motion-base) var(--ease),border-color var(--motion-base) var(--ease),box-shadow var(--motion-base) var(--ease)}.feature-card:hover,.content-card:hover,.roster-player-card:hover{transform:translateY(-4px);border-color:rgba(255,64,84,.42);box-shadow:0 16px 44px rgba(0,0,0,.18)}}
 @media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}.scroll-reveal,.scroll-reveal.is-revealed,.scroll-reveal--from-left,.scroll-reveal--from-right{opacity:1;transform:none;transition:none;animation:none;will-change:auto}.back-to-top{transition:none}.scroll-progress__bar{will-change:auto}}
+
+
+/* Fast, subtle cross-document transitions where supported; standard links remain the fallback. */
+@view-transition{navigation:auto}
+::view-transition-old(root){animation:180ms ease both page-old}
+::view-transition-new(root){animation:220ms cubic-bezier(.2,.7,.2,1) both page-new}
+@keyframes page-old{to{opacity:.94}}
+@keyframes page-new{from{opacity:.92;transform:translateY(3px)}to{opacity:1;transform:translateY(0)}}
+.resource-links{display:flex;align-items:center;gap:10px 20px;flex-wrap:wrap;padding-top:16px;padding-bottom:16px;border-top:1px solid #242426}
+.resource-links strong{font-size:.62rem;font-weight:900;letter-spacing:.14em;text-transform:uppercase;color:#e65a68}
+.resource-links a{font-size:.72rem;color:#c3c1c3;text-underline-offset:3px}
+.resource-links a:hover{color:#fff;text-decoration:underline}
+@media(prefers-reduced-motion:reduce){::view-transition-old(root),::view-transition-new(root){animation:none!important}}
