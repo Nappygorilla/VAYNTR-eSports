@@ -38,11 +38,10 @@
         <div id="staffLoginPanel" class="application-panel">
           <p class="eyebrow"><span></span> Staff authentication</p>
           <h2>STAFF SIGN-IN</h2>
-          <p class="form-note">Use an existing VAYNTR account that has been assigned the staff or admin role. This page does not offer public registration.</p>
+          <p class="form-note">Enter the private staff access key configured in the Render environment for VAYNTR. This key is not your Resend API key and should never be shared. This page does not offer public account registration.</p>
           <form id="staffLoginForm" class="staff-login-form">
-            <div class="field"><label for="staffEmail">Email address</label><input id="staffEmail" name="email" type="email" maxlength="254" autocomplete="username" required></div>
-            <div class="field"><label for="staffPassword">Password</label><input id="staffPassword" name="password" type="password" minlength="12" maxlength="128" autocomplete="current-password" required></div>
-            <button class="button button--primary" type="submit" id="staffLoginButton">Sign in to review</button>
+            <div class="field"><label for="staffAccessKey">Staff access key</label><input id="staffAccessKey" name="accessKey" type="password" minlength="32" maxlength="256" autocomplete="current-password" required></div>
+            <button class="button button--primary" type="submit" id="staffLoginButton">Open staff review</button>
             <p id="staffLoginStatus" class="form-note" role="status" aria-live="polite"></p>
           </form>
         </div>
