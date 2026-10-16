@@ -72,6 +72,7 @@
       manualEmailFollowup.hidden = false;
       return;
     }
+    addText(manualEmailFollowup, "p", "staff-application__meta", "To: " + email);
     const subject = accepted ? "VAYNTR Esports | Welcome to the Roster" : "VAYNTR Esports | Recruitment Decision";
     const message = accepted
       ? "Hi " + displayName + ",\n\nYour application to VAYNTR Esports has been accepted. Welcome to the roster! We will follow up with any onboarding steps and expectations.\n\nVAYNTR Esports"
