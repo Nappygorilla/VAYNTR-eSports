@@ -1,17 +1,24 @@
 # VAYNTR Esports
 
-VAYNTR is an independent esports organization website focused on competition, player development, and team news. The public website is hosted on GitHub Pages.
+VAYNTR is an independent esports organization website focused on competition, player development, and team news. The public website is hosted on GitHub Pages and the API runs on Render.
 
-## Project status
+## Public website
 
-The public website is a static site. Recruitment submissions, member accounts, and staff actions should remain unavailable in the UI until the backend is configured, tested, and connected. Do not present sample data as live organization data.
+- The only public path to apply to join VAYNTR is \`recruitment.html\`.
+- Recruitment requires a direct YouTube video link explaining why the applicant wants to join. Unlisted links are allowed; private videos may not be viewable by reviewers.
+- Public sign-in, registration, and member-dashboard pages have been removed. Public account registration is disabled in the API unless an operator explicitly enables it.
+- The form remains paused until the database and private staff-review token are configured. Branded email notifications are optional; applications can still be received and reviewed if Resend is not ready.
 
-## Render backend scaffold
+## Render backend
 
-The repository now includes an initial Node.js API for Render in `server.js`, a root `package.json`, and a Render Blueprint in `render.yaml`. The API includes health/status routes, member registration/login, recruitment application storage, and staff-only application review routes. See [Render backend setup](docs/render-backend.md).
+The Node.js API is in \`server.js\`. It validates and stores recruitment applications, validates YouTube video links, sends branded transactional emails through Resend, and exposes staff-only review endpoints. The unlinked \`staff-applications.html\` page lets authorized staff review applications, open the submitted video, set a status, and retry a failed confirmation email.
 
-The API is a scaffold, not a finished production account platform. It still needs a Render PostgreSQL database, generated `JWT_SECRET`, Render deployment, health verification, and frontend integration. Email verification, password recovery, session revocation, data retention/consent, and a safe staff-role workflow remain future requirements. Never commit credentials or put database secrets in browser code.
+Before announcing recruitment as open, configure the environment in Render and follow [docs/render-backend.md](docs/render-backend.md). Check \`GET /health\` for \`ok: true\` and \`database: connected\`, and \`GET /api/status\` for \`emailNotifications: true\` and \`staffReviewConfigured: true\`. `emailNotifications: false` means automatic emails are unavailable, not that applications are blocked.
 
-## Existing Supabase scaffold
+## Secrets and privacy
 
-Older membership invitation SQL and Edge Function files remain in `supabase/` during migration. They are not wired into the public UI. Do not deploy both systems for the same workflow; remove or archive the old scaffold only after the Render replacement has been verified.
+Never commit API keys, staff access tokens, database credentials, or JWT secrets. Never put them in browser JavaScript. Application videos are represented by links; VAYNTR does not upload the video file itself. Review the privacy and recruitment policies before launch, including retention/deletion practices and age/guardian-consent rules where relevant.
+
+## Legacy scaffold
+
+Older Supabase membership-invitation files remain in \`supabase/\` during migration. They are not wired into the public site. Do not deploy both systems for the same workflow; remove or archive the old scaffold only after the Render workflow has been verified.

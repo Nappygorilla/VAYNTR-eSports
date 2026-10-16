@@ -5,30 +5,6 @@
   const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
   const boot = $("#boot");
 
-  // VAYNTR API hosted on Render. Never put server secrets in this public file.
-  const API_BASE = "https://vayntr-esports.onrender.com";
-  const SESSION_KEY = "vayntr-session";
-  const readSession = () => {
-    try { return JSON.parse(sessionStorage.getItem(SESSION_KEY) || "null"); }
-    catch { return null; }
-  };
-  const writeSession = (data) => {
-    try { sessionStorage.setItem(SESSION_KEY, JSON.stringify(data)); return true; }
-    catch { return false; }
-  };
-  const clearSession = () => { try { sessionStorage.removeItem(SESSION_KEY); } catch {} };
-  async function apiRequest(path, options = {}) {
-    const session = readSession();
-    const headers = { "Content-Type": "application/json", ...(options.headers || {}) };
-    if (session?.token) headers.Authorization = "Bearer " + session.token;
-    const response = await fetch(API_BASE + path, { ...options, headers });
-    const data = await response.json().catch(() => ({}));
-    if (!response.ok) throw new Error(data.error || "Request failed. Please try again.");
-    return data;
-  }
-  window.vayntrApi = { request: apiRequest, getSession: readSession, signOut: clearSession };
-
-
   // Keep the branded intro brief and never trap users if JavaScript is delayed.
   if (boot) {
     const dismiss = () => boot.classList.add("is-done");
@@ -117,64 +93,6 @@
     }
   });
 
-
-  // Account forms use the Render API. Sessions are kept in sessionStorage for this tab.
-  const registerForm = $("#registerForm");
-  registerForm?.addEventListener("submit", async (event) => {
-    event.preventDefault();
-    const submit = $('button[type="submit"]', registerForm);
-    const status = $("#authStatus");
-    if (submit) submit.disabled = true;
-    if (status) status.textContent = "Creating your account…";
-    try {
-      const data = await apiRequest("/api/auth/register", { method: "POST", body: JSON.stringify({
-        displayName: $("#displayName", registerForm).value,
-        email: $("#email", registerForm).value,
-        password: $("#password", registerForm).value
-      })});
-      if (!writeSession(data)) throw new Error("This browser cannot keep a session. Check privacy settings and try again.");
-      window.location.href = "member-dashboard.html";
-    } catch (error) {
-      if (status) status.textContent = error.message;
-    } finally { if (submit) submit.disabled = false; }
-  });
-  const loginForm = $("#loginForm");
-  loginForm?.addEventListener("submit", async (event) => {
-    event.preventDefault();
-    const submit = $('button[type="submit"]', loginForm);
-    const status = $("#authStatus");
-    if (submit) submit.disabled = true;
-    if (status) status.textContent = "Signing in…";
-    try {
-      const data = await apiRequest("/api/auth/login", { method: "POST", body: JSON.stringify({
-        email: $("#email", loginForm).value,
-        password: $("#password", loginForm).value
-      })});
-      if (!writeSession(data)) throw new Error("This browser cannot keep a session. Check privacy settings and try again.");
-      window.location.href = "member-dashboard.html";
-    } catch (error) {
-      if (status) status.textContent = error.message;
-    } finally { if (submit) submit.disabled = false; }
-  });
-  const accountPanel = $("#accountPanel");
-  if (accountPanel) {
-    const session = readSession();
-    if (!session?.token) {
-      accountPanel.innerHTML = '<span class="pill">Sign-in required</span><h2>Access your account.</h2><p>Sign in to view your account profile. Registration is available, but member-only team tools are still being built.</p><div class="hero__actions"><a class="button button--primary" href="login.html">Sign in</a><a class="button button--outline" href="register.html">Create account</a></div>';
-    } else {
-      accountPanel.innerHTML = '<span class="pill">Checking session…</span><h2>Loading your profile.</h2><p id="accountStatus" role="status" aria-live="polite"></p>';
-      apiRequest("/api/auth/me").then(({ user }) => {
-        accountPanel.innerHTML = '<span class="pill">Account connected</span><h2>Welcome, ' + escapeHtml(user.display_name) + '.</h2><p>Email: ' + escapeHtml(user.email) + '</p><p>Role: ' + escapeHtml(user.role) + '</p><p>Member-only tools are still being built. Your account is connected to the VAYNTR API.</p><button class="button button--outline" id="signOutButton" type="button">Sign out</button>';
-        $("#signOutButton", accountPanel)?.addEventListener("click", () => { clearSession(); window.location.reload(); });
-      }).catch((error) => {
-        clearSession();
-        accountPanel.innerHTML = '<span class="pill">Session expired</span><h2>Please sign in again.</h2><p>' + escapeHtml(error.message) + '</p><a class="button button--primary" href="login.html">Sign in</a>';
-      });
-    }
-  }
-  function escapeHtml(value) {
-    return String(value).replace(/[&<>"']/g, (character) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[character]);
-  }
 
   // Update active section cues without requiring a framework.
   if ("IntersectionObserver" in window) {

@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#08090b">
+  <meta name="robots" content="noindex,nofollow">
+  <meta name="description" content="Restricted VAYNTR Esports recruitment review area.">
+  <title>Staff Recruitment Review | VAYNTR</title>
+  <link rel="icon" href="assets/vayntr-icon.png" type="image/png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700;800;900&family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css?v=20261016-staff">
+  <link rel="stylesheet" href="staff.css?v=20261016-staff">
+  <script src="staff.js?v=20261016-staff" defer></script>
+</head>
+<body>
+  <a class="skip-link" href="#main">Skip to content</a>
+  <header class="site-header">
+    <div class="container nav">
+      <a class="brand" href="index.html" aria-label="VAYNTR home"><img src="assets/vayntr-icon.png" alt="" class="brand__mark"><span>VAYNTR<span class="brand__dot">.</span></span></a>
+      <nav class="nav__links" aria-label="Staff navigation"><a href="recruitment.html">Public recruitment page</a></nav>
+      <span class="pill pill--red">Restricted staff area</span>
+    </div>
+  </header>
+  <main id="main">
+    <section class="page-hero">
+      <div class="container">
+        <p class="eyebrow"><span></span> Recruitment operations</p>
+        <h1>APPLICATION<br>REVIEW.</h1>
+        <p>For authorized VAYNTR staff only. Access is checked by the Render API; knowing this page URL does not grant permission to view applications.</p>
+      </div>
+      <div class="page-hero__mark" aria-hidden="true">V</div>
+    </section>
+    <section class="section">
+      <div class="container">
+        <div id="staffLoginPanel" class="application-panel">
+          <p class="eyebrow"><span></span> Staff authentication</p>
+          <h2>STAFF SIGN-IN</h2>
+          <p class="form-note">Enter the private staff access key configured in the Render environment for VAYNTR. This key is not your Resend API key and should never be shared. This page does not offer public account registration.</p>
+          <form id="staffLoginForm" class="staff-login-form">
+            <div class="field"><label for="staffAccessKey">Staff access key</label><input id="staffAccessKey" name="accessKey" type="password" minlength="32" maxlength="256" autocomplete="current-password" required></div>
+            <button class="button button--primary" type="submit" id="staffLoginButton">Open staff review</button>
+            <p id="staffLoginStatus" class="form-note" role="status" aria-live="polite"></p>
+          </form>
+        </div>
+        <div id="staffReviewPanel" hidden>
+          <div class="staff-toolbar">
+            <div><p class="eyebrow"><span></span> Protected review queue</p><h2 class="staff-title">SUBMISSIONS</h2><p id="staffReviewStatus" class="form-note" role="status" aria-live="polite"></p></div>
+            <div class="staff-toolbar__actions"><button type="button" class="button button--outline" id="refreshApplications">Refresh</button><button type="button" class="button button--outline" id="staffSignOut">Sign out</button></div>
+          </div>
+          <div id="applicationsList" class="staff-applications" aria-live="polite"></div>
+        </div>
+      </div>
+    </section>
+  </main>
+  <footer class="site-footer"><div class="container footer__bottom"><span>VAYNTR Esports · Restricted staff tools</span><span><a href="privacy.html">Privacy</a> · <a href="recruitment.html">Recruitment</a></span></div></footer>
+</body>
+</html>
