@@ -83,6 +83,10 @@ if (!decisionRoute || !/BEGIN/.test(decisionRoute[0]) || !/DELETE FROM recruitme
     !/decision === "accept"/.test(decisionRoute[0]) || /sendApplicationDecisionEmail/.test(decisionRoute[0])) {
   addError("server.js", "Recruitment decisions must preserve transactional accept/deny deletion and manual email follow-up.");
 }
+if (/app\.post\(["']\/api\/staff\/applications\/:id\/status["']/.test(serverSource) ||
+    /function sendApplicationDecisionEmail\(/.test(serverSource)) {
+  addError("server.js", "The obsolete status endpoint must not bypass the atomic roster/application decision flow or send automatic decision emails.");
+}
 
 if (!/content_type='result' AND published=TRUE AND verified=TRUE AND source_url IS NOT NULL/.test(serverSource) ||
     !/SELECT id, content_type, verified, title/.test(serverSource)) {
