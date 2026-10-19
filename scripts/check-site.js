@@ -15,6 +15,16 @@ function addError(file, message) {
   errors.push(file + ": " + message);
 }
 
+// Guard against previously verified runtime regressions that syntax checks cannot catch.
+const appSource = fs.readFileSync(path.join(root, "app.js"), "utf8");
+if (/\$\(["']#primaryNav a["']\)\.forEach/.test(appSource)) {
+  addError("app.js", "Do not call forEach on querySelector's single result; use querySelectorAll.");
+}
+const serverSource = fs.readFileSync(path.join(root, "server.js"), "utf8");
+if (!serverSource.includes('.match(/^Bearer\\s+(.+)$/i)')) {
+  addError("server.js", "Staff Authorization must parse Bearer followed by whitespace and a token.");
+}
+
 for (const file of htmlFiles) {
   const source = fs.readFileSync(path.join(root, file), "utf8");
   const ids = new Set();
@@ -51,8 +61,9 @@ for (const file of htmlFiles) {
       externalProjectPrefixes.some((prefix) => target.pathname.startsWith(prefix));
     if (explicitlyTargetsResultsPage && target.origin === previewOrigin &&
         target.pathname === siteBasePath + "results.html" &&
+        /^[a-z][a-z0-9+.-]*:/i.test(raw) &&
         raw !== "https://nappygorilla.github.io/results.html") {
-      addError(file, "Results links must use the public root GitHub Pages URL.");
+      addError(file, "Results links must use a relative URL or the configured root GitHub Pages URL.");
     }
 
     const isSameSitePage = target.origin === previewOrigin && !isExternalProjectPage;

@@ -184,7 +184,7 @@ function requireStaffAccess(req, res, next) {
   if (STAFF_REVIEW_TOKEN.length < 32) {
     return res.status(503).json({ error: "Staff review access is not configured." });
   }
-  const match = (req.get("authorization") || "").match(/^Bearer\\s+(.+)$/i);
+  const match = (req.get("authorization") || "").match(/^Bearer\s+(.+)$/i);
   if (!match) return res.status(401).json({ error: "A staff review token is required." });
 
   const supplied = Buffer.from(match[1]);
