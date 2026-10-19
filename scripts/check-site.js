@@ -15,6 +15,16 @@ function addError(file, message) {
   errors.push(file + ": " + message);
 }
 
+// Guard against verified runtime regressions that syntax checks alone cannot catch.
+const appSource = fs.readFileSync(path.join(root, "app.js"), "utf8");
+if (/^\s*\$\("#primaryNav a"\)\.forEach/m.test(appSource)) {
+  addError("app.js", "Use querySelectorAll for navigation link iteration.");
+}
+const serverSource = fs.readFileSync(path.join(root, "server.js"), "utf8");
+if (!serverSource.includes('.match(/^Bearer\\s+(.+)$/i)')) {
+  addError("server.js", "Staff Authorization must parse Bearer followed by whitespace and a token.");
+}
+
 for (const file of htmlFiles) {
   const source = fs.readFileSync(path.join(root, file), "utf8");
   const ids = new Set();
