@@ -15,10 +15,10 @@ function addError(file, message) {
   errors.push(file + ": " + message);
 }
 
-// Guard against verified runtime regressions that syntax checks alone cannot catch.
+// Guard against previously verified runtime regressions that syntax checks cannot catch.
 const appSource = fs.readFileSync(path.join(root, "app.js"), "utf8");
-if (/^\s*\$\("#primaryNav a"\)\.forEach/m.test(appSource)) {
-  addError("app.js", "Use querySelectorAll for navigation link iteration.");
+if (/(^|[^$])\$\(["']#primaryNav a["']\)\.forEach/.test(appSource)) {
+  addError("app.js", "Do not call forEach on querySelector's single result; use querySelectorAll.");
 }
 const serverSource = fs.readFileSync(path.join(root, "server.js"), "utf8");
 if (!serverSource.includes('.match(/^Bearer\\s+(.+)$/i)')) {
@@ -50,6 +50,8 @@ for (const file of htmlFiles) {
     let target;
     try { target = new URL(raw, pageUrl); } catch { continue; }
 
+    const rawPath = raw.split(/[?#]/, 1)[0].toLowerCase();
+    const explicitlyTargetsResultsPage = rawPath === "results.html" || rawPath.endsWith("/results.html");
     if (target.origin === previewOrigin && target.pathname.startsWith(legacyProjectPrefix)) {
       addError(file, "Legacy project-site URL detected; use the root GitHub Pages URL instead: " + raw);
       continue;
@@ -57,6 +59,13 @@ for (const file of htmlFiles) {
 
     const isExternalProjectPage = target.origin === previewOrigin &&
       externalProjectPrefixes.some((prefix) => target.pathname.startsWith(prefix));
+    if (explicitlyTargetsResultsPage && target.origin === previewOrigin &&
+        target.pathname === siteBasePath + "results.html" &&
+        /^[a-z][a-z0-9+.-]*:/i.test(raw) &&
+        raw !== "https://nappygorilla.github.io/results.html") {
+      addError(file, "Results links must use a relative URL or the configured root GitHub Pages URL.");
+    }
+
     const isSameSitePage = target.origin === previewOrigin && !isExternalProjectPage;
     if (!isSameSitePage) continue;
 
