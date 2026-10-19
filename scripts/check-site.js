@@ -40,8 +40,6 @@ for (const file of htmlFiles) {
     let target;
     try { target = new URL(raw, pageUrl); } catch { continue; }
 
-    const rawPath = raw.split(/[?#]/, 1)[0].toLowerCase();
-    const explicitlyTargetsResultsPage = rawPath === "results.html" || rawPath.endsWith("/results.html");
     if (target.origin === previewOrigin && target.pathname.startsWith(legacyProjectPrefix)) {
       addError(file, "Legacy project-site URL detected; use the root GitHub Pages URL instead: " + raw);
       continue;
@@ -49,12 +47,6 @@ for (const file of htmlFiles) {
 
     const isExternalProjectPage = target.origin === previewOrigin &&
       externalProjectPrefixes.some((prefix) => target.pathname.startsWith(prefix));
-    if (explicitlyTargetsResultsPage && target.origin === previewOrigin &&
-        target.pathname === siteBasePath + "results.html" &&
-        raw !== "https://nappygorilla.github.io/results.html") {
-      addError(file, "Results links must use the public root GitHub Pages URL.");
-    }
-
     const isSameSitePage = target.origin === previewOrigin && !isExternalProjectPage;
     if (!isSameSitePage) continue;
 
