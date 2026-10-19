@@ -9,6 +9,11 @@
     { id: "other", game: "Other / future division", label: "Other / future division" }
   ];
 
+  const searchInput = document.getElementById("rosterSearch");
+  const clearSearchButton = document.getElementById("rosterSearchClear");
+  const resultCount = document.getElementById("rosterResultCount");
+  let rosterLoadState = "loading";
+
   function addText(parent, tag, className, value) {
     const node = document.createElement(tag);
     if (className) node.className = className;
@@ -63,6 +68,11 @@
     card.className = "roster-player-card";
 
     const displayName = String(player.display_name || "VAYNTR player");
+    // Searchable data is limited to fields already approved for public profiles.
+    card.dataset.searchText = [
+      player.display_name, player.game, player.platform, player.role, player.bio
+    ].map((value) => String(value == null ? "" : value)).join(" ").toLocaleLowerCase();
+
     const top = document.createElement("div");
     top.className = "roster-player-card__top";
     addText(top, "span", "pill pill--red", "VAYNTR PLAYER");
@@ -78,8 +88,22 @@
       image.loading = "lazy";
       image.decoding = "async";
       image.referrerPolicy = "no-referrer";
-      image.addEventListener("error", () => image.remove(), { once: true });
+      image.addEventListener("error", () => {
+        const placeholder = document.createElement("div");
+        placeholder.className = "roster-player-card__placeholder";
+        placeholder.setAttribute("role", "img");
+        placeholder.setAttribute("aria-label", "No player artwork available for " + displayName);
+        placeholder.textContent = "V";
+        image.replaceWith(placeholder);
+      }, { once: true });
       card.appendChild(image);
+    } else {
+      const placeholder = document.createElement("div");
+      placeholder.className = "roster-player-card__placeholder";
+      placeholder.setAttribute("role", "img");
+      placeholder.setAttribute("aria-label", "No player artwork available for " + displayName);
+      placeholder.textContent = "V";
+      card.appendChild(placeholder);
     }
 
     addText(card, "h3", "roster-player-card__name", displayName);
@@ -102,6 +126,59 @@
     if (links.childElementCount) card.appendChild(links);
     return card;
   }
+
+  function applyRosterSearch() {
+    if (!resultCount || !searchInput) return;
+    const query = searchInput.value.trim().toLocaleLowerCase();
+    let totalPlayers = 0;
+    let visiblePlayers = 0;
+
+    for (const group of groups) {
+      const section = document.getElementById(group.id);
+      const grid = section && section.querySelector(".roster-player-grid");
+      if (!section || !grid) continue;
+      const cards = [...grid.querySelectorAll(".roster-player-card")];
+      let visibleInDivision = 0;
+      totalPlayers += cards.length;
+
+      cards.forEach((card) => {
+        const matches = !query || String(card.dataset.searchText || "").includes(query);
+        card.hidden = !matches;
+        if (matches) {
+          visibleInDivision += 1;
+          visiblePlayers += 1;
+        }
+      });
+
+      let filterEmpty = section.querySelector(".roster-filter-empty");
+      if (query && cards.length && visibleInDivision === 0) {
+        if (!filterEmpty) {
+          filterEmpty = document.createElement("p");
+          filterEmpty.className = "roster-filter-empty";
+          filterEmpty.setAttribute("role", "status");
+          section.appendChild(filterEmpty);
+        }
+        filterEmpty.textContent = "No players in this division match “" + searchInput.value.trim() + "”.";
+      } else {
+        filterEmpty?.remove();
+      }
+    }
+
+    if (clearSearchButton) clearSearchButton.disabled = !query;
+    if (rosterLoadState === "loading") resultCount.textContent = "Loading confirmed roster…";
+    else if (rosterLoadState === "error") resultCount.textContent = "Roster data is currently unavailable.";
+    else if (!totalPlayers) resultCount.textContent = "No confirmed roster members have been published yet.";
+    else if (query) resultCount.textContent = "Showing " + visiblePlayers + " of " + totalPlayers + " roster member" + (totalPlayers === 1 ? "" : "s") + ".";
+    else resultCount.textContent = totalPlayers + " confirmed roster member" + (totalPlayers === 1 ? "" : "s") + " across all divisions.";
+  }
+
+  searchInput?.addEventListener("input", applyRosterSearch);
+  clearSearchButton?.addEventListener("click", () => {
+    if (!searchInput) return;
+    searchInput.value = "";
+    applyRosterSearch();
+    searchInput.focus();
+  });
 
   async function loadRoster() {
     const sections = groups.map((group) => document.getElementById(group.id)).filter(Boolean);
@@ -137,7 +214,11 @@
         for (const player of playersForGroup) grid.appendChild(createPlayerCard(player));
         section.appendChild(grid);
       }
+      rosterLoadState = "ready";
+      applyRosterSearch();
     } catch (error) {
+      rosterLoadState = "error";
+      if (resultCount) resultCount.textContent = "Roster data is currently unavailable.";
       const message = error && error.name === "AbortError"
         ? "The roster request timed out. The API may be waking up; refresh to try again."
         : "We couldn't load the confirmed roster right now. Please refresh the page in a moment.";
