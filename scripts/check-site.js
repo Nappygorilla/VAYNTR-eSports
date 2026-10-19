@@ -25,6 +25,24 @@ if (!serverSource.includes('.match(/^Bearer\\s+(.+)$/i)')) {
   addError("server.js", "Staff Authorization must parse Bearer followed by whitespace and a token.");
 }
 
+
+const publicRosterRoute = serverSource.match(/app\.get\(["']\/api\/roster["'][\s\S]*?(?=\napp\.)/);
+const publicRosterSelect = publicRosterRoute && publicRosterRoute[0].match(/SELECT\s+([\s\S]*?)\s+FROM roster_players/i);
+if (!publicRosterSelect || /\b(?:email|accepted_at)\b/i.test(publicRosterSelect[1])) {
+  addError("server.js", "Public roster output must omit contact emails and internal acceptance timestamps.");
+}
+const staffRosterRoute = serverSource.match(/app\.get\(["']\/api\/staff\/roster["'][\s\S]*?(?=\napp\.)/);
+if (!staffRosterRoute || !/requireStaffAccess/.test(staffRosterRoute[0]) ||
+    !/SELECT\s+[^;]*\bemail\b[^;]*\bFROM roster_players/i.test(staffRosterRoute[0])) {
+  addError("server.js", "Player contact emails must be available only through the authenticated staff roster route.");
+}
+for (const publicClient of ["roster.js", "player.js"]) {
+  const source = fs.readFileSync(path.join(root, publicClient), "utf8");
+  if (/\b(?:player|item)\.email\b/i.test(source)) {
+    addError(publicClient, "Public roster/profile clients must never consume player contact emails.");
+  }
+}
+
 for (const file of htmlFiles) {
   const source = fs.readFileSync(path.join(root, file), "utf8");
   const ids = new Set();
