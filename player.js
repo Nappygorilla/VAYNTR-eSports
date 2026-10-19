@@ -173,7 +173,7 @@
     root.appendChild(loading);
 
     const controller = new AbortController();
-    const timeout = window.setTimeout(() => controller.abort(), 12000);
+    const timeout = window.setTimeout(() => controller.abort(), 45000);
     try {
       const response = await fetch(API_BASE + "/api/roster", { cache: "no-store", signal: controller.signal });
       const data = await response.json().catch(() => ({}));
