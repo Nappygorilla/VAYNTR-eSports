@@ -43,6 +43,47 @@ for (const publicClient of ["roster.js", "player.js"]) {
   }
 }
 
+
+const staffSource = fs.readFileSync(path.join(root, "staff.js"), "utf8");
+if (!staffSource.includes('const TOKEN_KEY = "vayntr-staff-session"') ||
+    !/headers\.Authorization\s*=\s*"Bearer "\s*\+\s*token/.test(staffSource) ||
+    !/sessionStorage\.getItem\(TOKEN_KEY\)/.test(staffSource) ||
+    !/sessionStorage\.setItem\(TOKEN_KEY,\s*token\)/.test(staffSource) ||
+    !/sessionStorage\.removeItem\(TOKEN_KEY\)/.test(staffSource) ||
+    /\blocalStorage\b/.test(staffSource)) {
+  addError("staff.js", "Staff portal must preserve Bearer-token auth in sessionStorage only.");
+}
+if (!/cache:\s*"no-store"/.test(staffSource) || !/new AbortController\(\)/.test(staffSource) ||
+    !/clearTimeout\(timeout\)/.test(staffSource)) {
+  addError("staff.js", "Staff API requests must avoid HTTP caching and have a finite timeout.");
+}
+const signOutBlock = staffSource.match(/function signOut\(\s*[\s\S]*?\)\s*\{[\s\S]*?\n  \}/);
+if (!signOutBlock || !["#applicationsList", "#staffRosterList", "#contentItemsList"].every((selector) => signOutBlock[0].includes(selector))) {
+  addError("staff.js", "Signing out must clear application, roster-contact, and content data from the DOM.");
+}
+if (!/res\.set\(["']Cache-Control["'],\s*["']no-store,\s*private["']\)/.test(serverSource) ||
+    !/function requireStaffAccess\([\s\S]*?res\.set\(["']Pragma["'],\s*["']no-cache["']\)/.test(serverSource)) {
+  addError("server.js", "Protected staff responses must disable HTTP caching.");
+}
+const protectedRouteChecks = [
+  /app\.get\(["']\/api\/staff\/applications["'],\s*requireDatabase,\s*requireStaffAccess/,
+  /app\.get\(["']\/api\/staff\/roster["'],\s*requireDatabase,\s*requireStaffAccess/,
+  /app\.post\(["']\/api\/staff\/applications\/:id\/decision["'],\s*requireDatabase,\s*requireStaffAccess/,
+  /app\.post\(["']\/api\/staff\/roster\/:id\/update["'],\s*requireDatabase,\s*requireStaffAccess/,
+  /app\.post\(["']\/api\/staff\/roster\/:id\/remove["'],\s*requireDatabase,\s*requireStaffAccess/,
+  /app\.get\(["']\/api\/staff\/content["'],\s*requireDatabase,\s*requireStaffAccess/,
+  /app\.post\(["']\/api\/staff\/content["'],\s*requireDatabase,\s*requireStaffAccess/,
+  /app\.post\(["']\/api\/staff\/content\/delete["'],\s*requireDatabase,\s*requireStaffAccess/
+];
+for (const routePattern of protectedRouteChecks) {
+  if (!routePattern.test(serverSource)) addError("server.js", "A staff data/action endpoint is missing private-token authorization.");
+}
+const decisionRoute = serverSource.match(/app\.post\(["']\/api\/staff\/applications\/:id\/decision["'][\s\S]*?(?=\n\/\/ Removing a roster player)/);
+if (!decisionRoute || !/BEGIN/.test(decisionRoute[0]) || !/DELETE FROM recruitment_applications/.test(decisionRoute[0]) ||
+    !/decision === "accept"/.test(decisionRoute[0]) || /sendApplicationDecisionEmail/.test(decisionRoute[0])) {
+  addError("server.js", "Recruitment decisions must preserve transactional accept/deny deletion and manual email follow-up.");
+}
+
 for (const file of htmlFiles) {
   const source = fs.readFileSync(path.join(root, file), "utf8");
   const ids = new Set();
