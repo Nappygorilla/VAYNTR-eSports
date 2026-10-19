@@ -13,7 +13,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700;800;900&family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="styles.css?v=20261019-siteupgrade">
   <link rel="stylesheet" href="staff.css?v=20261016-contentdesk">
-  <script src="staff.js?v=20261019-siteupgrade" defer></script>
+  <script src="staff.js?v=20261019-session-hardening" defer></script>
 </head>
 <body>
   <a class="skip-link" href="#main">Skip to content</a>
@@ -40,7 +40,7 @@
           <h2>STAFF SIGN-IN</h2>
           <p class="form-note">Enter the private staff access key configured in Render. This key is not your Resend API key. Application data and roster contact details load only after the API authorizes staff access.</p>
           <form id="staffLoginForm" class="staff-login-form">
-            <div class="field"><label for="staffAccessKey">Staff access key</label><input id="staffAccessKey" name="accessKey" type="password" minlength="32" maxlength="256" autocomplete="current-password" required></div>
+            <div class="field"><label for="staffAccessKey">Staff access key</label><input id="staffAccessKey" name="accessKey" type="password" minlength="32" maxlength="256" autocomplete="off" autocapitalize="none" spellcheck="false" required></div>
             <button class="button button--primary" type="submit" id="staffLoginButton">Open staff portal <span aria-hidden="true">↗</span></button>
             <p id="staffLoginStatus" class="form-note" role="status" aria-live="polite"></p>
           </form>

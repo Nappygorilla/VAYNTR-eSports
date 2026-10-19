@@ -181,6 +181,9 @@ function requireDatabase(_req, res, next) {
   next();
 }
 function requireStaffAccess(req, res, next) {
+  // Staff endpoints contain private applicant and roster details; prevent shared/browser HTTP caching.
+  res.set("Cache-Control", "no-store, private");
+  res.set("Pragma", "no-cache");
   if (STAFF_REVIEW_TOKEN.length < 32) {
     return res.status(503).json({ error: "Staff review access is not configured." });
   }
