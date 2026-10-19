@@ -22,6 +22,52 @@
     else delete node.dataset.state;
   }
 
+  function ensureListSearch(listNode, toolbarId, labelText, placeholder) {
+    if (!listNode) return;
+    let toolbar = document.getElementById(toolbarId);
+    if (!toolbar) {
+      toolbar = document.createElement("div");
+      toolbar.id = toolbarId;
+      toolbar.className = "staff-list-search";
+      const label = document.createElement("label");
+      label.htmlFor = toolbarId + "Input";
+      label.textContent = labelText;
+      const input = document.createElement("input");
+      input.id = toolbarId + "Input";
+      input.type = "search";
+      input.placeholder = placeholder;
+      input.autocomplete = "off";
+      const count = document.createElement("p");
+      count.className = "staff-list-search__count";
+      count.setAttribute("role", "status");
+      count.setAttribute("aria-live", "polite");
+      toolbar.append(label, input, count);
+      listNode.before(toolbar);
+      input.addEventListener("input", () => applyFilter(listNode, input, count));
+    }
+    applyFilter(listNode, toolbar.querySelector("input"), toolbar.querySelector(".staff-list-search__count"));
+  }
+
+  function applyFilter(listNode, input, count) {
+    if (!listNode || !input || !count) return;
+    const query = input.value.trim().toLocaleLowerCase();
+    const rows = Array.from(listNode.children);
+    let total = 0;
+    let visible = 0;
+    for (const row of rows) {
+      if (row.dataset.filterEmpty === "true") continue;
+      if (row.classList.contains("empty-state")) {
+        row.hidden = Boolean(query);
+        continue;
+      }
+      total += 1;
+      const matches = !query || row.textContent.toLocaleLowerCase().includes(query);
+      row.hidden = !matches;
+      if (matches) visible += 1;
+    }
+    count.textContent = query ? visible + " of " + total + " item(s) shown" : total + " item(s)";
+  }
+
   function activateView(name) {
     const requested = document.querySelector('[data-staff-view="' + name + '"]');
     if (!requested) return;
@@ -248,12 +294,14 @@
       if (firstOpen) activateView("overview");
       if (applications.length === 0) {
         addText(list, "div", "empty-state", "No applications have been submitted yet.");
+        ensureListSearch(list, "applicationsSearch", "SEARCH APPLICATIONS", "Name, email, game, platform…");
         await loadRoster(false);
         await loadOverview();
         setStatus(reviewStatus, "Queue loaded. No applications are waiting.", "success");
         return;
       }
       for (const application of applications) list.appendChild(renderApplication(application));
+      ensureListSearch(list, "applicationsSearch", "SEARCH APPLICATIONS", "Name, email, game, platform…");
       await loadRoster(false);
       await loadOverview();
       setStatus(reviewStatus, "Loaded " + applications.length + " application(s).", "success");
@@ -283,6 +331,7 @@
       if ($("#rosterTabCount")) $("#rosterTabCount").textContent = rosterCount;
       if (players.length === 0) {
         addText(rosterList, "div", "empty-state", "No players have been accepted yet.");
+        ensureListSearch(rosterList, "rosterSearch", "SEARCH ROSTER", "Name, game, role, platform…");
         setStatus(rosterStatus, "Accepted roster is empty.", "success");
         return;
       }
@@ -313,6 +362,15 @@
         emailLink.textContent = "Email player ↗";
         emailLink.setAttribute("aria-label", "Compose email to " + player.display_name);
         actions.appendChild(emailLink);
+
+        const profileLink = document.createElement("a");
+        profileLink.className = "button button--outline";
+        profileLink.href = "player.html?id=" + encodeURIComponent(String(player.id));
+        profileLink.target = "_blank";
+        profileLink.rel = "noopener noreferrer";
+        profileLink.textContent = "Preview public profile ↗";
+        profileLink.setAttribute("aria-label", "Preview the public profile for " + player.display_name);
+        actions.appendChild(profileLink);
 
         const removeButton = document.createElement("button");
         removeButton.type = "button";
@@ -404,6 +462,7 @@
         card.appendChild(actions);
         rosterList.appendChild(card);
       }
+      ensureListSearch(rosterList, "rosterSearch", "SEARCH ROSTER", "Name, game, role, platform…");
       setStatus(rosterStatus, players.length + " roster member(s). Email addresses are visible only in this protected staff area.", "success");
     } catch (error) {
       if (error.status === 401 || error.status === 403) signOut();
@@ -508,6 +567,7 @@
       const items = Array.isArray(result.items) ? result.items : [];
       if (!items.length) addText(contentList, "div", "empty-state", "No saved content yet. Use the editor above to publish the first item.");
       else for (const item of items) contentList.appendChild(renderContentItem(item));
+      ensureListSearch(contentList, "contentSearch", "SEARCH CONTENT", "Title, category, type, game…");
       setStatus($("#contentEditorStatus"), items.length + " saved content item(s).", "success");
     } catch (error) {
       if (error.status === 401 || error.status === 403) signOut();
