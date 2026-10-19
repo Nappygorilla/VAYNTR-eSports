@@ -124,29 +124,69 @@
   async function api(path, options = {}) {
     const headers = { ...(options.body ? { "Content-Type": "application/json" } : {}), ...(options.headers || {}) };
     if (token) headers.Authorization = "Bearer " + token;
-    const response = await fetch(API_BASE + path, { ...options, headers });
-    const data = await response.json().catch(() => ({}));
-    if (!response.ok) {
-      const error = new Error(data.error || "The request failed.");
-      error.status = response.status;
-      throw error;
+
+    // Staff responses can contain application and player contact details: never use the browser HTTP cache.
+    const controller = new AbortController();
+    const timeout = window.setTimeout(() => controller.abort(), 45000);
+    try {
+      let response;
+      try {
+        response = await fetch(API_BASE + path, {
+          ...options,
+          cache: "no-store",
+          headers,
+          signal: controller.signal
+        });
+      } catch (error) {
+        if (error && error.name === "AbortError") {
+          throw new Error("The API request timed out. Render may be waking up; try again.");
+        }
+        throw new Error("Could not reach the VAYNTR API. Check your connection and try again.");
+      }
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        const error = new Error(data.error || "The request failed.");
+        error.status = response.status;
+        throw error;
+      }
+      return data;
+    } finally {
+      window.clearTimeout(timeout);
     }
-    return data;
   }
 
-  function signOut() {
+  function signOut(statusMessage = "Signed out.", statusState = "success") {
     token = "";
     try { sessionStorage.removeItem(TOKEN_KEY); } catch {}
     reviewPanel.hidden = true;
     loginPanel.hidden = false;
     loginForm.reset();
-    list.replaceChildren();
     activateView("overview");
+
+    // Remove private applicant/roster details and unpublished drafts from the DOM on sign-out.
+    for (const selector of ["#applicationsList", "#staffRosterList", "#contentItemsList"]) {
+      $(selector)?.replaceChildren();
+    }
+    for (const id of ["applicationsSearchInput", "rosterSearchInput", "contentSearchInput"]) {
+      const input = document.getElementById(id);
+      if (input) input.value = "";
+    }
+    for (const id of ["overviewApplicationCount", "applicationTabCount", "overviewRosterCount", "rosterTabCount"]) {
+      const count = document.getElementById(id);
+      if (count) count.textContent = "—";
+    }
+    const editor = $("#contentEditorForm");
+    editor?.reset();
+    if (editor && editor.elements.id) editor.elements.id.value = "";
+    setStatus($("#contentEditorStatus"), "");
+    setStatus($("#staffRosterStatus"), "");
+    setStatus(reviewStatus, "");
     if (manualEmailFollowup) {
       manualEmailFollowup.hidden = true;
       manualEmailFollowup.replaceChildren();
     }
-    setStatus(loginStatus, "Signed out.", "success");
+    setStatus($("#portalActionStatus"), "");
+    setStatus(loginStatus, statusMessage, statusState);
   }
 
   function addText(parent, tag, className, text) {
@@ -264,7 +304,9 @@
           ? "Applicant accepted and added to roster."
           : "Application denied and deleted."), "success");
       } catch (error) {
-        if (error.status === 401 || error.status === 403) signOut();
+        if (error.status === 401 || error.status === 403) {
+        signOut("Staff access expired or was rejected. Enter the access key again.", "error");
+      }
         setStatus(reviewStatus, error.message || "Unable to process this application.", "error");
       } finally {
         acceptButton.disabled = false;
@@ -387,7 +429,9 @@
             setStatus(rosterStatus, result.message || "Player removed from the public roster.", "success");
             setStatus($("#portalActionStatus"), result.message || "Player removed.", "success");
           } catch (error) {
-            if (error.status === 401 || error.status === 403) signOut();
+            if (error.status === 401 || error.status === 403) {
+        signOut("Staff access expired or was rejected. Enter the access key again.", "error");
+      }
             setStatus(rosterStatus, error.message || "Unable to remove this player.", "error");
           } finally {
             removeButton.disabled = false;
@@ -454,7 +498,9 @@
             setStatus($("#portalActionStatus"), updated.message || "Player profile updated.", "success");
             await loadRoster(false);
           } catch (error) {
-            if (error.status === 401 || error.status === 403) signOut();
+            if (error.status === 401 || error.status === 403) {
+        signOut("Staff access expired or was rejected. Enter the access key again.", "error");
+      }
             setStatus(profileStatus, error.message || "Unable to save profile.", "error");
           } finally { saveProfile.disabled = false; }
         });
@@ -465,7 +511,9 @@
       ensureListSearch(rosterList, "rosterSearch", "SEARCH ROSTER", "Name, game, role, platform…");
       setStatus(rosterStatus, players.length + " roster member(s). Email addresses are visible only in this protected staff area.", "success");
     } catch (error) {
-      if (error.status === 401 || error.status === 403) signOut();
+      if (error.status === 401 || error.status === 403) {
+        signOut("Staff access expired or was rejected. Enter the access key again.", "error");
+      }
       setStatus(rosterStatus, error.message || "Unable to load the accepted roster.", "error");
     }
   }
@@ -540,8 +588,13 @@
           published: !item.published, verified: Boolean(item.verified)
         }) });
         await loadContent(false); setStatus($("#portalActionStatus"), "Content visibility updated.", "success");
-      } catch (error) { setStatus($("#portalActionStatus"), error.message || "Unable to update visibility.", "error"); }
-      finally { togglePublish.disabled = false; }
+      } catch (error) {
+        if (error.status === 401 || error.status === 403) {
+          signOut("Staff access expired or was rejected. Enter the access key again.", "error");
+          return;
+        }
+        setStatus($("#portalActionStatus"), error.message || "Unable to update visibility.", "error");
+      } finally { togglePublish.disabled = false; }
     });
     const remove = document.createElement("button");
     remove.type = "button"; remove.className = "button button--outline"; remove.textContent = "Delete";
@@ -552,8 +605,13 @@
         await api("/api/staff/content/delete", { method: "POST", body: JSON.stringify({ id: Number(item.id), type: item.content_type }) });
         if (String(contentForm.elements.id.value) === String(item.id)) resetContentEditor();
         await loadContent(false); setStatus($("#portalActionStatus"), "Content item deleted.", "success");
-      } catch (error) { setStatus($("#portalActionStatus"), error.message || "Unable to delete item.", "error"); }
-      finally { remove.disabled = false; }
+      } catch (error) {
+        if (error.status === 401 || error.status === 403) {
+          signOut("Staff access expired or was rejected. Enter the access key again.", "error");
+          return;
+        }
+        setStatus($("#portalActionStatus"), error.message || "Unable to delete item.", "error");
+      } finally { remove.disabled = false; }
     });
     actions.append(edit, togglePublish, remove); card.appendChild(actions);
     return card;
@@ -570,7 +628,9 @@
       ensureListSearch(contentList, "contentSearch", "SEARCH CONTENT", "Title, category, type, game…");
       setStatus($("#contentEditorStatus"), items.length + " saved content item(s).", "success");
     } catch (error) {
-      if (error.status === 401 || error.status === 403) signOut();
+      if (error.status === 401 || error.status === 403) {
+        signOut("Staff access expired or was rejected. Enter the access key again.", "error");
+      }
       setStatus($("#contentEditorStatus"), error.message || "Unable to load saved content.", "error");
     }
   }
@@ -632,7 +692,9 @@
       resetContentEditor(); await loadContent(false);
       setStatus($("#portalActionStatus"), result.message || "Content saved.", "success");
     } catch (error) {
-      if (error.status === 401 || error.status === 403) signOut();
+      if (error.status === 401 || error.status === 403) {
+        signOut("Staff access expired or was rejected. Enter the access key again.", "error");
+      }
       setStatus($("#contentEditorStatus"), error.message || "Unable to save content.", "error");
     } finally { saveButton.disabled = false; contentForm.removeAttribute("aria-busy"); }
   });
