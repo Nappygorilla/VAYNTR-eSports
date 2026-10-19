@@ -314,3 +314,27 @@ html{scroll-behavior:smooth}
 @media(max-width:800px){.hero__bottomline{grid-template-columns:repeat(2,minmax(0,1fr));padding:0 16px;}.hero__section-tab{min-height:48px;font-size:.6rem;letter-spacing:.1em;border-bottom:1px solid rgba(255,255,255,.06);}.hero__section-tab:nth-child(2){border-right:0;}.hero__section-tab:nth-child(3),.hero__section-tab:nth-child(4){border-bottom:0;}}
 @media(max-width:520px){.hero__bottomline{padding:0 10px;}.hero__section-tab{min-height:46px;padding:10px 6px;font-size:.56rem;letter-spacing:.07em;}}
 @media(prefers-reduced-motion:reduce){.division-panel:not([hidden]){animation:none;}}
+
+
+/* Player-profile page and public-feed tools. */
+.public-feed-tools{display:flex;align-items:end;justify-content:space-between;gap:18px;margin:-8px 0 24px;padding:16px 18px;border:1px solid var(--line);background:#0c0e11}
+.public-feed-tools__label{display:grid;gap:8px;flex:1;max-width:600px;color:#ff7884;font-size:.65rem;font-weight:900;letter-spacing:.12em}
+.public-feed-tools__input{width:100%;min-height:44px;padding:11px 13px;color:var(--text);background:#08090b;border:1px solid #383d46;border-radius:0}
+.public-feed-tools__input:focus-visible{outline:2px solid var(--red-bright);border-color:var(--red-bright)}
+.public-feed-tools__count{margin:0;color:var(--muted);font-size:.78rem;white-space:nowrap}
+.player-profile{max-width:980px;margin:0 auto}
+.player-profile__layout{display:grid;grid-template-columns:minmax(0,.82fr) minmax(0,1.18fr);gap:32px;align-items:start}
+.player-profile__art{border:1px solid var(--line);background:linear-gradient(145deg,#171a20,#0b0d10);padding:14px}
+.player-profile__image{display:block;width:100%;max-height:540px;aspect-ratio:4/5;object-fit:cover;background:#14171c}
+.player-profile__placeholder{aspect-ratio:4/5;display:grid;place-items:center;background:#111318;border:1px solid var(--line);font:900 clamp(7rem,18vw,13rem)/1 "Barlow Condensed",Impact,sans-serif;color:transparent;-webkit-text-stroke:1px rgba(255,255,255,.18)}
+.player-profile__copy{min-width:0;padding:12px 0}
+.player-profile__name{font:900 clamp(3.4rem,7vw,6.6rem)/.88 "Barlow Condensed",Impact,sans-serif;letter-spacing:0;margin:18px 0;overflow-wrap:anywhere}
+.player-profile__division{color:#ff7884;font-weight:800;text-transform:uppercase;letter-spacing:.1em;font-size:.75rem}
+.player-profile__meta{display:flex;flex-wrap:wrap;gap:8px;margin:20px 0}
+.player-profile__meta .pill{margin:0}
+.player-profile__bio{color:#c2c5cc;line-height:1.9;white-space:pre-wrap;overflow-wrap:anywhere}
+.player-profile__actions{display:flex;flex-wrap:wrap;gap:10px;margin-top:24px}
+.player-profile__status{margin-top:18px;color:var(--muted);font-size:.88rem}
+.player-profile__status[data-state="error"]{color:#ff7884}
+@media(max-width:700px){.public-feed-tools{align-items:stretch;flex-direction:column}.public-feed-tools__count{white-space:normal}.player-profile__layout{grid-template-columns:1fr;gap:16px}.player-profile__art{max-width:500px}.player-profile__image,.player-profile__placeholder{max-height:420px;aspect-ratio:5/4}.player-profile__copy{padding:0}.player-profile__name{font-size:clamp(3.2rem,15vw,5rem)}}
+@media(min-width:801px){.hero{padding-top:34px;padding-bottom:26px}.hero h1{font-size:clamp(3.8rem,7vw,6.3rem);margin-top:16px;margin-bottom:18px}}
