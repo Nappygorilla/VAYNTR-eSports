@@ -47,6 +47,14 @@
     heading.id = section.id + "RosterHeading";
     addText(panel, "p", "", message);
     if (state) panel.dataset.state = state;
+    if (state === "error") {
+      const retry = document.createElement("button");
+      retry.type = "button";
+      retry.className = "button button--outline";
+      retry.textContent = "Try again";
+      retry.addEventListener("click", () => loadRoster());
+      panel.appendChild(retry);
+    }
     section.appendChild(panel);
   }
 
@@ -99,7 +107,7 @@
     const sections = groups.map((group) => document.getElementById(group.id)).filter(Boolean);
     for (const section of sections) section.setAttribute("aria-busy", "true");
     const controller = new AbortController();
-    const timeout = window.setTimeout(() => controller.abort(), 12000);
+    const timeout = window.setTimeout(() => controller.abort(), 45000);
     try {
       const response = await fetch(API_BASE + "/api/roster", { cache: "no-store", signal: controller.signal });
       const data = await response.json().catch(() => ({}));
