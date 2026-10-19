@@ -173,7 +173,7 @@
     if (retryButton) { retryButton.disabled = true; retryButton.textContent = "Loading…"; }
     if (countStatus) countStatus.textContent = "Loading…";
     const controller = new AbortController();
-    const timeout = window.setTimeout(() => controller.abort(), 12000);
+    const timeout = window.setTimeout(() => controller.abort(), 45000);
     try {
       const response = await fetch(API_BASE + endpoint, { cache: "no-store", signal: controller.signal });
       const data = await response.json().catch(() => ({}));
