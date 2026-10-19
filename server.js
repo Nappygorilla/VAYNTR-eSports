@@ -227,9 +227,9 @@ app.get("/api/status", async (_req, res) => {
 
 app.get("/api/roster", requireDatabase, async (_req, res, next) => {
   try {
-    // Public roster data intentionally excludes email addresses and other applicant-only information.
+    // Only fields needed by public cards/profiles leave this route. Contact emails and internal timestamps stay private.
     const result = await pool.query(
-      "SELECT id, display_name, game, platform, role, bio, social_url, highlight_url, profile_image_url, accepted_at FROM roster_players ORDER BY game ASC, display_name ASC"
+      "SELECT id, display_name, game, platform, role, bio, social_url, highlight_url, profile_image_url FROM roster_players ORDER BY game ASC, display_name ASC"
     );
     res.set("Cache-Control", "no-store");
     res.json({ players: result.rows });
