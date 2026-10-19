@@ -207,7 +207,10 @@
       allItems = receivedItems.filter((item) => {
         if (!item || typeof item !== "object") return false;
         if (page === "results") {
-          return item.verified === true && Boolean(safeHttpsUrl(item.source_url));
+          // The API route already enforces published=TRUE and verified=TRUE. During a rolling deploy,
+          // also honor the field when present, but remain compatible with the older filtered response.
+          const hasVerificationFlag = Object.prototype.hasOwnProperty.call(item, "verified");
+          return (!hasVerificationFlag || item.verified === true) && Boolean(safeHttpsUrl(item.source_url));
         }
         if (page === "media") {
           return Boolean(safeHttpsUrl(item.source_url) || safeHttpsUrl(item.image_url));
