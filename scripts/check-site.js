@@ -84,6 +84,27 @@ if (!decisionRoute || !/BEGIN/.test(decisionRoute[0]) || !/DELETE FROM recruitme
   addError("server.js", "Recruitment decisions must preserve transactional accept/deny deletion and manual email follow-up.");
 }
 
+if (!/content_type='result' AND published=TRUE AND verified=TRUE AND source_url IS NOT NULL/.test(serverSource) ||
+    !/SELECT id, content_type, verified, title/.test(serverSource)) {
+  addError("server.js", "Public match results must remain published, explicitly verified, and backed by a source link.");
+}
+if (!/content_type='media' AND published=TRUE AND \(source_url IS NOT NULL OR image_url IS NOT NULL\)/.test(serverSource) ||
+    !/type === "media" && published && !sourceUrl && !imageUrl/.test(serverSource)) {
+  addError("server.js", "Published media must include a source URL or an image asset.");
+}
+const contentClientSource = fs.readFileSync(path.join(root, "content.js"), "utf8");
+if (!/item\.verified === true && Boolean\(safeHttpsUrl\(item\.source_url\)\)/.test(contentClientSource) ||
+    !/VERIFIED RESULT/.test(contentClientSource)) {
+  addError("content.js", "The public results client must fail closed unless verification and a usable HTTPS evidence link are present.");
+}
+if (!/safeHttpsUrl\(item\.source_url\) \|\| safeHttpsUrl\(item\.image_url\)/.test(contentClientSource) ||
+    !/content-card__source-note/.test(contentClientSource)) {
+  addError("content.js", "The public media feed must contain a usable linked source or image asset and make provenance clear.");
+}
+if (!/External source link provided\./.test(contentClientSource) || !/No external source link provided\./.test(contentClientSource)) {
+  addError("content.js", "News cards must distinguish sourced posts from posts with no external source link.");
+}
+
 for (const file of htmlFiles) {
   const source = fs.readFileSync(path.join(root, file), "utf8");
   const ids = new Set();

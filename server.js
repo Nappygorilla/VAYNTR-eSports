@@ -307,13 +307,13 @@ app.get("/api/news", requireDatabase, async (_req, res, next) => {
 });
 app.get("/api/results", requireDatabase, async (_req, res, next) => {
   try {
-    const result = await pool.query("SELECT id, content_type, title, category, excerpt, body, game, event_name, opponent, score, outcome, played_at, source_url, image_url, created_at, updated_at FROM site_content WHERE content_type='result' AND published=TRUE AND verified=TRUE ORDER BY played_at DESC NULLS LAST, created_at DESC LIMIT 100");
+    const result = await pool.query("SELECT id, content_type, verified, title, category, excerpt, body, game, event_name, opponent, score, outcome, played_at, source_url, image_url, created_at, updated_at FROM site_content WHERE content_type='result' AND published=TRUE AND verified=TRUE AND source_url IS NOT NULL ORDER BY played_at DESC NULLS LAST, created_at DESC LIMIT 100");
     res.set("Cache-Control", "no-store"); res.json({ items: result.rows });
   } catch (error) { next(error); }
 });
 app.get("/api/media", requireDatabase, async (_req, res, next) => {
   try {
-    const result = await pool.query("SELECT id, content_type, title, category, excerpt, body, game, event_name, opponent, score, outcome, played_at, source_url, image_url, created_at, updated_at FROM site_content WHERE content_type='media' AND published=TRUE ORDER BY created_at DESC LIMIT 100");
+    const result = await pool.query("SELECT id, content_type, title, category, excerpt, body, game, event_name, opponent, score, outcome, played_at, source_url, image_url, created_at, updated_at FROM site_content WHERE content_type='media' AND published=TRUE AND (source_url IS NOT NULL OR image_url IS NOT NULL) ORDER BY created_at DESC LIMIT 100");
     res.set("Cache-Control", "no-store"); res.json({ items: result.rows });
   } catch (error) { next(error); }
 });
@@ -375,6 +375,7 @@ app.post("/api/staff/content", requireDatabase, requireStaffAccess, async (req, 
   if (playedAt && !/^\d{4}-\d{2}-\d{2}$/.test(playedAt)) return res.status(400).json({ error: "Match date must use YYYY-MM-DD." });
   if (type === "result" && (!game || !eventName)) return res.status(400).json({ error: "A result needs both the game/division and event name." });
   if (type === "result" && published && !sourceUrl) return res.status(400).json({ error: "A published result needs a source or evidence link. Save it as a draft until the link is available." });
+  if (type === "media" && published && !sourceUrl && !imageUrl) return res.status(400).json({ error: "Published media needs a source link or image asset. Save it as a draft until one is available." });
   if ([sourceUrl, imageUrl].some((url) => url === undefined)) return res.status(400).json({ error: "Source and image links must be valid HTTPS URLs." });
   const values = [type, title, category || (type === "result" ? "Match result" : type === "media" ? "Media" : "Announcement"), excerpt, body, game, eventName, opponent, score, outcome, playedAt, sourceUrl, imageUrl, published, verified];
   try {

@@ -45,7 +45,16 @@
 
   function formatDate(value) {
     if (!value) return "Date not specified";
-    const date = new Date(value);
+    let date;
+    if (typeof value === "string" && /^\\d{4}-\\d{2}-\\d{2}$/.test(value)) {
+      const [year, month, day] = value.split("-").map(Number);
+      date = new Date(year, month - 1, day);
+      if (date.getFullYear() !== year || date.getMonth() !== month - 1 || date.getDate() !== day) {
+        return "Date not specified";
+      }
+    } else {
+      date = new Date(value);
+    }
     if (Number.isNaN(date.getTime())) return "Date not specified";
     return new Intl.DateTimeFormat(undefined, { year: "numeric", month: "short", day: "numeric" }).format(date);
   }
@@ -93,6 +102,22 @@
     text(body, "h3", "", item.title || "Untitled");
 
     if (page === "results") {
+      const trustLine = document.createElement("p");
+      trustLine.className = "content-card__trustline";
+      text(trustLine, "span", "content-card__trust-pill", "Verified result");
+      text(trustLine, "span", "content-card__trust-copy", "Staff-verified · evidence link attached");
+      body.appendChild(trustLine);
+    } else if (page === "news") {
+      text(body, "p", "content-card__source-note", safeHttpsUrl(item.source_url)
+        ? "External source link provided."
+        : "No external source link provided.");
+    } else if (page === "media") {
+      text(body, "p", "content-card__source-note", safeHttpsUrl(item.source_url)
+        ? "Media source link provided."
+        : "Image asset only · no external media link.");
+    }
+
+    if (page === "results") {
       const line = [item.game, item.event_name, item.opponent ? "vs " + item.opponent : "", item.score, item.outcome]
         .filter(Boolean).join(" · ");
       if (line) text(body, "p", "content-card__result-line", line);
@@ -103,7 +128,7 @@
 
     const actions = document.createElement("div");
     actions.className = "content-card__actions";
-    externalLink(actions, item.source_url, page === "media" ? "Watch / open media" : page === "results" ? "Source / proof" : "Read source");
+    externalLink(actions, item.source_url, page === "media" ? "Watch / open media" : page === "results" ? "Open evidence" : "Open source article");
     if (actions.childElementCount) body.appendChild(actions);
     card.appendChild(body);
     return card;
@@ -178,10 +203,22 @@
       const response = await fetch(API_BASE + endpoint, { cache: "no-store", signal: controller.signal });
       const data = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(data.error || "Feed unavailable");
-      allItems = (Array.isArray(data.items) ? data.items : []).slice().sort((a, b) => itemDate(b) - itemDate(a));
+      const receivedItems = Array.isArray(data.items) ? data.items : [];
+      allItems = receivedItems.filter((item) => {
+        if (!item || typeof item !== "object") return false;
+        if (page === "results") {
+          return item.verified === true && Boolean(safeHttpsUrl(item.source_url));
+        }
+        if (page === "media") {
+          return Boolean(safeHttpsUrl(item.source_url) || safeHttpsUrl(item.image_url));
+        }
+        return true;
+      }).slice().sort((a, b) => itemDate(b) - itemDate(a));
       if (!allItems.length) {
         if (page === "home") showEmpty("VAYNTR will publish approved announcements and sourced competitive analysis here. No posts are published yet.");
+        else if (page === "results" && receivedItems.length) showEmpty("A result is shown only when staff verification is present and a usable HTTPS evidence link is attached. Check the Content Desk for records missing either requirement.");
         else if (page === "results") showEmpty("Verified match results will appear after staff publish the record and confirm its source.");
+        else if (page === "media" && receivedItems.length) showEmpty("Published media needs a usable HTTPS source link or image asset before it can appear. Check the media entry in the protected Content Desk.");
         else if (page === "media") showEmpty("Approved clips, player highlights, and team media will appear here once added through the protected staff portal.");
         else showEmpty("No official articles are published yet. Staff can add announcements and guides through the protected content desk.");
         if (countStatus) countStatus.textContent = "0 items";
