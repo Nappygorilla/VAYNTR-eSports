@@ -361,7 +361,3 @@ html{scroll-behavior:smooth}
 .roster-player-card[hidden]{display:none!important}
 .roster-player-card__placeholder{display:grid;place-items:center;width:100%;height:190px;margin-top:18px;border:1px solid #303034;background:linear-gradient(145deg,#171a20,#0b0d10);color:transparent;font:900 clamp(4rem,11vw,7rem)/1 "Barlow Condensed",Impact,sans-serif;-webkit-text-stroke:1px rgba(255,255,255,.2)}
 @media(max-width:640px){.roster-toolbar{grid-template-columns:1fr;padding:16px}.roster-toolbar__meta{justify-content:space-between}}
-
-
-/* Public feed provenance and verification states. */
-.content-card__trustline{display:flex;align-items:center;gap:9px;flex-wrap:wrap;margin:12px 0 8px}.content-card__trust-pill{display:inline-flex;align-items:center;border:1px solid rgba(227,33,53,.55);background:rgba(227,33,53,.09);color:#ff6574;padding:5px 8px;font-size:.64rem;font-weight:900;letter-spacing:.09em;text-transform:uppercase}.content-card__trust-copy,.content-card__source-note{font-size:.7rem;color:#9ba1ab}.content-card__source-note{margin:8px 0 0}
