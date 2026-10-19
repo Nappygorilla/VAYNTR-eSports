@@ -305,8 +305,8 @@
           : "Application denied and deleted."), "success");
       } catch (error) {
         if (error.status === 401 || error.status === 403) {
-        signOut("Staff access expired or was rejected. Enter the access key again.", "error");
-      }
+          signOut("Staff access expired or was rejected. Enter the access key again.", "error");
+        }
         setStatus(reviewStatus, error.message || "Unable to process this application.", "error");
       } finally {
         acceptButton.disabled = false;
@@ -430,8 +430,8 @@
             setStatus($("#portalActionStatus"), result.message || "Player removed.", "success");
           } catch (error) {
             if (error.status === 401 || error.status === 403) {
-        signOut("Staff access expired or was rejected. Enter the access key again.", "error");
-      }
+              signOut("Staff access expired or was rejected. Enter the access key again.", "error");
+            }
             setStatus(rosterStatus, error.message || "Unable to remove this player.", "error");
           } finally {
             removeButton.disabled = false;
@@ -499,8 +499,8 @@
             await loadRoster(false);
           } catch (error) {
             if (error.status === 401 || error.status === 403) {
-        signOut("Staff access expired or was rejected. Enter the access key again.", "error");
-      }
+              signOut("Staff access expired or was rejected. Enter the access key again.", "error");
+            }
             setStatus(profileStatus, error.message || "Unable to save profile.", "error");
           } finally { saveProfile.disabled = false; }
         });
