@@ -314,6 +314,15 @@
         emailLink.setAttribute("aria-label", "Compose email to " + player.display_name);
         actions.appendChild(emailLink);
 
+        const profileLink = document.createElement("a");
+        profileLink.className = "button button--outline";
+        profileLink.href = "player.html?id=" + encodeURIComponent(String(player.id));
+        profileLink.target = "_blank";
+        profileLink.rel = "noopener noreferrer";
+        profileLink.textContent = "Preview public profile ↗";
+        profileLink.setAttribute("aria-label", "Preview the public profile for " + player.display_name);
+        actions.appendChild(profileLink);
+
         const removeButton = document.createElement("button");
         removeButton.type = "button";
         removeButton.className = "button button--outline staff-remove-player";
