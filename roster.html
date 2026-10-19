@@ -1,4 +1,4 @@
-<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="theme-color" content="#08090b"><meta name="description" content="Meet the VAYNTR esports roster across competitive divisions."><title>Roster | VAYNTR</title><link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700;800;900&family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet"><link rel="stylesheet" href="styles.css?v=20261019-siteupgrade"><script src="app.js?v=20261019-siteupgrade" defer></script><script src="roster.js?v=20261019-siteupgrade" defer></script>  <script src="navigation.js?v=20261019-siteupgrade" defer></script>
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="theme-color" content="#08090b"><meta name="description" content="Meet the VAYNTR esports roster across competitive divisions."><title>Roster | VAYNTR</title><link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700;800;900&family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet"><link rel="stylesheet" href="styles.css?v=20261019-roster-audit"><script src="app.js?v=20261019-siteupgrade" defer></script><script src="roster.js?v=20261019-roster-audit" defer></script>  <script src="navigation.js?v=20261019-siteupgrade" defer></script>
   <link rel="icon" type="image/png" href="assets/vayntr-icon.png?v=20261016-tabs">
   <link rel="shortcut icon" type="image/png" href="assets/vayntr-icon.png?v=20261016-tabs">
   <link rel="apple-touch-icon" href="assets/vayntr-icon.png?v=20261016-tabs">
@@ -8,7 +8,17 @@
 <a class="feature-card" href="#rocketleague"><span class="feature-card__number">DIVISION 03</span><span class="icon-frame">03</span><h3>Rocket League</h3><p>Players and team information.</p><span class="feature-card__arrow">↗</span></a>
 <a class="feature-card" href="#other"><span class="feature-card__number">DIVISION 04</span><span class="icon-frame">04</span><h3>Other / future division</h3><p>Players joining new divisions.</p><span class="feature-card__arrow">↗</span></a>
 </div>
-<div class="roster-sections">
+<div class="roster-toolbar" role="search" aria-label="Search the VAYNTR roster">
+  <div class="roster-toolbar__field">
+    <label for="rosterSearch">Search confirmed players</label>
+    <input id="rosterSearch" type="search" autocomplete="off" placeholder="Name, division, platform or role" aria-controls="rosterSections">
+  </div>
+  <div class="roster-toolbar__meta">
+    <p id="rosterResultCount" role="status" aria-live="polite">Loading confirmed roster…</p>
+    <button id="rosterSearchClear" type="button" class="button button--outline" disabled>Clear search</button>
+  </div>
+</div>
+<div class="roster-sections" id="rosterSections">
 <section id="warzone" aria-labelledby="warzoneRosterHeading"><div class="empty-state"><span class="pill">Warzone</span><h2 id="warzoneRosterHeading">Loading roster…</h2><p>Confirmed players will appear here.</p></div></section>
 <section id="cod" aria-labelledby="codRosterHeading"><div class="empty-state"><span class="pill">Call of Duty Multiplayer</span><h2 id="codRosterHeading">Loading roster…</h2><p>Confirmed players will appear here.</p></div></section>
 <section id="rocketleague" aria-labelledby="rocketleagueRosterHeading"><div class="empty-state"><span class="pill">Rocket League</span><h2 id="rocketleagueRosterHeading">Loading roster…</h2><p>Confirmed players will appear here.</p></div></section>
