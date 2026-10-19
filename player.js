@@ -84,6 +84,7 @@
       image.addEventListener("error", () => {
         const placeholder = document.createElement("div");
         placeholder.className = "player-profile__placeholder";
+        placeholder.setAttribute("role", "img");
         placeholder.setAttribute("aria-label", "No player artwork available");
         placeholder.textContent = "V";
         image.replaceWith(placeholder);
@@ -92,7 +93,8 @@
     } else {
       const placeholder = document.createElement("div");
       placeholder.className = "player-profile__placeholder";
-      placeholder.setAttribute("aria-label", "No player artwork available");
+      placeholder.setAttribute("role", "img");
+        placeholder.setAttribute("aria-label", "No player artwork available");
       placeholder.textContent = "V";
       art.appendChild(placeholder);
     }
@@ -140,6 +142,13 @@
       }
     });
     actions.appendChild(share);
+
+    const backToRoster = document.createElement("a");
+    backToRoster.className = "button button--outline";
+    backToRoster.href = "roster.html";
+    backToRoster.textContent = "Back to roster";
+    actions.appendChild(backToRoster);
+
     copy.appendChild(actions);
 
     const statusNode = text(copy, "p", "player-profile__status", "");
