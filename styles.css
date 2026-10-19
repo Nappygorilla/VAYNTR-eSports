@@ -338,3 +338,11 @@ html{scroll-behavior:smooth}
 .player-profile__status[data-state="error"]{color:#ff7884}
 @media(max-width:700px){.public-feed-tools{align-items:stretch;flex-direction:column}.public-feed-tools__count{white-space:normal}.player-profile__layout{grid-template-columns:1fr;gap:16px}.player-profile__art{max-width:500px}.player-profile__image,.player-profile__placeholder{max-height:420px;aspect-ratio:5/4}.player-profile__copy{padding:0}.player-profile__name{font-size:clamp(3.2rem,15vw,5rem)}}
 @media(min-width:801px){.hero{padding-top:34px;padding-bottom:26px}.hero h1{font-size:clamp(3.8rem,7vw,6.3rem);margin-top:16px;margin-bottom:18px}}
+
+
+.staff-list-search{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:end;gap:8px 18px;margin:18px 0 16px;padding:16px;border:1px solid var(--line);background:#0c0e11}
+.staff-list-search label{grid-column:1/-1;color:#ff7884;font-size:.65rem;font-weight:900;letter-spacing:.12em}
+.staff-list-search input{width:100%;min-height:44px;padding:11px 13px;background:#08090b;color:var(--text);border:1px solid #383d46}
+.staff-list-search input:focus-visible{outline:2px solid var(--red-bright);border-color:var(--red-bright)}
+.staff-list-search__count{margin:0;color:var(--muted);font-size:.78rem;white-space:nowrap}
+@media(max-width:560px){.staff-list-search{grid-template-columns:1fr}.staff-list-search__count{white-space:normal}}
