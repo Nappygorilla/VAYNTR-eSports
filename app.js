@@ -29,7 +29,7 @@
     menuToggle.setAttribute("aria-expanded", String(open));
     menuToggle.setAttribute("aria-label", open ? "Close navigation" : "Open navigation");
   });
-  $("#primaryNav a").forEach((link) => link.addEventListener("click", closeMenu));
+  $$("#primaryNav a").forEach((link) => link.addEventListener("click", closeMenu));
 
   // Accessible homepage division tabs. Switching a tab swaps the panel in place.
   const divisionTabs = $$("[data-division-tab]");
