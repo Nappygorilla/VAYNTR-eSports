@@ -9,12 +9,33 @@
     { id: "other", game: "Other / future division", label: "Other / future division" }
   ];
 
-  function addText(parent, tag, className, text) {
+  function addText(parent, tag, className, value) {
     const node = document.createElement(tag);
     if (className) node.className = className;
-    node.textContent = text == null ? "" : String(text);
+    node.textContent = value == null ? "" : String(value);
     parent.appendChild(node);
     return node;
+  }
+
+  function safeHttpsUrl(value) {
+    try {
+      const parsed = new URL(String(value || ""));
+      return parsed.protocol === "https:" && !parsed.username && !parsed.password ? parsed.href : "";
+    } catch {
+      return "";
+    }
+  }
+
+  function addExternalLink(parent, url, label, accessibleLabel) {
+    const safeUrl = safeHttpsUrl(url);
+    if (!safeUrl) return;
+    const link = document.createElement("a");
+    link.href = safeUrl;
+    link.target = "_blank";
+    link.rel = "noopener noreferrer";
+    link.textContent = label;
+    if (accessibleLabel) link.setAttribute("aria-label", accessibleLabel);
+    parent.appendChild(link);
   }
 
   function showEmpty(section, label, title, message, state) {
@@ -33,53 +54,54 @@
     const card = document.createElement("article");
     card.className = "roster-player-card";
 
+    const displayName = String(player.display_name || "VAYNTR player");
     const top = document.createElement("div");
     top.className = "roster-player-card__top";
     addText(top, "span", "pill pill--red", "VAYNTR PLAYER");
-    addText(top, "span", "roster-player-card__platform", player.platform);
+    addText(top, "span", "roster-player-card__platform", player.platform || "Platform not listed");
     card.appendChild(top);
 
-    if (player.profile_image_url) {
-      try {
-        const imageUrl = new URL(player.profile_image_url);
-        if (imageUrl.protocol === "https:" && !imageUrl.username && !imageUrl.password) {
-          const image = document.createElement("img");
-          image.className = "roster-player-card__image";
-          image.src = imageUrl.href;
-          image.alt = "Portrait or player artwork for " + player.display_name;
-          image.loading = "lazy"; image.decoding = "async"; image.referrerPolicy = "no-referrer";
-          image.addEventListener("error", () => image.remove(), { once: true });
-          card.appendChild(image);
-        }
-      } catch {}
+    const imageUrl = safeHttpsUrl(player.profile_image_url);
+    if (imageUrl) {
+      const image = document.createElement("img");
+      image.className = "roster-player-card__image";
+      image.src = imageUrl;
+      image.alt = "Player artwork for " + displayName;
+      image.loading = "lazy";
+      image.decoding = "async";
+      image.referrerPolicy = "no-referrer";
+      image.addEventListener("error", () => image.remove(), { once: true });
+      card.appendChild(image);
     }
-    addText(card, "h3", "roster-player-card__name", player.display_name);
-    addText(card, "p", "roster-player-card__division", player.game);
+
+    addText(card, "h3", "roster-player-card__name", displayName);
+    addText(card, "p", "roster-player-card__division", player.game || "Division not listed");
     if (player.role) addText(card, "p", "roster-player-card__role", player.role);
     if (player.bio) addText(card, "p", "roster-player-card__bio", player.bio);
+
     const links = document.createElement("div");
     links.className = "roster-player-card__links";
-    if (player.social_url) {
-      const social = document.createElement("a");
-      social.href = player.social_url; social.target = "_blank"; social.rel = "noopener noreferrer";
-      social.textContent = "Player socials ↗";
-      social.setAttribute("aria-label", player.display_name + " social profile");
-      links.appendChild(social);
+    const playerId = String(player.id == null ? "" : player.id);
+    if (/^\d+$/.test(playerId)) {
+      const profile = document.createElement("a");
+      profile.href = "player.html?id=" + encodeURIComponent(playerId);
+      profile.textContent = "View player profile ↗";
+      profile.setAttribute("aria-label", "View " + displayName + "'s VAYNTR profile");
+      links.appendChild(profile);
     }
-    if (player.highlight_url) {
-      const highlight = document.createElement("a");
-      highlight.href = player.highlight_url; highlight.target = "_blank"; highlight.rel = "noopener noreferrer";
-      highlight.textContent = "Highlights ↗";
-      highlight.setAttribute("aria-label", player.display_name + " highlights");
-      links.appendChild(highlight);
-    }
+    addExternalLink(links, player.social_url, "Player socials ↗", displayName + " social profile");
+    addExternalLink(links, player.highlight_url, "Highlights ↗", displayName + " highlights");
     if (links.childElementCount) card.appendChild(links);
     return card;
   }
 
   async function loadRoster() {
+    const sections = groups.map((group) => document.getElementById(group.id)).filter(Boolean);
+    for (const section of sections) section.setAttribute("aria-busy", "true");
+    const controller = new AbortController();
+    const timeout = window.setTimeout(() => controller.abort(), 12000);
     try {
-      const response = await fetch(API_BASE + "/api/roster", { cache: "no-store" });
+      const response = await fetch(API_BASE + "/api/roster", { cache: "no-store", signal: controller.signal });
       const data = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(data.error || "Roster service unavailable.");
       const players = Array.isArray(data.players) ? data.players : [];
@@ -107,11 +129,17 @@
         for (const player of playersForGroup) grid.appendChild(createPlayerCard(player));
         section.appendChild(grid);
       }
-    } catch {
+    } catch (error) {
+      const message = error && error.name === "AbortError"
+        ? "The roster request timed out. The API may be waking up; refresh to try again."
+        : "We couldn't load the confirmed roster right now. Please refresh the page in a moment.";
       for (const group of groups) {
         const section = document.getElementById(group.id);
-        if (section) showEmpty(section, group.label, "Roster temporarily unavailable", "We couldn't load the confirmed roster right now. Please refresh the page in a moment.", "error");
+        if (section) showEmpty(section, group.label, "Roster temporarily unavailable", message, "error");
       }
+    } finally {
+      window.clearTimeout(timeout);
+      for (const section of sections) section.setAttribute("aria-busy", "false");
     }
   }
 
