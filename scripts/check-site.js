@@ -93,6 +93,9 @@ if (!/content_type='media' AND published=TRUE AND \(source_url IS NOT NULL OR im
   addError("server.js", "Published media must include a source URL or an image asset.");
 }
 const contentClientSource = fs.readFileSync(path.join(root, "content.js"), "utf8");
+if (!contentClientSource.includes('/^\\d{4}-\\d{2}-\\d{2}$/')) {
+  addError("content.js", "Date-only values must be parsed as local calendar dates to avoid timezone day shifts.");
+}
 if (!/item\.verified === true && Boolean\(safeHttpsUrl\(item\.source_url\)\)/.test(contentClientSource) ||
     !/VERIFIED RESULT/.test(contentClientSource)) {
   addError("content.js", "The public results client must fail closed unless verification and a usable HTTPS evidence link are present.");
