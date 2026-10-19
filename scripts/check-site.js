@@ -17,7 +17,7 @@ function addError(file, message) {
 
 // Guard against previously verified runtime regressions that syntax checks cannot catch.
 const appSource = fs.readFileSync(path.join(root, "app.js"), "utf8");
-if (/\$\(["']#primaryNav a["']\)\.forEach/.test(appSource)) {
+if (/(^|[^$])\$\(["']#primaryNav a["']\)\.forEach/.test(appSource)) {
   addError("app.js", "Do not call forEach on querySelector's single result; use querySelectorAll.");
 }
 const serverSource = fs.readFileSync(path.join(root, "server.js"), "utf8");
