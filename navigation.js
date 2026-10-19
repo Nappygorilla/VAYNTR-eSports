@@ -33,6 +33,10 @@
 
   function prerenderOnIntent(url) {
     if (!url || primedForPrerender.has(url) || saveData) return;
+    // API-backed pages can wake Render or issue duplicate data requests while prerendered.
+    // They can still be prefetched as documents, but only static pages are prerendered.
+    const parsed = new URL(url, window.location.href);
+    if (/(?:^|\/)(?:index|roster|news|results|media|player)\.html?$/i.test(parsed.pathname)) return;
     primedForPrerender.add(url);
     // Browsers without Speculation Rules ignore the hint and use the normal navigation.
     if (!("HTMLScriptElement" in window) || !("supports" in HTMLScriptElement) ||
