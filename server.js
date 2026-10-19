@@ -132,28 +132,6 @@ async function sendApplicationReceivedEmail(application) {
   });
 }
 
-async function sendApplicationDecisionEmail(application, status) {
-  const accepted = status === "accepted";
-  return sendVayntrEmail({
-    to: application.email,
-    subject: "VAYNTR Esports | Recruitment Decision",
-    title: accepted ? "WELCOME TO VAYNTR" : "RECRUITMENT DECISION",
-    displayName: application.display_name,
-    preheader: accepted ? "A decision has been recorded on your VAYNTR application." : "Your VAYNTR Esports recruitment decision is ready.",
-    statusLabel: accepted ? "APPROVED" : "NOT SELECTED",
-    paragraphs: accepted
-      ? [
-          "We're pleased to let you know that your VAYNTR Esports application has been approved.",
-          "Welcome to VAYNTR. Our team will follow up with any onboarding steps and the information you need next."
-        ]
-      : [
-          "Thank you for taking the time to apply to VAYNTR Esports and share your video.",
-          "After reviewing your application, we've decided not to move forward at this time. We appreciate your interest and wish you the best in your continued progress."
-        ]
-  });
-}
-
-
 const pool = DATABASE_URL ? new Pool({
   connectionString: DATABASE_URL,
   ssl: process.env.PGSSLMODE === "disable" ? false : { rejectUnauthorized: false },
@@ -496,64 +474,6 @@ app.post("/api/staff/applications/:id/confirmation-email", requireDatabase, requ
   } catch (error) {
     next(error);
   }
-});
-
-app.post("/api/staff/applications/:id/status", requireDatabase, requireStaffAccess, async (req, res, next) => {
-  const id = Number(req.params.id);
-  const status = req.body.status;
-  if (!Number.isSafeInteger(id) || id < 1 || !["received", "reviewing", "accepted", "declined"].includes(status)) {
-    return res.status(400).json({ error: "Invalid application ID or status." });
-  }
-
-  let current;
-  let updated;
-  let client;
-  try {
-    client = await pool.connect();
-    await client.query("BEGIN");
-    const currentResult = await client.query(
-      "SELECT id, display_name, email, status, decision_notified_status FROM recruitment_applications WHERE id = $1 FOR UPDATE",
-      [id]
-    );
-    if (!currentResult.rowCount) {
-      await client.query("ROLLBACK");
-      return res.status(404).json({ error: "Application not found." });
-    }
-    current = currentResult.rows[0];
-    const updateResult = await client.query(
-      "UPDATE recruitment_applications SET status = $1, updated_at = NOW() WHERE id = $2 RETURNING id, status, updated_at",
-      [status, id]
-    );
-    updated = updateResult.rows[0];
-    await client.query("COMMIT");
-  } catch (error) {
-    if (client) await client.query("ROLLBACK").catch(() => {});
-    return next(error);
-  } finally {
-    if (client) client.release();
-  }
-
-  let notification = null;
-  if (status === "accepted" || status === "declined") {
-    if (current.decision_notified_status === status) {
-      notification = { sent: true, reason: "already_notified" };
-    } else {
-      notification = await sendApplicationDecisionEmail(current, status);
-      if (notification.sent) {
-        await pool.query(
-          "UPDATE recruitment_applications SET decision_notified_status = $1, decision_email_error = NULL WHERE id = $2",
-          [status, id]
-        );
-      } else {
-        await pool.query(
-          "UPDATE recruitment_applications SET decision_email_error = $1 WHERE id = $2",
-          [notification.reason, id]
-        );
-      }
-    }
-  }
-
-  res.json({ application: updated, notification });
 });
 
 app.use((req, res) => res.status(404).json({ error: "Endpoint not found." }));
