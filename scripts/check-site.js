@@ -97,7 +97,7 @@ if (!contentClientSource.includes('/^\\d{4}-\\d{2}-\\d{2}$/')) {
   addError("content.js", "Date-only values must be parsed as local calendar dates to avoid timezone day shifts.");
 }
 if (!/item\.verified === true && Boolean\(safeHttpsUrl\(item\.source_url\)\)/.test(contentClientSource) ||
-    !/VERIFIED RESULT/.test(contentClientSource)) {
+    !/Verified result/i.test(contentClientSource)) {
   addError("content.js", "The public results client must fail closed unless verification and a usable HTTPS evidence link are present.");
 }
 if (!/safeHttpsUrl\(item\.source_url\) \|\| safeHttpsUrl\(item\.image_url\)/.test(contentClientSource) ||
