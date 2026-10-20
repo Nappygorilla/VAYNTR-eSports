@@ -18,7 +18,11 @@ const FRONTEND_ORIGINS = (process.env.FRONTEND_ORIGINS || "https://nappygorilla.
 const RESEND_API_KEY = process.env.RESEND_API_KEY || "";
 const RESEND_FROM_EMAIL = process.env.RESEND_FROM_EMAIL || "";
 const RESEND_REPLY_TO = process.env.RESEND_REPLY_TO || "";
-const STAFF_REVIEW_TOKEN = process.env.STAFF_REVIEW_TOKEN || "";
+// Trim whitespace and wrapping quotes: browsers strip them from the Authorization header, so a stray
+// space/newline saved in the Render dashboard would otherwise make a correct key look wrong.
+const STAFF_REVIEW_TOKEN = (process.env.STAFF_REVIEW_TOKEN || "").trim().replace(/^(["'])(.*)\1$/, "$2").trim();
+
+const DIVISIONS = ["Call of Duty: Warzone", "Call of Duty Multiplayer", "Rocket League", "Other / future division"];
 
 function escapeHtml(value) {
   return String(value ?? "").replace(/[&<>"']/g, (character) => ({
@@ -134,7 +138,7 @@ async function sendApplicationReceivedEmail(application) {
 
 const pool = DATABASE_URL ? new Pool({
   connectionString: DATABASE_URL,
-  ssl: process.env.PGSSLMODE === "disable" ? false : { rejectUnauthorized: false },
+  ssl: process.env.PGSSLMODE === "disable" ? false : { rejectUnauthorized: process.env.PG_SSL_REJECT_UNAUTHORIZED === "true" },
   max: 5,
   idleTimeoutMillis: 30000,
   connectionTimeoutMillis: 5000
@@ -151,7 +155,8 @@ app.use(cors({
 }));
 app.use(express.json({ limit: "20kb" }));
 const recruitmentLimiter = rateLimit({ windowMs: 15 * 60 * 1000, limit: 10, standardHeaders: "draft-7", legacyHeaders: false, message: { error: "Too many applications from this connection. Please wait and try again." } });
-const apiLimiter = rateLimit({ windowMs: 15 * 60 * 1000, limit: 60, standardHeaders: "draft-7", legacyHeaders: false });
+const apiLimiter = rateLimit({ windowMs: 15 * 60 * 1000, limit: 120, standardHeaders: "draft-7", legacyHeaders: false, message: { error: "Too many requests. Please wait a few minutes and try again." }, skip: (req) => req.path.startsWith("/staff") });
+const healthLimiter = rateLimit({ windowMs: 60 * 1000, limit: 30, standardHeaders: "draft-7", legacyHeaders: false });
 // Count unsuccessful staff requests only. Successful staff dashboard calls do not consume this budget.
 const staffAuthLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
@@ -188,7 +193,7 @@ function requireStaffAccess(req, res, next) {
   return next();
 }
 
-app.get("/health", async (_req, res) => {
+app.get("/health", healthLimiter, async (_req, res) => {
   let database = "not_configured";
   if (pool) {
     try { await pool.query("SELECT 1"); database = "connected"; }
@@ -239,12 +244,14 @@ app.post("/api/recruitment/applications", recruitmentLimiter, requireDatabase, a
     const message = typeof req.body.message === "string" ? req.body.message.trim() : "";
     const youtubeUrl = parseYouTubeVideoUrl(req.body.youtubeUrl);
     const privacyConsent = req.body.privacyConsent === true;
+    const ageConfirmed = req.body.ageConfirmed === true;
 
     if (displayName.length < 2 || displayName.length > 50) return res.status(400).json({ error: "Display name must be 2–50 characters." });
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || email.length > 254) return res.status(400).json({ error: "Enter a valid email address." });
     if (!["PlayStation", "Xbox", "PC", "Cross-platform"].includes(platform)) return res.status(400).json({ error: "Choose a valid platform." });
-    if (game.length < 2 || game.length > 80) return res.status(400).json({ error: "Enter the game or division you are applying for." });
+    if (!DIVISIONS.includes(game)) return res.status(400).json({ error: "Choose a valid game or division." });
     if (!youtubeUrl) return res.status(400).json({ error: "Submit a valid YouTube video link, not a channel or playlist link." });
+    if (!ageConfirmed) return res.status(400).json({ error: "Confirm the age and parent/guardian statement before submitting." });
     if (!privacyConsent) return res.status(400).json({ error: "Confirm the application privacy acknowledgement before submitting." });
     if (message.length > 2000) return res.status(400).json({ error: "Additional information must be 2,000 characters or fewer." });
 
