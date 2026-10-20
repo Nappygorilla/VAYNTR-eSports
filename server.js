@@ -28,6 +28,7 @@ function escapeHtml(value) {
 
 function parseOptionalHttpsUrl(value) {
   if (value == null || String(value).trim() === "") return null;
+  if (String(value).length > 2048) return undefined;
   try {
     const url = new URL(String(value).trim());
     if (url.protocol !== "https:" || url.username || url.password) return undefined;
@@ -149,13 +150,45 @@ app.use(cors({
   methods: ["GET", "POST", "OPTIONS"],
   allowedHeaders: ["Content-Type", "Authorization"]
 }));
-app.use(express.json({ limit: "20kb" }));
-const recruitmentLimiter = rateLimit({ windowMs: 15 * 60 * 1000, limit: 10, standardHeaders: "draft-7", legacyHeaders: false, message: { error: "Too many applications from this connection. Please wait and try again." } });
+app.use(express.json({ limit: "20kb", strict: true }));
+
+// Every API POST must contain a JSON object. This prevents null, arrays, and
+// body-less requests from reaching handlers that expect named fields.
+app.use((req, res, next) => {
+  if (req.path.startsWith("/api/") && req.method === "POST") {
+    if (!req.is("application/json")) {
+      return res.status(415).json({ error: "Content-Type must be application/json." });
+    }
+    if (!req.body || typeof req.body !== "object" || Array.isArray(req.body)) {
+      return res.status(400).json({ error: "Request body must be a JSON object." });
+    }
+  }
+  return next();
+});
+
+const recruitmentLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 10,
+  standardHeaders: "draft-7",
+  legacyHeaders: false,
+  message: { error: "Too many applications from this connection. Please wait and try again." }
+});
+const staffAccessLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 10,
+  standardHeaders: "draft-7",
+  legacyHeaders: false,
+  skipSuccessfulRequests: true,
+  message: { error: "Too many unsuccessful staff requests. Please wait before trying again." }
+});
 const apiLimiter = rateLimit({ windowMs: 15 * 60 * 1000, limit: 60, standardHeaders: "draft-7", legacyHeaders: false });
 app.use("/api", apiLimiter);
+// Count unsuccessful staff requests separately to slow token guessing without
+// throttling normal successful staff dashboard use.
+app.use("/api/staff", staffAccessLimiter);
 
 function requireDatabase(_req, res, next) {
-  if (!pool) return res.status(503).json({ error: "Database is not configured yet." });
+  if (!pool) return res.status(503).json({ error: "Service temporarily unavailable." });
   next();
 }
 function requireStaffAccess(req, res, next) {
@@ -478,9 +511,24 @@ app.post("/api/staff/applications/:id/confirmation-email", requireDatabase, requ
 
 app.use((req, res) => res.status(404).json({ error: "Endpoint not found." }));
 app.use((error, _req, res, _next) => {
-  if (error.message === "Origin is not allowed by CORS") return res.status(403).json({ error: "Origin not allowed." });
-  console.error("API request failed:", error.message);
-  res.status(500).json({ error: "An unexpected server error occurred." });
+  if (error.message === "Origin is not allowed by CORS") {
+    return res.status(403).json({ error: "Origin not allowed." });
+  }
+
+  // Parser errors should be client errors, not generic server failures.
+  if (error && error.type === "entity.too.large") {
+    return res.status(413).json({ error: "Request body is too large." });
+  }
+  if (error instanceof SyntaxError && Object.prototype.hasOwnProperty.call(error, "body")) {
+    return res.status(400).json({ error: "Request body contains invalid JSON." });
+  }
+  if (error && error.type === "encoding.unsupported") {
+    return res.status(415).json({ error: "Request encoding is not supported." });
+  }
+
+  // Detailed errors stay in server logs only; never return stack traces or SQL/provider details.
+  console.error("API request failed:", error && error.message ? error.message : "Unknown error");
+  return res.status(500).json({ error: "An unexpected server error occurred." });
 });
 
 const schema = `
