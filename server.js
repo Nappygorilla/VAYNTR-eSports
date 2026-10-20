@@ -24,6 +24,15 @@ const STAFF_REVIEW_TOKEN = (process.env.STAFF_REVIEW_TOKEN || "").trim().replace
 
 const DIVISIONS = ["Call of Duty: Warzone", "Call of Duty Multiplayer", "Rocket League", "Other / future division"];
 
+// Fixed option lists for the expanded application. Keeping them here (not in the client) means the
+// server can reject anything outside the list instead of storing free-form strings it cannot trust.
+const AVAILABILITY_OPTIONS = ["Under 5 hours", "5–10 hours", "10–20 hours", "20+ hours"];
+const TIMEZONE_OPTIONS = ["US Eastern", "US Central", "US Mountain", "US Pacific", "US Hawaii / Alaska", "UK / Western Europe", "Central Europe", "Eastern Europe", "Australia / NZ", "Other (explained in the notes below)"];
+const SCHEDULE_WINDOW_OPTIONS = ["Weekday evenings", "Weekday late nights", "Weekends", "Weekdays and weekends", "Varies week to week"];
+const HAS_MIC_OPTIONS = ["Yes", "No"];
+const OTHER_ROSTER_OPTIONS = ["No", "Yes — applied to VAYNTR before", "Yes — currently on another team's roster", "Both"];
+const MEDIA_SKILL_OPTIONS = ["Clip editing", "Video editing / montages", "Casting / commentary", "Graphic design", "Photography", "Writing / journalism", "Streaming"];
+
 function escapeHtml(value) {
   return String(value ?? "").replace(/[&<>"']/g, (character) => ({
     "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"
@@ -546,6 +555,27 @@ app.post("/api/recruitment/applications", recruitmentLimiter, requireDatabase, a
     const socialLinks = socialLinksRaw
       .map((url) => (url && url !== undefined ? { label: "", url } : url));
 
+    // Expanded application answers. Text is trimmed and length-capped; choice fields are matched
+    // against fixed lists so nothing outside the published options can be stored.
+    const trimAnswer = (value) => (typeof value === "string" ? value.trim() : "");
+    const inGameHandle = trimAnswer(req.body.inGameHandle);
+    const rankLevel = trimAnswer(req.body.rankLevel);
+    const competitiveExperience = trimAnswer(req.body.competitiveExperience);
+    const proudestMoment = trimAnswer(req.body.proudestMoment);
+    const gameDetails = trimAnswer(req.body.gameDetails);
+    const availability = trimAnswer(req.body.availability);
+    const timezoneRegion = trimAnswer(req.body.timezoneRegion);
+    const scheduleWindow = trimAnswer(req.body.scheduleWindow);
+    const feedbackStory = trimAnswer(req.body.feedbackStory);
+    const hasMic = trimAnswer(req.body.hasMic);
+    const whyVayntr = trimAnswer(req.body.whyVayntr);
+    const otherRosterStatus = trimAnswer(req.body.otherRosterStatus);
+    const scheduleAgreement = req.body.scheduleAgreement === true;
+    const mediaSkillsRaw = Array.isArray(req.body.mediaSkills) ? req.body.mediaSkills : [];
+    const mediaSkills = [...new Set(mediaSkillsRaw)].filter((skill) => MEDIA_SKILL_OPTIONS.includes(skill));
+    const mediaTools = trimAnswer(req.body.mediaTools);
+    const bestContentUrl = parseOptionalHttpsUrl(req.body.bestContentUrl);
+
     if (displayName.length < 2 || displayName.length > 50) return res.status(400).json({ error: "Display name must be 2–50 characters." });
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || email.length > 254) return res.status(400).json({ error: "Enter a valid email address." });
     if (!["PlayStation", "Xbox", "PC", "Cross-platform"].includes(platform)) return res.status(400).json({ error: "Choose a valid platform." });
@@ -562,11 +592,36 @@ app.post("/api/recruitment/applications", recruitmentLimiter, requireDatabase, a
     if (track === "media" && socialLinks.every((link) => link === null)) {
       return res.status(400).json({ error: "Media team applicants must include at least one social media link so we can review your work." });
     }
-    const storedSocialLinks = socialLinks.filter((link) => link !== null);
+    if (inGameHandle.length < 2 || inGameHandle.length > 80) return res.status(400).json({ error: "Enter your in-game handle (2–80 characters)." });
+    if (rankLevel.length > 120) return res.status(400).json({ error: "Rank / current level must be 120 characters or fewer." });
+    if (rankLevel.length < 2) return res.status(400).json({ error: "Enter your current rank or competitive level." });
+    if (competitiveExperience.length > 800) return res.status(400).json({ error: "Competitive experience must be 800 characters or fewer." });
+    if (competitiveExperience.length < 10) return res.status(400).json({ error: "Tell us about your competitive experience (at least 10 characters)." });
+    if (proudestMoment.length > 200) return res.status(400).json({ error: "Proudest competitive moment must be 200 characters or fewer." });
+    if (gameDetails.length > 300) return res.status(400).json({ error: "Division specifics must be 300 characters or fewer." });
+    if (!AVAILABILITY_OPTIONS.includes(availability)) return res.status(400).json({ error: "Choose how many hours a week you can commit." });
+    if (!TIMEZONE_OPTIONS.includes(timezoneRegion)) return res.status(400).json({ error: "Choose your time zone / region." });
+    if (scheduleWindow && !SCHEDULE_WINDOW_OPTIONS.includes(scheduleWindow)) return res.status(400).json({ error: "Choose a valid scheduling window or leave it blank." });
+    if (feedbackStory.length > 800) return res.status(400).json({ error: "The feedback question must be 800 characters or fewer." });
+    if (feedbackStory.length < 10) return res.status(400).json({ error: "Answer the 'How do you handle feedback?' question (at least 10 characters)." });
+    if (track === "player" && hasMic.length < 2) return res.status(400).json({ error: "Tell us whether you have a working mic." });
+    if (hasMic && !HAS_MIC_OPTIONS.includes(hasMic)) return res.status(400).json({ error: "The mic answer must be Yes or No." });
+    if (whyVayntr.length > 300) return res.status(400).json({ error: "'Why VAYNTR in particular?' must be 300 characters or fewer." });
+    if (whyVayntr.length < 10) return res.status(400).json({ error: "Answer 'Why VAYNTR in particular?' (at least 10 characters)." });
+    if (!OTHER_ROSTER_OPTIONS.includes(otherRosterStatus)) return res.status(400).json({ error: "Answer whether you have applied before or are on another roster." });
+    if (track === "player" && !scheduleAgreement) return res.status(400).json({ error: "Agree to the tryout and scrimmage schedule statement before submitting." });
+    if (track === "media" && !mediaSkills.length) return res.status(400).json({ error: "Select at least one thing you make or do for the media team." });
+    if (track !== "media") {
+      if (mediaSkills.length) return res.status(400).json({ error: "Media skills only apply to media team applications." });
+      if (bestContentUrl) return res.status(400).json({ error: "The best content piece link only applies to media team applications." });
+    }
+    if (mediaTools.length > 160) return res.status(400).json({ error: "Editing software must be 160 characters or fewer." });
+    if (track === "media" && !bestContentUrl) return res.status(400).json({ error: "Add a direct HTTPS link to your single best content piece." });
+    if (bestContentUrl === undefined) return res.status(400).json({ error: "The best content piece link must be a valid HTTPS URL." });
 
     const result = await pool.query(
-      "INSERT INTO recruitment_applications (display_name, email, platform, game, message, youtube_url, privacy_consent, age, show_age_on_profile, track, social_links, privacy_consent_at) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, NOW()) RETURNING id, status, created_at",
-      [displayName, email, platform, game, message, youtubeUrl, privacyConsent, age, showAgeOnProfile, track, JSON.stringify(storedSocialLinks)]
+      "INSERT INTO recruitment_applications (display_name, email, platform, game, message, youtube_url, privacy_consent, age, show_age_on_profile, track, social_links, privacy_consent_at, in_game_handle, rank_level, competitive_experience, proudest_moment, game_details, availability, timezone_region, schedule_window, feedback_story, has_mic, why_vayntr, other_roster_status, schedule_agreement, media_skills, media_tools, best_content_url) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, NOW(), $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27) RETURNING id, status, created_at",
+      [displayName, email, platform, game, message, youtubeUrl, privacyConsent, age, showAgeOnProfile, track, JSON.stringify(storedSocialLinks), inGameHandle || null, rankLevel || null, competitiveExperience, proudestMoment || null, gameDetails || null, availability, timezoneRegion, scheduleWindow || null, feedbackStory, hasMic || null, whyVayntr, otherRosterStatus, scheduleAgreement, mediaSkills.length ? JSON.stringify(mediaSkills) : null, mediaTools || null, bestContentUrl || null]
     );
     const application = { ...result.rows[0], display_name: displayName, email };
     // VAYNTR is using manual applicant contact for now; never send a confirmation email automatically.
@@ -587,7 +642,7 @@ app.post("/api/recruitment/applications", recruitmentLimiter, requireDatabase, a
 
 app.get("/api/staff/applications", requireDatabase, requireStaffAccess, async (_req, res, next) => {
   try {
-    const result = await pool.query("SELECT id, display_name, email, platform, game, message, youtube_url, age, show_age_on_profile, track, social_links, status, created_at, confirmation_email_status, decision_notified_status, decision_email_error FROM recruitment_applications ORDER BY created_at DESC LIMIT 100");
+    const result = await pool.query("SELECT id, display_name, email, platform, game, message, youtube_url, age, show_age_on_profile, track, social_links, in_game_handle, rank_level, competitive_experience, proudest_moment, game_details, availability, timezone_region, schedule_window, feedback_story, has_mic, why_vayntr, other_roster_status, schedule_agreement, media_skills, media_tools, best_content_url, status, created_at, confirmation_email_status, decision_notified_status, decision_email_error FROM recruitment_applications ORDER BY created_at DESC LIMIT 100");
     res.json({ applications: result.rows });
   } catch (error) { next(error); }
 });
@@ -1249,6 +1304,22 @@ ALTER TABLE recruitment_applications ADD COLUMN IF NOT EXISTS decision_notified_
 ALTER TABLE recruitment_applications ADD COLUMN IF NOT EXISTS decision_email_error TEXT;
 ALTER TABLE recruitment_applications ADD COLUMN IF NOT EXISTS age INTEGER;
 ALTER TABLE recruitment_applications ADD COLUMN IF NOT EXISTS show_age_on_profile BOOLEAN NOT NULL DEFAULT FALSE;
+ALTER TABLE recruitment_applications ADD COLUMN IF NOT EXISTS in_game_handle TEXT;
+ALTER TABLE recruitment_applications ADD COLUMN IF NOT EXISTS rank_level TEXT;
+ALTER TABLE recruitment_applications ADD COLUMN IF NOT EXISTS competitive_experience TEXT;
+ALTER TABLE recruitment_applications ADD COLUMN IF NOT EXISTS proudest_moment TEXT;
+ALTER TABLE recruitment_applications ADD COLUMN IF NOT EXISTS game_details TEXT;
+ALTER TABLE recruitment_applications ADD COLUMN IF NOT EXISTS availability TEXT;
+ALTER TABLE recruitment_applications ADD COLUMN IF NOT EXISTS timezone_region TEXT;
+ALTER TABLE recruitment_applications ADD COLUMN IF NOT EXISTS schedule_window TEXT;
+ALTER TABLE recruitment_applications ADD COLUMN IF NOT EXISTS feedback_story TEXT;
+ALTER TABLE recruitment_applications ADD COLUMN IF NOT EXISTS has_mic TEXT;
+ALTER TABLE recruitment_applications ADD COLUMN IF NOT EXISTS why_vayntr TEXT;
+ALTER TABLE recruitment_applications ADD COLUMN IF NOT EXISTS other_roster_status TEXT;
+ALTER TABLE recruitment_applications ADD COLUMN IF NOT EXISTS schedule_agreement BOOLEAN NOT NULL DEFAULT FALSE;
+ALTER TABLE recruitment_applications ADD COLUMN IF NOT EXISTS media_skills TEXT;
+ALTER TABLE recruitment_applications ADD COLUMN IF NOT EXISTS media_tools TEXT;
+ALTER TABLE recruitment_applications ADD COLUMN IF NOT EXISTS best_content_url TEXT;
 CREATE INDEX IF NOT EXISTS recruitment_applications_created_at_idx ON recruitment_applications (created_at DESC);
 CREATE TABLE IF NOT EXISTS roster_players (
  id BIGSERIAL PRIMARY KEY,

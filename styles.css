@@ -442,3 +442,4 @@ input:focus-visible,select:focus-visible,textarea:focus-visible{border-color:var
 .member-avatar-editor__actions .field__input{max-width:260px}
 .application-form textarea{resize:vertical;min-height:96px}
 @media(max-width:800px){.member-editor{grid-template-columns:1fr}}
+.application-form .form-section-title{font-family:'Barlow Condensed',Impact,sans-serif;font-size:1.55rem;letter-spacing:.04em;text-transform:uppercase;color:#fff;border-bottom:1px solid var(--line);padding-bottom:7px;margin:22px 0 4px;grid-column:1/-1}.application-form .form-section{border:0;padding:0;margin:0;display:contents}.application-form .form-section-title:first-child{margin-top:2px}.field .form-note-inline{color:var(--muted);font-weight:400;display:block}.media-skill-group .consent-label{margin:2px 0}.media-skill-group__label{display:block;font-weight:600;margin-bottom:6px}.form-sr-legend{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}

@@ -315,14 +315,63 @@
     const details = document.createElement("div");
     details.className = "staff-application__details";
     addText(details, "p", "", "Game / division: " + application.game);
-    addText(details, "p", "", "Platform: " + application.platform);        addText(details, "p", "", application.age != null
-          ? "Age: " + application.age + " · public profile age: " + (application.show_age_on_profile ? "yes" : "private")
-          : "Age: not provided");
-        const applicantLinks = Array.isArray(application.social_links) ? application.social_links.map((link) => (link && link.url) || "").filter(Boolean) : [];
-        addText(details, "p", "", "Applying as: " + (application.track === "media" ? "Media team" : "Player"));
-        addText(details, "p", "", applicantLinks.length ? "Social links: " + applicantLinks.join("  ·  ") : "Social links: none submitted");
+    addText(details, "p", "", "Platform: " + application.platform);
+    if (application.in_game_handle) addText(details, "p", "", "In-game handle: " + application.in_game_handle);
+    if (application.rank_level) addText(details, "p", "", "Rank / level: " + application.rank_level);
+    addText(details, "p", "", application.age != null
+      ? "Age: " + application.age + " · public profile age: " + (application.show_age_on_profile ? "yes" : "private")
+      : "Age: not provided");
+    if (application.availability) {
+      addText(details, "p", "", "Weekly commitment: " + application.availability
+        + (application.timezone_region ? " · " + application.timezone_region : "")
+        + (application.schedule_window ? " · " + application.schedule_window : ""));
+    }
+    if (application.has_mic) addText(details, "p", "", "Mic: " + application.has_mic);
+    const applicantLinks = Array.isArray(application.social_links) ? application.social_links.map((link) => (link && link.url) || "").filter(Boolean) : [];
+    addText(details, "p", "", "Applying as: " + (application.track === "media" ? "Media team" : "Player"));
+    addText(details, "p", "", applicantLinks.length ? "Social links: " + applicantLinks.join("  ·  ") : "Social links: none submitted");
+    if (application.other_roster_status) addText(details, "p", "", "Prior applications / other roster: " + application.other_roster_status);
+    if (Array.isArray(application.media_skills) && application.media_skills.length) {
+      addText(details, "p", "", "Media skills: " + application.media_skills.join(", "));
+    }
+    if (application.media_tools) addText(details, "p", "", "Editing tools: " + application.media_tools);
+    if (application.best_content_url) {
+      const contentLink = document.createElement("a");
+      contentLink.href = application.best_content_url;
+      contentLink.target = "_blank";
+      contentLink.rel = "noopener noreferrer";
+      contentLink.textContent = "Best content piece ↗ (opens in a new tab)";
+      const contentLine = document.createElement("p");
+      contentLine.appendChild(document.createTextNode("Best content piece: "));
+      contentLine.appendChild(contentLink);
+      details.appendChild(contentLine);
+    }
     addText(details, "p", "", "Submitted: " + (application.created_at ? new Date(application.created_at).toLocaleString() : "Unknown"));
     card.appendChild(details);
+
+    const answerBlock = document.createElement("div");
+    answerBlock.className = "staff-application__note";
+    if (application.competitive_experience) {
+      addText(answerBlock, "b", "", "Competitive experience");
+      addText(answerBlock, "p", "", application.competitive_experience);
+    }
+    if (application.proudest_moment) {
+      addText(answerBlock, "b", "", "Proudest achievement");
+      addText(answerBlock, "p", "", application.proudest_moment);
+    }
+    if (application.game_details) {
+      addText(answerBlock, "b", "", "Division specifics");
+      addText(answerBlock, "p", "", application.game_details);
+    }
+    if (application.feedback_story) {
+      addText(answerBlock, "b", "", "How they handle feedback");
+      addText(answerBlock, "p", "", application.feedback_story);
+    }
+    if (application.why_vayntr) {
+      addText(answerBlock, "b", "", "Why VAYNTR");
+      addText(answerBlock, "p", "", application.why_vayntr);
+    }
+    if (answerBlock.children.length) card.appendChild(answerBlock);
 
     const videoBlock = document.createElement("div");
     videoBlock.className = "staff-application__video";

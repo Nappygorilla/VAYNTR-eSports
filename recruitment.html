@@ -18,9 +18,9 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700;800;900&family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="styles.css?v=20261020-design-polish">
+  <link rel="stylesheet" href="styles.css?v=20261021-app-expand">
   <script src="app.js?v=20261019-siteupgrade" defer></script>
-  <script src="recruitment.js?v=20261021-media-track" defer></script>
+  <script src="recruitment.js?v=20261021-app-expand" defer></script>
   <script src="navigation.js?v=20261019-siteupgrade" defer></script>
   <link rel="icon" type="image/png" href="assets/vayntr-icon.png?v=20261016-tabs">
   <link rel="shortcut icon" type="image/png" href="assets/vayntr-icon.png?v=20261016-tabs">
@@ -69,6 +69,7 @@
           <h2 style="font-family:'Barlow Condensed',Impact,sans-serif;font-size:clamp(2.2rem,5vw,3.4rem);line-height:.95;margin:12px 0">APPLY TO THE ROSTER.</h2>
           <p class="form-note">Fields marked required must be completed. Your details and video link will be sent to the VAYNTR recruitment backend for review.</p>
           <form id="recruitmentForm" class="application-form" novalidate>
+            <h3 class="form-section-title">1 · Competitive profile</h3>
             <div class="field">
               <label for="displayName">Gaming username / display name *</label>
               <input id="displayName" name="displayName" type="text" minlength="2" maxlength="50" autocomplete="nickname" required>
@@ -124,6 +125,124 @@
               <label for="socialUrl3">Third social link (optional)</label>
               <input id="socialUrl3" name="socialUrl3" type="url" inputmode="url" maxlength="500" placeholder="https://youtube.com/@your-channel" autocomplete="off">
             </div>
+            <div class="field field--full">
+              <label for="inGameHandle">In-game handle / account ID * <small class="form-note-inline">e.g. Activision ID, EA name, or gamertag — so we can verify you in-game</small></label>
+              <input id="inGameHandle" name="inGameHandle" type="text" minlength="2" maxlength="80" autocomplete="off" required>
+            </div>
+            <div class="field field--full">
+              <label for="rankLevel">Current rank or competitive level *</label>
+              <input id="rankLevel" name="rankLevel" type="text" maxlength="120" placeholder="e.g. Sapphire IV, GC2, Level 970, top 250 Tour leaderboard" autocomplete="off" required>
+            </div>
+            <div class="field field--full">
+              <label for="competitiveExperience">Competitive experience — teams, tournaments, or leagues *</label>
+              <textarea id="competitiveExperience" name="competitiveExperience" rows="3" maxlength="800" placeholder="Teams you have played for, events you entered, or 'none yet — I want my first shot'." required></textarea>
+            </div>
+            <div class="field field--full">
+              <label for="proudestMoment">Competitive achievement you're most proud of (optional)</label>
+              <input id="proudestMoment" name="proudestMoment" type="text" maxlength="200" placeholder="One line is plenty." autocomplete="off">
+            </div>
+            <div class="field field--full">
+              <label for="gameDetails">Division specifics (optional)</label>
+              <input id="gameDetails" name="gameDetails" type="text" maxlength="300" placeholder="Preferred drop, loadout, or role — for Rocket League: car and camera settings" autocomplete="off">
+            </div>
+
+            <h3 class="form-section-title">2 · Commitment &amp; communication</h3>
+            <div class="field field--full">
+              <label for="availability">How many hours a week can you commit to practice and scrims? *</label>
+              <select id="availability" name="availability" required>
+                <option value="">Select weekly commitment</option>
+                <option>Under 5 hours</option>
+                <option>5–10 hours</option>
+                <option>10–20 hours</option>
+                <option>20+ hours</option>
+              </select>
+            </div>
+            <div class="field">
+              <label for="timezoneRegion">Time zone / region *</label>
+              <select id="timezoneRegion" name="timezoneRegion" required>
+                <option value="">Select time zone</option>
+                <option>US Eastern</option>
+                <option>US Central</option>
+                <option>US Mountain</option>
+                <option>US Pacific</option>
+                <option>US Hawaii / Alaska</option>
+                <option>UK / Western Europe</option>
+                <option>Central Europe</option>
+                <option>Eastern Europe</option>
+                <option>Australia / NZ</option>
+                <option>Other (explained in the notes below)</option>
+              </select>
+            </div>
+            <div class="field">
+              <label for="scheduleWindow">Best scheduling window (optional)</label>
+              <select id="scheduleWindow" name="scheduleWindow">
+                <option value="">Select when you can play</option>
+                <option>Weekday evenings</option>
+                <option>Weekday late nights</option>
+                <option>Weekends</option>
+                <option>Weekdays and weekends</option>
+                <option>Varies week to week</option>
+              </select>
+            </div>
+            <div class="field">
+              <label for="hasMic">Do you have a working mic and will you use it in matches? *</label>
+              <select id="hasMic" name="hasMic" required>
+                <option value="">Select answer</option>
+                <option>Yes</option>
+                <option>No</option>
+              </select>
+            </div>
+            <div class="field field--full">
+              <label for="feedbackStory">How do you handle feedback? Describe a time you got corrected and how you reacted. *</label>
+              <textarea id="feedbackStory" name="feedbackStory" rows="3" maxlength="800" required></textarea>
+            </div>
+            <div class="field field--full">
+              <label for="whyVayntr">Why VAYNTR in particular? *</label>
+              <textarea id="whyVayntr" name="whyVayntr" rows="2" maxlength="300" placeholder="Keep it short and specific — what made you pick us?" required></textarea>
+            </div>
+
+            <fieldset class="form-section" data-media-only hidden>
+              <h3 class="form-section-title">3 · Media team details</h3>
+              <small class="form-note">These questions apply only to media team applications.</small>
+              <div class="field field--full">
+                <label for="mediaTools">Editing / recording software you use (optional)</label>
+                <input id="mediaTools" name="mediaTools" type="text" maxlength="160" placeholder="e.g. Premiere Pro, After Effects, DaVinci Resolve" autocomplete="off">
+              </div>
+              <div class="field field--full">
+                <label for="bestContentUrl">Link your single best content piece *</label>
+                <input id="bestContentUrl" name="bestContentUrl" type="url" inputmode="url" maxlength="500" placeholder="https://www.youtube.com/…" autocomplete="off">
+              </div>
+              <legend class="form-sr-legend">What do you make for the media team?</legend>
+              <div class="field field--full media-skill-group">
+                <span class="media-skill-group__label">What do you make for the media team? *</span>
+                <label class="consent-label"><input type="checkbox" name="mediaSkill" value="Clip editing"><span>Clip editing</span></label>
+                <label class="consent-label"><input type="checkbox" name="mediaSkill" value="Video editing / montages"><span>Video editing / montages</span></label>
+                <label class="consent-label"><input type="checkbox" name="mediaSkill" value="Casting / commentary"><span>Casting / commentary</span></label>
+                <label class="consent-label"><input type="checkbox" name="mediaSkill" value="Graphic design"><span>Graphic design</span></label>
+                <label class="consent-label"><input type="checkbox" name="mediaSkill" value="Photography"><span>Photography</span></label>
+                <label class="consent-label"><input type="checkbox" name="mediaSkill" value="Writing / journalism"><span>Writing / journalism</span></label>
+                <label class="consent-label"><input type="checkbox" name="mediaSkill" value="Streaming"><span>Streaming</span></label>
+                <small class="form-note">Choose every area you contribute in.</small>
+              </div>
+            </fieldset>
+
+            <h3 class="form-section-title">4 · Final words &amp; confirmations</h3>
+            <div class="field field--full">
+              <label for="otherRosterStatus">Have you applied to VAYNTR before, or are you currently on another team's roster? *</label>
+              <select id="otherRosterStatus" name="otherRosterStatus" required>
+                <option value="">Select answer</option>
+                <option>No</option>
+                <option>Yes — applied to VAYNTR before</option>
+                <option>Yes — currently on another team's roster</option>
+                <option>Both</option>
+              </select>
+            </div>
+            <div class="field field--full player-only">
+              <label class="consent-label">
+                <input id="scheduleAgreement" name="scheduleAgreement" type="checkbox" required>
+                <span>I understand that if accepted, I am expected to attend scheduled tryouts, scrims, and practice sessions, and to communicate in advance if I cannot make one. *</span>
+              </label>
+            </div>
             <input type="hidden" id="youtubeRequirementNote">
             <div class="field field--full">
               <label for="youtubeUrl">YouTube video link — why you want to join VAYNTR *</label>
@@ -131,8 +250,8 @@
               <small id="youtubeHint" class="form-note">Paste the link to the actual video. YouTube watch, Shorts, and youtu.be links are supported.</small>
             </div>
             <div class="field field--full">
-              <label for="message">Anything else the recruitment team should know? (optional)</label>
-              <textarea id="message" name="message" rows="4" maxlength="2000" placeholder="Competitive background, availability, goals, or anything else you'd like to share."></textarea>
+              <label for="message">Anything we haven't asked that we should know? (optional)</label>
+              <textarea id="message" name="message" rows="4" maxlength="2000" placeholder="Competitive background, availability details, goals, or anything else you'd like to share."></textarea>
             </div>
             <div class="field field--full">
               <label class="consent-label">

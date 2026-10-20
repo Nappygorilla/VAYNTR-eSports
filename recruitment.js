@@ -82,17 +82,39 @@
   }
 
   // Media team applicants may skip the division; their first social link is required instead.
+  // Player and media tracks hide each other's sections, and hidden required fields must be
+  // un-required so form.reportValidity() never blocks submission on an input you cannot see.
   const trackSelect = form.elements.track;
   const gameSelect = form.elements.game;
   const youtubeField = form.elements.youtubeUrl;
   const social1Field = form.elements.socialUrl1;
   const mediaHint = document.getElementById("mediaGameHint");
   const youtubeHint = document.getElementById("youtubeHint");
+  const mediaSection = form.querySelector("[data-media-only]");
+  const mediaSkillBoxes = [...form.querySelectorAll("input[name='mediaSkill']")];
+  const bestContentField = form.elements.bestContentUrl;
+  const mediaToolsField = form.elements.mediaTools;
+  const hasMicField = form.elements.hasMic;
+  const hasMicCard = hasMicField ? hasMicField.closest(".field") : null;
+  const scheduleAgreementField = form.elements.scheduleAgreement;
+  const scheduleAgreementCard = scheduleAgreementField ? scheduleAgreementField.closest(".field") : null;
+  function clearMediaAnswers() {
+    mediaSkillBoxes.forEach((box) => { box.checked = false; });
+    if (bestContentField) bestContentField.value = "";
+    if (mediaToolsField) mediaToolsField.value = "";
+  }
   function applyTrackRequirements() {
     const isMedia = trackSelect.value === "media";
     gameSelect.required = !isMedia;
     youtubeField.required = !isMedia;
     social1Field.required = isMedia;
+    if (mediaSection) mediaSection.hidden = !isMedia;
+    if (bestContentField) bestContentField.required = isMedia;
+    if (hasMicField) hasMicField.required = !isMedia;
+    if (hasMicCard) hasMicCard.hidden = isMedia;
+    if (scheduleAgreementField) scheduleAgreementField.required = !isMedia;
+    if (scheduleAgreementCard) scheduleAgreementCard.hidden = isMedia;
+    if (!isMedia) clearMediaAnswers();
     if (mediaHint) mediaHint.hidden = !isMedia;
     if (youtubeHint) {
       youtubeHint.hidden = isMedia;
@@ -113,6 +135,9 @@
       return;
     }
     if (!form.reportValidity()) return;
+    // Declare track before any validation that reads it (previously it was referenced first,
+    // which crashed the submission of an incomplete player application).
+    const track = form.elements.track.value;
     const youtubeUrl = normalizeYouTubeUrl(form.elements.youtubeUrl.value);
     // Media team applicants may apply without a gameplay video.
     if (!youtubeUrl && track === "player") {
@@ -121,7 +146,13 @@
       form.elements.youtubeUrl.setCustomValidity("");
       return;
     }
-    const track = form.elements.track.value;
+    const mediaSkills = mediaSkillBoxes.filter((box) => box.checked).map((box) => box.value);
+    if (track === "media" && !mediaSkills.length) {
+      status.textContent = "Media team applicants must select at least one thing they make (clips, casting, design…).";
+      status.dataset.state = "error";
+      submit.disabled = !recruitmentAvailable;
+      return;
+    }
     const payload = {
       displayName: form.elements.displayName.value.trim(),
       email: form.elements.email.value.trim(),
@@ -133,6 +164,22 @@
       socialUrl1: form.elements.socialUrl1.value.trim(),
       socialUrl2: form.elements.socialUrl2.value.trim(),
       socialUrl3: form.elements.socialUrl3.value.trim(),
+      inGameHandle: form.elements.inGameHandle.value.trim(),
+      rankLevel: form.elements.rankLevel.value.trim(),
+      competitiveExperience: form.elements.competitiveExperience.value.trim(),
+      proudestMoment: form.elements.proudestMoment.value.trim(),
+      gameDetails: form.elements.gameDetails.value.trim(),
+      availability: form.elements.availability.value,
+      timezoneRegion: form.elements.timezoneRegion.value,
+      scheduleWindow: form.elements.scheduleWindow.value,
+      feedbackStory: form.elements.feedbackStory.value.trim(),
+      hasMic: track === "media" ? "" : form.elements.hasMic.value,
+      whyVayntr: form.elements.whyVayntr.value.trim(),
+      otherRosterStatus: form.elements.otherRosterStatus.value,
+      scheduleAgreement: track === "media" ? false : form.elements.scheduleAgreement.checked,
+      mediaSkills: track === "media" ? mediaSkills : [],
+      mediaTools: track === "media" ? form.elements.mediaTools.value.trim() : "",
+      bestContentUrl: track === "media" ? form.elements.bestContentUrl.value.trim() : "",
       youtubeUrl: youtubeUrl || "",
       privacyConsent: form.elements.privacyConsent.checked,
       ageConfirmed: form.elements.ageConfirmed.checked,
