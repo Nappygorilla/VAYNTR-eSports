@@ -407,6 +407,68 @@ app.post("/api/staff/content/delete", requireDatabase, requireStaffAccess, async
   } catch (error) { next(error); }
 });
 
+// --- Member invites (one-time codes) --------------------------------------
+// Codes exist for accepted players; redemption binds them to a future member
+// account. Codes are shown exactly once by POST /api/staff/invites; the
+// database stores only a SHA-256 hash, never the code itself.
+const INVITE_ALPHABET = "ABCDEFGHJKMNPQRSTUVWXYZ23456789"; // 32 glyphs, no I/L/O/0/1 lookalikes
+const MAX_LIVE_INVITES = 50;
+
+function hashInviteCode(code) {
+  return crypto.createHash("sha256").update(String(code || "").trim().toUpperCase()).digest("hex");
+}
+
+function generateInviteCode() {
+  // crypto.randomBytes(5) maps evenly onto 32 glyphs because 256 = 8 * 32, so there is no modulo bias.
+  const segment = () => Array.from(crypto.randomBytes(5), (byte) => INVITE_ALPHABET[byte % INVITE_ALPHABET.length]).join("");
+  return "VAYNTR-" + segment() + "-" + segment() + "-" + segment();
+}
+
+app.post("/api/staff/invites", requireDatabase, requireStaffAccess, async (req, res, next) => {
+  const label = typeof req.body.label === "string" ? req.body.label.trim() : "";
+  if (label.length > 120) return res.status(400).json({ error: "The invite note must be 120 characters or fewer." });
+  try {
+    const live = await pool.query(
+      "SELECT COUNT(*)::int AS count FROM invite_codes WHERE revoked_at IS NULL AND redeemed_at IS NULL AND expires_at > NOW()"
+    );
+    if (live.rows[0].count >= MAX_LIVE_INVITES) {
+      return res.status(409).json({ error: "There are already 50 unused invites. Revoke old ones before generating more." });
+    }
+    const code = generateInviteCode();
+    const result = await pool.query(
+      "INSERT INTO invite_codes (label, code_hash, expires_at) VALUES ($1, $2, NOW() + INTERVAL '30 days') RETURNING id, label, created_at, expires_at",
+      [label, hashInviteCode(code)]
+    );
+    // The plaintext code is returned only here. It is not stored or logged anywhere.
+    res.set("Cache-Control", "no-store, private");
+    res.status(201).json({ invite: result.rows[0], code, message: "Invite created. This code is shown only once — copy it now." });
+  } catch (error) { next(error); }
+});
+
+app.get("/api/staff/invites", requireDatabase, requireStaffAccess, async (_req, res, next) => {
+  try {
+    // Lists carry metadata only: never the hash and obviously never the plaintext code.
+    const result = await pool.query(
+      "SELECT id, label, created_at, expires_at, revoked_at, redeemed_at FROM invite_codes ORDER BY created_at DESC LIMIT 100"
+    );
+    res.set("Cache-Control", "no-store, private");
+    res.json({ invites: result.rows });
+  } catch (error) { next(error); }
+});
+
+app.post("/api/staff/invites/:id/revoke", requireDatabase, requireStaffAccess, async (req, res, next) => {
+  const id = Number(req.params.id);
+  if (!Number.isSafeInteger(id) || id < 1) return res.status(400).json({ error: "Invalid invite ID." });
+  try {
+    const result = await pool.query(
+      "UPDATE invite_codes SET revoked_at = NOW() WHERE id = $1 AND revoked_at IS NULL AND redeemed_at IS NULL RETURNING id, label",
+      [id]
+    );
+    if (!result.rowCount) return res.status(404).json({ error: "Invite not found, already revoked, or already redeemed." });
+    res.json({ revoked: true, message: "Invite revoked. It can no longer be redeemed." });
+  } catch (error) { next(error); }
+});
+
 // Accept or deny an applicant in one operation.
 // Accept atomically copies the minimum roster/contact fields and then deletes the application.
 // Deny deletes the application without adding the person to the roster. No email is sent automatically.
@@ -544,6 +606,19 @@ ALTER TABLE roster_players ADD COLUMN IF NOT EXISTS bio TEXT NOT NULL DEFAULT ''
 ALTER TABLE roster_players ADD COLUMN IF NOT EXISTS social_url TEXT;
 ALTER TABLE roster_players ADD COLUMN IF NOT EXISTS highlight_url TEXT;
 ALTER TABLE roster_players ADD COLUMN IF NOT EXISTS profile_image_url TEXT;
+
+-- One-time member invites. code_hash is a SHA-256 hex digest; the plaintext code is returned once by the API and is never stored.
+CREATE TABLE IF NOT EXISTS invite_codes (
+ id BIGSERIAL PRIMARY KEY,
+ label TEXT NOT NULL DEFAULT '',
+ code_hash TEXT NOT NULL UNIQUE,
+ created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+ expires_at TIMESTAMPTZ NOT NULL,
+ revoked_at TIMESTAMPTZ,
+ redeemed_at TIMESTAMPTZ,
+ redeemed_by TEXT
+);
+CREATE INDEX IF NOT EXISTS invite_codes_created_at_idx ON invite_codes (created_at DESC);
 
 CREATE TABLE IF NOT EXISTS site_content (
  id BIGSERIAL PRIMARY KEY,

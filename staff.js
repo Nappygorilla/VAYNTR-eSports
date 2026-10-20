@@ -114,6 +114,7 @@
     if (activeView === "applications") return loadApplications();
     if (activeView === "roster") return loadRoster();
     if (activeView === "content") return loadContent();
+    if (activeView === "invites") return loadInvites();
     if (activeView === "overview") {
       await loadApplications(false);
       return;
@@ -167,17 +168,21 @@
     activateView("overview");
 
     // Remove private applicant/roster details and unpublished drafts from the DOM on sign-out.
-    for (const selector of ["#applicationsList", "#staffRosterList", "#contentItemsList"]) {
+    for (const selector of ["#applicationsList", "#staffRosterList", "#contentItemsList", "#invitesList"]) {
       $(selector)?.replaceChildren();
     }
-    for (const id of ["applicationsSearchInput", "rosterSearchInput", "contentSearchInput"]) {
+    for (const id of ["applicationsSearchInput", "rosterSearchInput", "contentSearchInput", "invitesSearchInput", "inviteLabel"]) {
       const input = document.getElementById(id);
       if (input) input.value = "";
     }
-    for (const id of ["overviewApplicationCount", "applicationTabCount", "overviewRosterCount", "rosterTabCount"]) {
+    for (const id of ["overviewApplicationCount", "applicationTabCount", "overviewRosterCount", "rosterTabCount", "overviewInviteCount", "inviteTabCount"]) {
       const count = document.getElementById(id);
       if (count) count.textContent = "—";
     }
+    const inviteResult = $("#inviteResultPanel");
+    if (inviteResult) { inviteResult.hidden = true; inviteResult.replaceChildren(); }
+    setStatus($("#inviteIssueStatus"), "");
+    setStatus($("#inviteStatus"), "");
     const editor = $("#contentEditorForm");
     editor?.reset();
     if (editor && editor.elements.id) editor.elements.id.value = "";
@@ -638,6 +643,122 @@
     }
   }
 
+  function inviteStatusFor(entry) {
+    if (entry.revoked_at) return "REVOKED";
+    if (entry.redeemed_at) return "REDEEMED";
+    if (!entry.expires_at || new Date(entry.expires_at).getTime() <= Date.now()) return "EXPIRED";
+    return "ACTIVE";
+  }
+
+  function showInviteResult(result) {
+    const panel = $("#inviteResultPanel");
+    if (!panel) return;
+    panel.replaceChildren();
+    const code = "" + (result.code || "");
+    if (!/^VAYNTR-[A-Z0-9-]+$/.test(code)) {
+      panel.hidden = true;
+      return;
+    }
+    const expiresAt = result.invite && result.invite.expires_at ? new Date(result.invite.expires_at) : null;
+    addText(panel, "p", "eyebrow", "One-time invite code" + (expiresAt && !Number.isNaN(expiresAt.getTime()) ? " / expires " + expiresAt.toLocaleDateString() : ""));
+    const codeLine = document.createElement("code");
+    codeLine.className = "staff-invite-code";
+    codeLine.textContent = code;
+    panel.appendChild(codeLine);
+    addText(panel, "p", "form-note", result.message || "This code is shown only once — copy it now. Leave this page and it cannot be recovered.");
+    const copyButton = document.createElement("button");
+    copyButton.type = "button";
+    copyButton.className = "button button--primary";
+    copyButton.textContent = "Copy invite code";
+    copyButton.addEventListener("click", async () => {
+      try {
+        await navigator.clipboard.writeText(code);
+        copyButton.textContent = "Copied ✓";
+      } catch {
+        copyButton.textContent = "Copy blocked — select the code manually";
+      }
+      window.setTimeout(() => { copyButton.textContent = "Copy invite code"; }, 2500);
+    });
+    panel.appendChild(copyButton);
+    addText(panel, "p", "form-note", "Send it to the player yourself; it is stored in the database only as a hash.");
+    panel.hidden = false;
+    panel.scrollIntoView({ behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth", block: "nearest" });
+  }
+
+  function renderInvite(entry) {
+    const card = document.createElement("article");
+    card.className = "application-panel staff-application staff-invite";
+    const top = document.createElement("div");
+    top.className = "staff-application__top";
+    const identity = document.createElement("div");
+    addText(identity, "h3", "staff-application__name", entry.label || "Unlabeled invite");
+    addText(identity, "p", "staff-application__meta", "Created " + (entry.created_at ? new Date(entry.created_at).toLocaleString() : "unknown"));
+    top.appendChild(identity);
+    const status = inviteStatusFor(entry);
+    addText(top, "span", "pill" + (status === "ACTIVE" ? " pill--red" : ""), status);
+    card.appendChild(top);
+    const details = document.createElement("div");
+    details.className = "staff-application__details";
+    addText(details, "p", "", "Expires: " + (entry.expires_at ? new Date(entry.expires_at).toLocaleString() : "Unknown"));
+    if (entry.redeemed_at) addText(details, "p", "", "Redeemed: " + new Date(entry.redeemed_at).toLocaleString());
+    addText(details, "p", "", "The code itself is never stored or displayed again.");
+    card.appendChild(details);
+    if (status === "ACTIVE" && entry.id != null) {
+      const actions = document.createElement("div");
+      actions.className = "staff-invite-item__actions";
+      const revokeButton = document.createElement("button");
+      revokeButton.type = "button";
+      revokeButton.className = "button button--outline";
+      revokeButton.textContent = "Revoke invite";
+      revokeButton.addEventListener("click", async () => {
+        if (!window.confirm("Revoke the invite for \"" + (entry.label || "Unlabeled invite") + "\"? An unused code can never be redeemed after this.")) return;
+        revokeButton.disabled = true;
+        setStatus($("#inviteStatus"), "Revoking invite…");
+        try {
+          const result = await api("/api/staff/invites/" + encodeURIComponent(String(entry.id)) + "/revoke", { method: "POST" });
+          await loadInvites(false);
+          setStatus($("#inviteStatus"), result.message || "Invite revoked.", "success");
+        } catch (error) {
+          if (error.status === 401 || error.status === 403) signOut("Staff access expired or was rejected. Enter the access key again.", "error");
+          revokeButton.disabled = false;
+          setStatus($("#inviteStatus"), error.message || "Unable to revoke this invite.", "error");
+        }
+      });
+      actions.appendChild(revokeButton);
+      card.appendChild(actions);
+    }
+    return card;
+  }
+
+  async function loadInvites(showLoading = true) {
+    const inviteList = $("#invitesList");
+    const inviteListStatus = $("#inviteStatus");
+    if (!inviteList) return;
+    if (showLoading && inviteListStatus) setStatus(inviteListStatus, "Loading invites…");
+    inviteList.replaceChildren();
+    try {
+      const result = await api("/api/staff/invites");
+      const invites = Array.isArray(result.invites) ? result.invites : [];
+      const liveCount = invites.filter((entry) => !entry.revoked_at && !entry.redeemed_at && entry.expires_at && new Date(entry.expires_at).getTime() > Date.now()).length;
+      const liveCountText = String(liveCount);
+      if ($("#overviewInviteCount")) $("#overviewInviteCount").textContent = liveCountText;
+      if ($("#inviteTabCount")) $("#inviteTabCount").textContent = liveCountText;
+      if (!invites.length) {
+        addText(inviteList, "div", "empty-state", "No invite codes have been generated yet.");
+      } else {
+        for (const entry of invites) inviteList.appendChild(renderInvite(entry));
+        ensureListSearch(inviteList, "invitesSearch", "SEARCH INVITES", "Note or status…");
+      }
+      setStatus($("#inviteStatus"), invites.length + " invite(s) on record — " + liveCount + " currently valid. Codes are stored only as hashes.", "success");
+    } catch (error) {
+      if (error.status === 401 || error.status === 403) {
+        signOut("Staff access expired or was rejected. Enter the access key again.", "error");
+        return;
+      }
+      setStatus($("#inviteStatus"), error.message || "Could not load invites.", "error");
+    }
+  }
+
   loginForm.addEventListener("submit", async (event) => {
     event.preventDefault();
     if (!loginForm.reportValidity()) return;
@@ -660,6 +781,7 @@
       if (activeView === "applications") await loadApplications();
       else if (activeView === "roster") await loadRoster();
       else if (activeView === "content") await loadContent();
+      else if (activeView === "invites") await loadInvites();
       else if (activeView === "overview") await loadApplications(false);
       else await loadOverview();
     });
@@ -670,9 +792,11 @@
       if (activeView === "applications") await loadApplications();
       else if (activeView === "roster") await loadRoster();
       else if (activeView === "content") await loadContent();
+      else if (activeView === "invites") await loadInvites();
       else await loadOverview();
     });
   });
+  $("#refreshInvites")?.addEventListener("click", () => loadInvites());
   $("#refreshApplications").addEventListener("click", () => loadApplications());
   $("#refreshRoster")?.addEventListener("click", () => loadRoster());
   $("#refreshContent")?.addEventListener("click", () => loadContent());
@@ -703,6 +827,27 @@
     } finally { saveButton.disabled = false; contentForm.removeAttribute("aria-busy"); }
   });
   $("#resetContentEditor")?.addEventListener("click", resetContentEditor);
+  const inviteIssueForm = $("#inviteIssueForm");
+  inviteIssueForm?.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    if (!inviteIssueForm.reportValidity()) return;
+    const generateButton = $("#generateInviteButton");
+    if (generateButton) generateButton.disabled = true;
+    const label = (inviteIssueForm.elements.label.value || "").trim();
+    setStatus($("#inviteIssueStatus"), "Generating a one-time invite code…");
+    try {
+      const result = await api("/api/staff/invites", { method: "POST", body: JSON.stringify({ label }) });
+      inviteIssueForm.reset();
+      showInviteResult(result);
+      setStatus($("#inviteIssueStatus"), "Invite created. Copy the code before you leave this view.", "success");
+      await loadInvites(false);
+    } catch (error) {
+      if (error.status === 401 || error.status === 403) signOut("Staff access expired or was rejected. Enter the access key again.", "error");
+      else setStatus($("#inviteIssueStatus"), error.message || "Unable to generate an invite.", "error");
+    } finally {
+      if (generateButton) generateButton.disabled = false;
+    }
+  });
   $("#refreshCurrentView").addEventListener("click", () => refreshActiveView());
   $("#staffSignOut").addEventListener("click", signOut);
   if (token) loadApplications();

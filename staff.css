@@ -98,3 +98,13 @@
 .staff-profile-form .field label{display:block;font-size:.73rem;color:#d1d1d4;font-weight:800;margin-bottom:8px}
 .staff-profile-form__actions{display:flex;gap:10px;flex-wrap:wrap;grid-column:1/-1}
 @media(max-width:620px){.staff-content-form,.staff-profile-form{grid-template-columns:1fr}.staff-content-form .field--full,.staff-profile-form .field--full{grid-column:auto}.staff-content-actions{display:grid;grid-template-columns:1fr}.staff-content-actions .button{width:100%}.staff-content-list-heading{align-items:flex-start;flex-direction:column;gap:0}}
+
+/* Invite generator (one-time codes shown once; storage is hash-only) */
+.staff-invite-form{max-width:760px}
+.staff-invite-actions{display:flex;gap:12px;flex-wrap:wrap;margin-top:6px}
+.staff-invite-result{border:1px solid #60d39466;border-left:3px solid #60d394;background:#101418;padding:20px;margin-top:18px}
+.staff-invite-code{display:block;font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:clamp(1rem,2.6vw,1.3rem);letter-spacing:.08em;word-break:break-all;color:#f4f5f7;background:#090b0e;border:1px solid #343841;padding:14px 16px;margin:10px 0}
+.staff-invite-result .button{margin-top:6px}
+.staff-invite-result .form-note{color:#aeb4bd;font-size:.78rem;margin-top:12px}
+.staff-invite-item__actions{display:flex;gap:12px;flex-wrap:wrap;margin-top:16px}
+.staff-invite .pill{letter-spacing:.08em}

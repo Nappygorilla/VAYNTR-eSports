@@ -88,6 +88,30 @@ if (/app\.post\(["']\/api\/staff\/applications\/:id\/status["']/.test(serverSour
   addError("server.js", "The obsolete status endpoint must not bypass the atomic roster/application decision flow or send automatic decision emails.");
 }
 
+// Member invite codes: generation is server-side, storage is hash-only, plaintext is returned exactly once.
+if (!serverSource.includes('app.post("/api/staff/invites"') ||
+    !serverSource.includes('hashInviteCode(code)') ||
+    !serverSource.includes('INSERT INTO invite_codes (label, code_hash, expires_at)')) {
+  addError("server.js", "Invite codes must be generated server-side and stored only as SHA-256 hashes.");
+}
+if (!serverSource.includes('SELECT id, label, created_at, expires_at, revoked_at, redeemed_at FROM invite_codes')) {
+  addError("server.js", "Invite list responses must return metadata only, never code hashes or codes.");
+}
+if (!serverSource.includes('WHERE id = $1 AND revoked_at IS NULL AND redeemed_at IS NULL')) {
+  addError("server.js", "A redeemed invite must never be revocable and a revoked invite must never be revoked twice.");
+}
+if (!serverSource.includes('CREATE TABLE IF NOT EXISTS invite_codes') ||
+    !serverSource.includes('code_hash TEXT NOT NULL UNIQUE')) {
+  addError("server.js", "invite_codes must exist with a unique code_hash column so codes are never stored in plaintext.");
+}
+if (/code_hash/.test(staffSource)) {
+  addError("staff.js", "The invite UI must never receive or render code hashes.");
+}
+if (!/inviteResultPanel/.test(staffSource) || !/staff-invite-code/.test(staffSource) ||
+    !/shown only once/i.test(staffSource)) {
+  addError("staff.js", "The invite generator must surface one-time codes in a dedicated result panel that warns the code is shown only once.");
+}
+
 if (!/content_type='result' AND published=TRUE AND verified=TRUE AND source_url IS NOT NULL/.test(serverSource) ||
     !/SELECT id, content_type, verified, title/.test(serverSource)) {
   addError("server.js", "Public match results must remain published, explicitly verified, and backed by a source link.");
