@@ -152,7 +152,17 @@ app.use(cors({
 app.use(express.json({ limit: "20kb" }));
 const recruitmentLimiter = rateLimit({ windowMs: 15 * 60 * 1000, limit: 10, standardHeaders: "draft-7", legacyHeaders: false, message: { error: "Too many applications from this connection. Please wait and try again." } });
 const apiLimiter = rateLimit({ windowMs: 15 * 60 * 1000, limit: 60, standardHeaders: "draft-7", legacyHeaders: false });
+// Count unsuccessful staff requests only. Successful staff dashboard calls do not consume this budget.
+const staffAuthLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 10,
+  standardHeaders: "draft-7",
+  legacyHeaders: false,
+  skipSuccessfulRequests: true,
+  message: { error: "Too many unsuccessful staff access attempts. Please wait before trying again." }
+});
 app.use("/api", apiLimiter);
+app.use("/api/staff", staffAuthLimiter);
 
 function requireDatabase(_req, res, next) {
   if (!pool) return res.status(503).json({ error: "Database is not configured yet." });
@@ -479,6 +489,9 @@ app.post("/api/staff/applications/:id/confirmation-email", requireDatabase, requ
 app.use((req, res) => res.status(404).json({ error: "Endpoint not found." }));
 app.use((error, _req, res, _next) => {
   if (error.message === "Origin is not allowed by CORS") return res.status(403).json({ error: "Origin not allowed." });
+  // Return useful HTTP status codes for malformed/oversized JSON without exposing parser details.
+  if (error.type === "entity.parse.failed") return res.status(400).json({ error: "Request body must contain valid JSON." });
+  if (error.type === "entity.too.large") return res.status(413).json({ error: "Request body is too large." });
   console.error("API request failed:", error.message);
   res.status(500).json({ error: "An unexpected server error occurred." });
 });
