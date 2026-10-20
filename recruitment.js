@@ -81,6 +81,7 @@
       game: form.elements.game.value,
       youtubeUrl,
       privacyConsent: form.elements.privacyConsent.checked,
+      ageConfirmed: form.elements.ageConfirmed.checked,
       message: form.elements.message.value.trim()
     };
     submit.disabled = true;

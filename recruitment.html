@@ -2,10 +2,19 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'inline-speculation-rules'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: https:; connect-src 'self' https://vayntr-esports.onrender.com; object-src 'none'; base-uri 'self'; form-action 'self'">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#08090b">
   <meta name="description" content="Apply to join VAYNTR Esports. Submit your competitive details and a YouTube video explaining why you want to join.">
   <title>Recruitment | VAYNTR Esports</title>
+  <link rel="canonical" href="https://nappygorilla.github.io/VAYNTR-eSports/recruitment.html">
+  <meta property="og:url" content="https://nappygorilla.github.io/VAYNTR-eSports/recruitment.html">
+  <meta property="og:title" content="Recruitment | VAYNTR Esports">
+  <meta property="og:description" content="Apply to join VAYNTR Esports. Submit your competitive details and a YouTube video explaining why you want to join.">
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="VAYNTR Esports">
+  <meta property="og:image" content="https://nappygorilla.github.io/VAYNTR-eSports/assets/vayntr-header.png">
+  <meta name="twitter:card" content="summary_large_image">
 <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700;800;900&family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
@@ -95,8 +104,14 @@
               <textarea id="message" name="message" rows="4" maxlength="2000" placeholder="Competitive background, availability, goals, or anything else you'd like to share."></textarea>
             </div>
             <div class="field field--full">
-              <label style="display:flex;gap:10px;align-items:flex-start;font-weight:500;letter-spacing:0;text-transform:none">
-                <input id="privacyConsent" name="privacyConsent" type="checkbox" required style="width:auto;margin-top:5px">
+              <label class="consent-label">
+                <input id="ageConfirmed" name="ageConfirmed" type="checkbox" required>
+                <span>I am at least 13 years old. If I am under 18, my parent or guardian knows I am applying and allows me to share these details. *</span>
+              </label>
+            </div>
+            <div class="field field--full">
+              <label class="consent-label">
+                <input id="privacyConsent" name="privacyConsent" type="checkbox" required>
                 <span>I confirm this application is accurate and I understand VAYNTR will use these details to review my recruitment application. *</span>
               </label>
             </div>

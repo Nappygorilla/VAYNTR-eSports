@@ -145,7 +145,10 @@
       }
       const data = await response.json().catch(() => ({}));
       if (!response.ok) {
-        const error = new Error(data.error || "The request failed.");
+        const fallback = response.status === 429 ? "Too many requests. Wait a few minutes and try again."
+          : response.status === 502 || response.status === 503 || response.status === 504 ? "The API is starting up or unavailable (HTTP " + response.status + "). Wait 30–60 seconds and try again."
+          : "The request failed (HTTP " + response.status + ").";
+        const error = new Error(data.error || fallback);
         error.status = response.status;
         throw error;
       }
@@ -640,7 +643,8 @@
     if (!loginForm.reportValidity()) return;
     loginButton.disabled = true;
     setStatus(loginStatus, "Checking staff access…");
-    token = loginForm.elements.accessKey.value;
+    // Pasted keys often carry a trailing space/newline or wrapping quotes; remove them before use.
+    token = loginForm.elements.accessKey.value.trim().replace(/^(["'])(.*)\1$/, "$2").trim();
     try { sessionStorage.setItem(TOKEN_KEY, token); } catch {}
     loginForm.elements.accessKey.value = "";
     try {

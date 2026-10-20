@@ -1,6 +1,6 @@
 # VAYNTR Esports
 
-VAYNTR is an independent esports organization website focused on competition, player development, and team news. The API runs on Render. The website is being prepared for the clean free GitHub Pages address `https://nappygorilla.github.io/`; GitHub requires this repository to be named `nappygorilla.github.io` for that root URL to work.
+VAYNTR is an independent esports organization website focused on competition, player development, and team news. The API runs on Render. The website is currently served at `https://nappygorilla.github.io/VAYNTR-eSports/`. Canonical URLs, the sitemap and social tags use that address. To move to the clean root URL, rename the repository to `nappygorilla.github.io`, then replace `/VAYNTR-eSports/` with `/` in the HTML, `sitemap.xml`, `robots.txt` and `scripts/check-site.js`. Search engines only read `robots.txt` and `sitemap.xml` from a domain root, so submit the sitemap URL in Google Search Console while the site lives under the project path.
 
 ## Public website
 
@@ -29,3 +29,14 @@ Never commit API keys, staff access tokens, database credentials, or JWT secrets
 ## Legacy scaffold
 
 Older Supabase membership-invitation files remain in \`supabase/\` during migration. They are not wired into the public site. Do not deploy both systems for the same workflow; remove or archive the old scaffold only after the Render workflow has been verified.
+
+
+## Launch notes
+
+- GitHub Pages publishes only the static site: the workflow copies the HTML, CSS, client JS and `assets/` into `dist/`. Server code, `docs/`, `supabase/` and config files are not published.
+- Every page sets a Content Security Policy through a `<meta>` tag (GitHub Pages cannot send headers). If you add a new script, font host or API host, update the policy in every HTML file.
+- `STAFF_REVIEW_TOKEN` is trimmed server-side, so a stray space or newline saved in Render no longer breaks sign-in. Use a random value of 48 or more characters and rotate it if it is ever shared.
+- Set `PG_SSL_REJECT_UNAUTHORIZED=true` on Render once the database connection string uses a verifiable certificate (Render's internal URL or a CA you supply). The default keeps the previous behaviour.
+- The Render free plan sleeps when idle, so the first request can take up to a minute. Ping `/health` every 5–10 minutes with a free uptime monitor, or upgrade the plan.
+- The recruitment form requires an age/guardian confirmation. Review the wording with your recruitment policy.
+- Fill in real Discord, email and social links on `contact.html` before announcing the site.

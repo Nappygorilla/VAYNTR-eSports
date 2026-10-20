@@ -1,4 +1,3 @@
 User-agent: *
 Allow: /
-Disallow: /staff-applications.html
-Sitemap: https://nappygorilla.github.io/sitemap.xml
+Sitemap: https://nappygorilla.github.io/VAYNTR-eSports/sitemap.xml

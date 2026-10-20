@@ -22,42 +22,35 @@ jobs:
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
-      - name: Validate required static files
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - name: Validate site and scripts
         run: |
           test -s index.html
           test -s styles.css
           test -s app.js
+          test -s year.js
           test -s navigation.js
-          test -s scripts/check-site.js
-          test -s tryout-process.html
-          test -s player-development.html
-          test -s competitive-standards.html
           test -s recruitment.html
-          test -s recruitment.js
-          test -s server.js
           test -s staff-applications.html
-          test -s staff.js
-          test -s staff.css
-          test -s roster.html
-          test -s roster.js
-          test -s content.js
-          test -s about.html
-          test -s partnerships.html
           test -s sitemap.xml
           test -s robots.txt
           test -s 404.html
           test -s assets/vayntr-mark.svg
-          node --check app.js
-          node --check navigation.js
-          node --check scripts/check-site.js
+          node security-check.js
           node scripts/check-site.js
-          node --check server.js
-          node --check recruitment.js
-          node --check staff.js
-          node --check roster.js
-          node --check content.js
+          for f in app.js year.js navigation.js recruitment.js staff.js roster.js content.js player.js server.js; do node --check "$f"; done
           grep -q 'name="viewport"' index.html
           grep -q 'prefers-reduced-motion' styles.css
+      - name: Assemble public site (static files only)
+        run: |
+          rm -rf dist && mkdir -p dist/assets
+          cp ./*.html dist/
+          cp app.js year.js navigation.js recruitment.js staff.js roster.js content.js player.js dist/
+          cp styles.css staff.css sitemap.xml robots.txt dist/
+          cp assets/* dist/assets/
       - name: Configure Pages
         if: github.event_name != 'pull_request'
         uses: actions/configure-pages@v5
@@ -65,7 +58,7 @@ jobs:
         if: github.event_name != 'pull_request'
         uses: actions/upload-pages-artifact@v3
         with:
-          path: .
+          path: dist
   deploy:
     if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
     environment:
