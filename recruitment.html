@@ -20,7 +20,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700;800;900&family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="styles.css?v=20261021-app-expand">
   <script src="app.js?v=20261019-siteupgrade" defer></script>
-  <script src="recruitment.js?v=20261021-app-expand" defer></script>
+  <script src="recruitment.js?v=20261021-section-fix" defer></script>
   <script src="navigation.js?v=20261019-siteupgrade" defer></script>
   <link rel="icon" type="image/png" href="assets/vayntr-icon.png?v=20261016-tabs">
   <link rel="shortcut icon" type="image/png" href="assets/vayntr-icon.png?v=20261016-tabs">
@@ -69,7 +69,7 @@
           <h2 style="font-family:'Barlow Condensed',Impact,sans-serif;font-size:clamp(2.2rem,5vw,3.4rem);line-height:.95;margin:12px 0">APPLY TO THE ROSTER.</h2>
           <p class="form-note">Fields marked required must be completed. Your details and video link will be sent to the VAYNTR recruitment backend for review.</p>
           <form id="recruitmentForm" class="application-form" novalidate>
-            <h3 class="form-section-title">1 · Competitive profile</h3>
+            <h3 class="form-section-title" data-section-label="Competitive profile"></h3>
             <div class="field">
               <label for="displayName">Gaming username / display name *</label>
               <input id="displayName" name="displayName" type="text" minlength="2" maxlength="50" autocomplete="nickname" required>
@@ -146,7 +146,7 @@
               <input id="gameDetails" name="gameDetails" type="text" maxlength="300" placeholder="Preferred drop, loadout, or role — for Rocket League: car and camera settings" autocomplete="off">
             </div>
 
-            <h3 class="form-section-title">2 · Commitment &amp; communication</h3>
+            <h3 class="form-section-title" data-section-label="Commitment &amp; communication"></h3>
             <div class="field field--full">
               <label for="availability">How many hours a week can you commit to practice and scrims? *</label>
               <select id="availability" name="availability" required>
@@ -202,7 +202,7 @@
             </div>
 
             <fieldset class="form-section" data-media-only hidden>
-              <h3 class="form-section-title">3 · Media team details</h3>
+              <h3 class="form-section-title" data-section-label="Media team details — media team applicants only"></h3>
               <small class="form-note">These questions apply only to media team applications.</small>
               <div class="field field--full">
                 <label for="mediaTools">Editing / recording software you use (optional)</label>
@@ -226,7 +226,7 @@
               </div>
             </fieldset>
 
-            <h3 class="form-section-title">4 · Final words &amp; confirmations</h3>
+            <h3 class="form-section-title" data-section-label="Final words &amp; confirmations"></h3>
             <div class="field field--full">
               <label for="otherRosterStatus">Have you applied to VAYNTR before, or are you currently on another team's roster? *</label>
               <select id="otherRosterStatus" name="otherRosterStatus" required>

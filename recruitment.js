@@ -103,6 +103,16 @@
     if (bestContentField) bestContentField.value = "";
     if (mediaToolsField) mediaToolsField.value = "";
   }
+  function renumberSections() {
+    // Number only the sections the current applicant can see, so the form never shows a
+    // number gap when the media-only section is hidden for player applicants.
+    let count = 0;
+    for (const title of [...form.querySelectorAll(".form-section-title")]) {
+      if (mediaSection && mediaSection.contains(title) && mediaSection.hidden) continue;
+      count += 1;
+      title.textContent = String(count) + " · " + (title.dataset.sectionLabel || "");
+    }
+  }
   function applyTrackRequirements() {
     const isMedia = trackSelect.value === "media";
     gameSelect.required = !isMedia;
@@ -115,6 +125,7 @@
     if (scheduleAgreementField) scheduleAgreementField.required = !isMedia;
     if (scheduleAgreementCard) scheduleAgreementCard.hidden = isMedia;
     if (!isMedia) clearMediaAnswers();
+    renumberSections();
     if (mediaHint) mediaHint.hidden = !isMedia;
     if (youtubeHint) {
       youtubeHint.hidden = isMedia;
