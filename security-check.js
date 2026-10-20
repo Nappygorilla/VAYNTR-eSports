@@ -40,4 +40,21 @@ assert.match(source, /entity\.parse\.failed/,
 assert.match(source, /entity\.too\.large/,
   "Oversized JSON must be handled without returning an internal error.");
 
+// Cross-origin member actions (avatar remove) preflight DELETE; missing it silently breaks the button.
+const corsMethodsMatch = source.match(/methods:\s*\[([^\]]*)\]/);
+assert.ok(corsMethodsMatch && /"DELETE"/.test(corsMethodsMatch[1]) && /"OPTIONS"/.test(corsMethodsMatch[1]),
+  "CORS must allow DELETE plus OPTIONS so preflighted member actions are not rejected.");
+
+// Schema safety: on a fresh database every ALTER TABLE must follow its table's CREATE TABLE.
+const schemaStart = source.indexOf("const schema = `") + "const schema = `".length;
+const schemaEnd = source.indexOf("`;", schemaStart);
+assert.ok(schemaEnd > schemaStart, "The database schema string must be present.");
+const schemaSlice = source.slice(schemaStart, schemaEnd);
+for (const alter of schemaSlice.match(/ALTER TABLE \w+/g) || []) {
+  const tableName = alter.replace("ALTER TABLE ", "");
+  const createAt = schemaSlice.indexOf("CREATE TABLE IF NOT EXISTS " + tableName);
+  assert.ok(createAt >= 0 && createAt < schemaSlice.indexOf(alter),
+    "ALTER statements must run after their table's CREATE so first-boot schema setup cannot fail: " + tableName);
+}
+
 console.log("Security source checks passed.");

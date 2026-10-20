@@ -7,7 +7,7 @@ VAYNTR is an independent esports organization website focused on competition, pl
 - The only public path to apply to join VAYNTR is \`recruitment.html\`.
 - Recruitment requires a direct YouTube video link explaining why the applicant wants to join. Unlisted links are allowed; private videos may not be viewable by reviewers.
 - Public news, match-result, and media feeds have client-side search and clear retry states; confirmed roster players have shareable public profile pages.
-- Public sign-in, registration, and member-dashboard pages have been removed. The API does not expose public account login or registration endpoints; staff access uses the private staff-review token.
+- Accepted members get an invite-gated account: the staff portal issues a one-time code bound to a roster member, and the member redeems it on `member.html` with their exact application name plus a hardened password (12+ chars, mixed classes). Sign-in is name + password and, when enabled, an authenticator-app MFA code; members manage their own public bio, age visibility, profile picture, social links and MFA from the portal. Staff access uses the private staff-review token.
 - Recruitment requires the database and private staff-review token; email notifications are optional because the operator contacts applicants manually. The staff page has one-click Accept and Deny actions.
 
 ## Render backend
@@ -36,7 +36,7 @@ Older Supabase membership-invitation files remain in \`supabase/\` during migrat
 - GitHub Pages publishes only the static site: the workflow copies the HTML, CSS, client JS and `assets/` into `dist/`. Server code, `docs/`, `supabase/` and config files are not published.
 - Every page sets a Content Security Policy through a `<meta>` tag (GitHub Pages cannot send headers). If you add a new script, font host or API host, update the policy in every HTML file.
 - `STAFF_REVIEW_TOKEN` is trimmed server-side, so a stray space or newline saved in Render no longer breaks sign-in. Use a random value of 48 or more characters and rotate it if it is ever shared.
-- Set `PG_SSL_REJECT_UNAUTHORIZED=true` on Render once the database connection string uses a verifiable certificate (Render's internal URL or a CA you supply). The default keeps the previous behaviour.
+- TLS to PostgreSQL verifies the server certificate by default (`PG_SSL_REJECT_UNAUTHORIZED` is no longer needed; set it to `false` only when the connection string's certificate cannot be validated, e.g. a custom CA). API-to-cloud-fit healthy check: `/health` reports `ok:false` and HTTP 503 unless the database is connected.
 - The Render free plan sleeps when idle, so the first request can take up to a minute. Ping `/health` every 5–10 minutes with a free uptime monitor, or upgrade the plan.
 - The recruitment form requires an age/guardian confirmation. Review the wording with your recruitment policy.
 - Fill in real Discord, email and social links on `contact.html` before announcing the site.

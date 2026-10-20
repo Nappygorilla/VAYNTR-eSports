@@ -385,7 +385,9 @@ async function sendApplicationReceivedEmail(application) {
 
 const pool = DATABASE_URL ? new Pool({
   connectionString: DATABASE_URL,
-  ssl: process.env.PGSSLMODE === "disable" ? false : { rejectUnauthorized: process.env.PG_SSL_REJECT_UNAUTHORIZED === "true" },
+  // TLS always verifies the database server's certificate; opt out explicitly only for
+  // internal URLs or custom CAs that cannot validate cloud-provided chains.
+  ssl: process.env.PGSSLMODE === "disable" ? false : { rejectUnauthorized: process.env.PG_SSL_REJECT_UNAUTHORIZED !== "false" },
   max: 5,
   idleTimeoutMillis: 30000,
   connectionTimeoutMillis: 5000
@@ -397,7 +399,7 @@ app.use(cors({
     if (!origin || FRONTEND_ORIGINS.includes(origin)) return callback(null, true);
     return callback(new Error("Origin is not allowed by CORS"));
   },
-  methods: ["GET", "POST", "OPTIONS"],
+  methods: ["GET", "POST", "DELETE", "OPTIONS"],
   allowedHeaders: ["Content-Type", "Authorization"]
 }));
 app.use(express.json({ limit: "20kb" }));
@@ -419,6 +421,8 @@ const accountsLimiter = rateLimit({ windowMs: 15 * 60 * 1000, limit: 30, standar
 // Successful member logins do not consume the failed-login budget.
 const loginFailLimiter = rateLimit({ windowMs: 15 * 60 * 1000, limit: 10, standardHeaders: "draft-7", legacyHeaders: false, skipSuccessfulRequests: true, message: { error: "Too many unsuccessful sign-in attempts. Please wait 15 minutes and try again." } });
 app.use("/api/accounts", accountsLimiter);
+// Member profile writes (picture upload/remove, bio, links, MFA) share the tighter account budget.
+app.use("/api/me", accountsLimiter);
 
 function requireDatabase(_req, res, next) {
   if (!pool) return res.status(503).json({ error: "Database is not configured yet." });
@@ -486,7 +490,7 @@ app.get("/health", healthLimiter, async (_req, res) => {
     try { await pool.query("SELECT 1"); database = "connected"; }
     catch { database = "unavailable"; }
   }
-  res.status(database === "unavailable" ? 503 : 200).json({ ok: database !== "unavailable", service: "vayntr-api", database, time: new Date().toISOString() });
+  res.status(database === "connected" ? 200 : 503).json({ ok: database === "connected", service: "vayntr-api", database, time: new Date().toISOString() });
 });
 app.get("/api/status", async (_req, res) => {
   // The recruitment page probes this endpoint to enable the form; keep it uncached so availability is always current.
@@ -1270,12 +1274,6 @@ ALTER TABLE roster_players ADD COLUMN IF NOT EXISTS avatar_updated_at TIMESTAMPT
 ALTER TABLE roster_players ADD COLUMN IF NOT EXISTS social_links JSONB NOT NULL DEFAULT '[]'::jsonb;
 ALTER TABLE recruitment_applications ADD COLUMN IF NOT EXISTS track TEXT NOT NULL DEFAULT 'player';
 ALTER TABLE recruitment_applications ADD COLUMN IF NOT EXISTS social_links JSONB NOT NULL DEFAULT '[]'::jsonb;
-ALTER TABLE invite_codes ADD COLUMN IF NOT EXISTS bound_roster_id BIGINT;
-ALTER TABLE accounts ADD COLUMN IF NOT EXISTS failed_login_count INTEGER NOT NULL DEFAULT 0;
-ALTER TABLE accounts ADD COLUMN IF NOT EXISTS lockout_until TIMESTAMPTZ;
-ALTER TABLE accounts ADD COLUMN IF NOT EXISTS lockout_cycles INTEGER NOT NULL DEFAULT 0;
-ALTER TABLE accounts ADD COLUMN IF NOT EXISTS mfa_enabled BOOLEAN NOT NULL DEFAULT FALSE;
-ALTER TABLE accounts ADD COLUMN IF NOT EXISTS mfa_secret_encrypted TEXT;
 CREATE TABLE IF NOT EXISTS mfa_challenges (
  token_hash TEXT PRIMARY KEY,
  account_id BIGINT NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
@@ -1326,6 +1324,15 @@ CREATE TABLE IF NOT EXISTS invite_codes (
  redeemed_by TEXT
 );
 CREATE INDEX IF NOT EXISTS invite_codes_created_at_idx ON invite_codes (created_at DESC);
+
+-- Column migrations for existing deployments; every ALTER runs after its table's CREATE
+-- so a completely fresh database never hits a missing-table error on first boot.
+ALTER TABLE accounts ADD COLUMN IF NOT EXISTS failed_login_count INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE accounts ADD COLUMN IF NOT EXISTS lockout_until TIMESTAMPTZ;
+ALTER TABLE accounts ADD COLUMN IF NOT EXISTS lockout_cycles INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE accounts ADD COLUMN IF NOT EXISTS mfa_enabled BOOLEAN NOT NULL DEFAULT FALSE;
+ALTER TABLE accounts ADD COLUMN IF NOT EXISTS mfa_secret_encrypted TEXT;
+ALTER TABLE invite_codes ADD COLUMN IF NOT EXISTS bound_roster_id BIGINT;
 
 CREATE TABLE IF NOT EXISTS site_content (
  id BIGSERIAL PRIMARY KEY,
