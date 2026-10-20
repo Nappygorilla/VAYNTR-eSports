@@ -13,8 +13,8 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700;800;900&family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="styles.css?v=20261020-design-polish">
-  <link rel="stylesheet" href="staff.css?v=20261021-age-consent">
-  <script src="staff.js?v=20261021-age-consent" defer></script>
+  <link rel="stylesheet" href="staff.css?v=20261021-security">
+  <script src="staff.js?v=20261021-security" defer></script>
 </head>
 <body>
   <a class="skip-link" href="#main">Skip to content</a>
@@ -193,6 +193,9 @@
               <a class="staff-tool-card" href="partnerships.html"><span class="staff-tool-number">TOOL 09</span><h3>Partnerships & media</h3><p>Review public contact and collaboration guidelines.</p><span>Open page ↗</span></a>
               <article class="staff-tool-card"><span class="staff-tool-number">CONNECTED</span><h3>Content Desk</h3><p>Create drafts, publish news and media, and manage verified results in the Content Desk tab.</p><span>Database-backed publishing</span></article>
             </div>
+            <div class="staff-content-list-heading" style="margin-top:34px"><h3>Security activity</h3><p>Failed sign-ins, account lockouts, MFA events, and other auth activity (last 100 records). IPs are logged as hashes only.</p></div>
+            <p id="securityLogStatus" class="form-note" role="status" aria-live="polite"></p>
+            <div id="securityEventsList" class="staff-applications" aria-live="polite"></div>
           </section>
         </div>
       </div>

@@ -111,6 +111,170 @@ function isStrongPassword(password) {
     && /[a-zA-Z]/.test(password) && /[0-9]/.test(password);
 }
 
+// Hardened password policy: 12+ characters, all four character classes, and common passwords rejected.
+const COMMON_PASSWORDS = new Set([
+  "password", "password1", "password123", "123456", "1234567", "12345678", "123456789", "1234567890",
+  "qwerty", "qwerty123", "qwertyuiop", "abc123", "abc123456", "iloveyou", "iloveyou1", "admin",
+  "admin123", "admin1234", "administrator", "welcome", "welcome1", "welcome123", "letmein",
+  "letmein123", "monkey", "monkey123", "dragon", "dragon123", "sunshine", "sunshine1",
+  "princess", "football", "baseball", "superman", "superman1", "batman", "batman123",
+  "trustno1", "master", "master123", "passw0rd", "p@ssword", "p@ssw0rd", "pass1234", "pass12345",
+  "abcd1234", "abcd12345", "a123456", "aa123456", "qwerty12", "1q2w3e4r", "1q2w3e4r5t",
+  "1qaz2wsx", "qazwsx", "zxcvbnm", "asdfgh", "asdfghjkl", "iloveyou2", "pokemon", "pokemon123",
+  "minecraft", "dragonball", "starwars", "ferrari", "liverpool", "chelsea", "arsenal",
+  "vayntr", "vayntr123", "esports", "esports123", "gaming", "gamer123", "call of duty",
+  "warzone", "warzone123", "rocketleague", "test123", "test1234", "sample123", "changeme",
+  "secret", "secret123", "hunter2", "password1234", "p4ssw0rd", "qwerty1", "123qwe", "1234qwer"
+]);
+
+function isHardenedPassword(password) {
+  if (typeof password !== "string" || password.length < 12 || password.length > 128) return false;
+  if (!/[a-z]/.test(password) || !/[A-Z]/.test(password) || !/[0-9]/.test(password) || !/[^A-Za-z0-9]/.test(password)) return false;
+  const lowered = password.toLowerCase();
+  // Reject simple obfuscations of very common passwords (leetspeak and suffixes).
+  const normalized = lowered.replace(/0/g, "o").replace(/1/g, "i").replace(/3/g, "e").replace(/4/g, "a").replace(/5/g, "s").replace(/7/g, "t").replace(/@/g, "a").replace(/\$/g, "s");
+  for (const common of COMMON_PASSWORDS) {
+    const normalizedCommon = common.replace(/0/g, "o").replace(/1/g, "i").replace(/3/g, "e").replace(/4/g, "a").replace(/5/g, "s").replace(/7/g, "t").replace(/@/g, "a").replace(/\$/g, "s");
+    if (normalized.includes(normalizedCommon)) return false;
+  }
+  return true;
+}
+
+const STRONG_PASSWORD_MESSAGE = "Choose a password with at least 12 characters including an uppercase letter, a lowercase letter, a number, and a symbol. Avoid common passwords and name-based phrases.";
+
+// --- TOTP multi-factor authentication (RFC 6238) ---------------------------
+const BASE32_ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567";
+
+function base32Encode(buffer) {
+  let bits = 0, value = 0, output = "";
+  for (const byte of buffer) {
+    value = (value << 8) | byte;
+    bits += 8;
+    while (bits >= 5) { output += BASE32_ALPHABET[(value >>> (bits - 5)) & 31]; bits -= 5; }
+  }
+  if (bits > 0) output += BASE32_ALPHABET[(value << (5 - bits)) & 31];
+  return output;
+}
+
+function base32Decode(text) {
+  const clean = String(text || "").replace(/[^A-Za-z2-7]/g, "").toUpperCase();
+  let bits = 0, value = 0;
+  const out = [];
+  for (const char of clean) {
+    value = (value << 5) | BASE32_ALPHABET.indexOf(char);
+    bits += 5;
+    if (bits >= 8) { out.push((value >>> (bits - 8)) & 255); bits -= 8; }
+  }
+  return Buffer.from(out);
+}
+
+function totpCodeAt(secretBuffer, counter) {
+  const counterBuffer = Buffer.alloc(8);
+  counterBuffer.writeBigUInt64BE(BigInt(counter));
+  const hmac = crypto.createHmac("sha1", secretBuffer).update(counterBuffer).digest();
+  const offset = hmac[hmac.length - 1] & 15;
+  const code = ((hmac[offset] & 127) << 24 | hmac[offset + 1] << 16 | hmac[offset + 2] << 8 | hmac[offset + 3]) % 1000000;
+  return String(code).padStart(6, "0");
+}
+
+function verifyTotpCode(secretBase32, code) {
+  const secret = base32Decode(secretBase32);
+  if (secret.length < 10 || typeof code !== "string" || !/^\d{6}$/.test(code)) return false;
+  const counter = Math.floor(Date.now() / 30000);
+  const supplied = Buffer.from(code);
+  for (let drift = -1; drift <= 1; drift++) {
+    if (crypto.timingSafeEqual(Buffer.from(totpCodeAt(secret, counter + drift)), supplied)) return true;
+  }
+  return false;
+}
+
+// Secrets are AES-256-GCM encrypted at rest with a key derived from JWT_SECRET.
+function mfaCipherKey() {
+  return crypto.createHash("sha256").update(String(process.env.JWT_SECRET || "")).digest();
+}
+
+function encryptTotpSecret(plainSecret) {
+  const iv = crypto.randomBytes(12);
+  const cipher = crypto.createCipheriv("aes-256-gcm", mfaCipherKey(), iv);
+  const encrypted = Buffer.concat([cipher.update(String(plainSecret), "utf8"), cipher.final()]);
+  return iv.toString("hex") + ":" + cipher.getAuthTag().toString("hex") + ":" + encrypted.toString("hex");
+}
+
+function decryptTotpSecret(payload) {
+  try {
+    const [ivHex, tagHex, dataHex] = String(payload).split(":");
+    if (!ivHex || !tagHex || !dataHex) return null;
+    const decipher = crypto.createDecipheriv("aes-256-gcm", mfaCipherKey(), Buffer.from(ivHex, "hex"));
+    decipher.setAuthTag(Buffer.from(tagHex, "hex"));
+    return Buffer.concat([decipher.update(Buffer.from(dataHex, "hex")), decipher.final()]).toString("utf8");
+  } catch { return null; }
+}
+
+// --- Proof-of-Work challenge (hashcash) for repeated failed sign-ins ------
+const POW_DIFFICULTY_BITS = 16;
+
+function digestHasLeadingZeroBits(hexDigest, bits) {
+  let zeroBits = 0;
+  for (const nibbleChar of hexDigest) {
+    const nibble = parseInt(nibbleChar, 16);
+    if (nibble === 0) { zeroBits += 4; if (zeroBits >= bits) return true; continue; }
+    zeroBits += Math.clz32(nibble) - 28;
+    return zeroBits >= bits;
+  }
+  return true;
+}
+
+function meetsProofOfWork(salt, nonce, bits) {
+  if (typeof nonce !== "string" || !/^\d{1,40}$/.test(nonce) || typeof salt !== "string" || salt.length > 64) return false;
+  const digest = crypto.createHash("sha256").update(salt + ":" + nonce).digest("hex");
+  return digestHasLeadingZeroBits(digest, bits);
+}
+
+function issuePowChallenge() {
+  return { difficultyBits: POW_DIFFICULTY_BITS, salt: crypto.randomBytes(8).toString("hex") };
+}
+
+// Per-IP failed sign-in tracker for the PoW trigger (covers unknown names without leaking account existence).
+const powFailuresByIp = new Map();
+function noteIpFailure(ip) {
+  const key = sha256Hex(String(ip || "unknown")).slice(0, 24);
+  const now = Date.now();
+  const recent = (powFailuresByIp.get(key) || []).filter((time) => now - time < 15 * 60 * 1000);
+  recent.push(now);
+  powFailuresByIp.set(key, recent);
+  if (powFailuresByIp.size > 5000) for (const [mapKey, times] of powFailuresByIp) { if (times.every((time) => now - time >= 15 * 60 * 1000)) powFailuresByIp.delete(mapKey); }
+  return recent.length;
+}
+
+function securityLogger(poolRef, eventType, fields) {
+  if (!poolRef) return;
+  void poolRef.query(
+    "INSERT INTO security_events (event_type, account_id, name_hint, ip_hash, detail) VALUES ($1, $2, $3, $4, $5)",
+    [eventType, fields.accountId ?? null, fields.nameHint ? String(fields.nameHint).slice(0, 50) : null, fields.ip ? sha256Hex(String(fields.ip)).slice(0, 32) : null, fields.detail ? String(fields.detail).slice(0, 300) : null]
+  ).catch(() => { /* security logging must never break the request path */ });
+}
+
+// Increment the failed sign-in counter and auto-lock after 5 consecutive failures.
+// Repeated lockouts double the cooldown (5 → 10 → 20 → 40 → capped at 60 minutes).
+const LOCKOUT_THRESHOLD = 5;
+async function bumpFailedLogins(accountId) {
+  const result = await pool.query(
+    `WITH bumped AS (
+       SELECT id, failed_login_count + 1 AS new_count, lockout_cycles AS old_cycles FROM accounts WHERE id = $1
+     ), updated AS (
+       UPDATE accounts a
+       SET failed_login_count = CASE WHEN b.new_count >= $2 THEN 0 ELSE b.new_count END,
+           lockout_cycles = CASE WHEN b.new_count >= $2 THEN b.old_cycles + 1 ELSE b.old_cycles END,
+           lockout_until = CASE WHEN b.new_count >= $2 THEN NOW() + LEAST(INTERVAL '60 minutes', INTERVAL '5 minutes' * POWER(2, b.old_cycles)) ELSE a.lockout_until END
+       FROM bumped b WHERE a.id = b.id
+       RETURNING a.failed_login_count, a.lockout_until, a.lockout_cycles
+     )
+     SELECT * FROM updated`,
+    [accountId, LOCKOUT_THRESHOLD]
+  );
+  return result.rows[0] || null;
+}
+
 function parseYouTubeVideoUrl(value) {
   if (typeof value !== "string" || value.length > 500) return null;
   let url;
@@ -276,7 +440,7 @@ async function requireMemberSession(req, res, next) {
   if (!match) return res.status(401).json({ error: "Sign in to view your member profile." });
   try {
     const result = await pool.query(
-      "SELECT a.id AS account_id, a.roster_id, a.created_at AS member_since, r.display_name, r.member_type, r.game, r.platform, r.role, r.bio, r.social_links, r.profile_image_url, r.social_url, r.age, r.show_age_on_profile FROM account_sessions s JOIN accounts a ON a.id = s.account_id JOIN roster_players r ON r.id = a.roster_id WHERE s.token_hash = $1 AND s.expires_at > NOW()",
+      "SELECT a.id AS account_id, a.roster_id, a.created_at AS member_since, a.mfa_enabled, r.display_name, r.member_type, r.game, r.platform, r.role, r.bio, r.social_links, r.profile_image_url, r.social_url, r.age, r.show_age_on_profile FROM account_sessions s JOIN accounts a ON a.id = s.account_id JOIN roster_players r ON r.id = a.roster_id WHERE s.token_hash = $1 AND s.expires_at > NOW()",
       [sha256Hex(match[1])]
     );
     if (!result.rowCount) return res.status(401).json({ error: "Your session has expired. Please sign in again." });
@@ -296,6 +460,7 @@ function memberProfilePayload(member) {
     socialLinks: Array.isArray(member.social_links) ? member.social_links : [],
     age: member.age,
     showAgeOnProfile: member.show_age_on_profile === true,
+    mfaEnabled: member.mfa_enabled === true,
     memberSince: member.member_since
   };
 }
@@ -623,7 +788,18 @@ app.post("/api/staff/invites/for-roster/:rosterId", requireDatabase, requireStaf
   } catch (error) { next(error); }
 });
 
-// --- Member account endpoints (public; passwords/sessions stay hashed server-side only) ---
+
+app.get("/api/staff/security-events", requireDatabase, requireStaffAccess, async (_req, res, next) => {
+  try {
+    // IPs are logged only as truncated SHA-256 hashes; row detail stays staff-only.
+    const result = await pool.query(
+      "SELECT id, event_type, account_id, name_hint, ip_hash, detail, created_at FROM security_events ORDER BY created_at DESC LIMIT 100"
+    );
+    res.json({ events: result.rows });
+  } catch (error) { next(error); }
+});
+
+// --- Member accounts (public; passwords/sessions stay hashed server-side only) ---
 app.use("/api/accounts/login", loginFailLimiter);
 
 app.post("/api/accounts/register", requireDatabase, async (req, res, next) => {
@@ -632,7 +808,7 @@ app.post("/api/accounts/register", requireDatabase, async (req, res, next) => {
   const password = typeof req.body.password === "string" ? req.body.password : "";
   if (!/^VAYNTR-[A-Za-z0-9-]+$/.test(code)) return res.status(400).json({ error: "Enter the invite code staff sent you." });
   if (name.length < 2 || name.length > 50) return res.status(400).json({ error: "Enter the display name you used in your application (2–50 characters)." });
-  if (!isStrongPassword(password)) return res.status(400).json({ error: "Choose a password with at least 10 characters, including a letter and a number." });
+  if (!isHardenedPassword(password)) return res.status(400).json({ error: STRONG_PASSWORD_MESSAGE });
   try {
     await pool.query("DELETE FROM account_sessions WHERE expires_at < NOW()");
     const found = await pool.query(
@@ -677,22 +853,71 @@ app.post("/api/accounts/register", requireDatabase, async (req, res, next) => {
 app.post("/api/accounts/login", requireDatabase, async (req, res, next) => {
   const name = typeof req.body.name === "string" ? req.body.name.trim() : "";
   const password = typeof req.body.password === "string" ? req.body.password : "";
+  const powNonce = typeof req.body.powNonce === "string" ? req.body.powNonce.trim() : "";
+  const powSalt = typeof req.body.powSalt === "string" ? req.body.powSalt.trim() : "";
   if (!name || !password) return res.status(400).json({ error: "Enter your player name and password." });
   try {
     await pool.query("DELETE FROM account_sessions WHERE expires_at < NOW()");
-    const found = await pool.query("SELECT id, password_hash FROM accounts WHERE LOWER(display_name) = LOWER($1)", [name]);
-    if (!found.rowCount || !verifyPassword(password, found.rows[0].password_hash)) {
-      return res.status(401).json({ error: "The player name or password is incorrect." });
+    await pool.query("DELETE FROM mfa_challenges WHERE expires_at < NOW()");
+    // A client-supplied proof-of-work must actually meet the difficulty; otherwise the attempt stops here.
+    if (powSalt || powNonce) {
+      const powValid = Boolean(powSalt && powNonce && meetsProofOfWork(powSalt, powNonce, POW_DIFFICULTY_BITS));
+      if (!powValid) {
+        return res.status(400).json({ error: "Security challenge failed. Complete the browser check and try again.", pow: issuePowChallenge(), powRequired: true });
+      }
     }
+    const found = await pool.query(
+      "SELECT id, password_hash, failed_login_count, lockout_until, mfa_enabled FROM accounts WHERE LOWER(display_name) = LOWER($1)",
+      [name]
+    );
+    const account = found.rows[0];
+    if (account && account.lockout_until && new Date(account.lockout_until).getTime() > Date.now()) {
+      const minutes = Math.ceil((new Date(account.lockout_until).getTime() - Date.now()) / 60000);
+      securityLogger(pool, "login_locked", { accountId: account.id, nameHint: name, ip: req.ip, detail: "Blocked during an active lockout window." });
+      return res.status(423).json({ error: "Too many failed sign-in attempts. This account is locked for about " + minutes + " more minute(s).", lockoutMinutes: minutes });
+    }
+    const passwordOk = Boolean(account) && verifyPassword(password, account.password_hash);
+    if (!passwordOk) {
+      let failedCount = 0;
+      if (account) {
+        const bumped = await bumpFailedLogins(account.id);
+        failedCount = bumped && bumped.failed_login_count || 0;
+        if (bumped && bumped.lockout_until && new Date(bumped.lockout_until).getTime() > Date.now()) {
+          securityLogger(pool, "account_locked", { accountId: account.id, nameHint: name, ip: req.ip, detail: "Auto-locked after " + LOCKOUT_THRESHOLD + " failed sign-ins." });
+        }
+      }
+      const ipFailures = noteIpFailure(req.ip);
+      const powRequired = Math.max(failedCount, ipFailures) >= 2;
+      securityLogger(pool, "login_failed", { accountId: account ? account.id : null, nameHint: name, ip: req.ip, detail: powRequired ? "Proof-of-work required for the next attempt." : null });
+      const body = { error: "The player name or password is incorrect." };
+      if (powRequired) { body.pow = issuePowChallenge(); body.powRequired = true; }
+      return res.status(401).json(body);
+    }
+    if (account.mfa_enabled) {
+      // Password is correct; hold the session until the authenticator code is verified.
+      const challenge = createSessionToken();
+      await pool.query(
+        "INSERT INTO mfa_challenges (token_hash, account_id, expires_at) VALUES ($1, $2, NOW() + INTERVAL '5 minutes')",
+        [challenge.tokenHash, account.id]
+      );
+      res.set("Cache-Control", "no-store, private");
+      return res.json({
+        mfaRequired: true,
+        mfaToken: challenge.token,
+        expiresAt: new Date(Date.now() + 5 * 60000).toISOString(),
+        message: "Enter the current 6-digit code from your authenticator app."
+      });
+    }
+    await pool.query("UPDATE accounts SET failed_login_count = 0, lockout_cycles = 0, lockout_until = NULL, last_login_at = NOW() WHERE id = $1", [account.id]);
     const session = createSessionToken();
     await pool.query(
       "INSERT INTO account_sessions (token_hash, account_id, expires_at) VALUES ($1, $2, NOW() + INTERVAL '7 days')",
-      [session.tokenHash, found.rows[0].id]
+      [session.tokenHash, account.id]
     );
-    await pool.query("UPDATE accounts SET last_login_at = NOW() WHERE id = $1", [found.rows[0].id]);
+    securityLogger(pool, "login_success", { accountId: account.id, nameHint: name, ip: req.ip });
     const profile = await pool.query(
-      "SELECT a.id AS account_id, a.roster_id, a.created_at AS member_since, r.display_name, r.member_type, r.game, r.platform, r.role, r.bio, r.social_links, r.profile_image_url, r.social_url, r.age, r.show_age_on_profile FROM account_sessions s JOIN accounts a ON a.id = s.account_id JOIN roster_players r ON r.id = a.roster_id WHERE s.token_hash = $1",
-      [session.tokenHash]
+      "SELECT a.id AS account_id, a.roster_id, a.created_at AS member_since, a.mfa_enabled, r.display_name, r.member_type, r.game, r.platform, r.role, r.bio, r.social_links, r.profile_image_url, r.social_url, r.age, r.show_age_on_profile FROM accounts a JOIN roster_players r ON r.id = a.roster_id WHERE a.id = $1",
+      [account.id]
     );
     res.set("Cache-Control", "no-store, private");
     res.json({
@@ -700,6 +925,94 @@ app.post("/api/accounts/login", requireDatabase, async (req, res, next) => {
       member: memberProfilePayload(profile.rows[0])
     });
   } catch (error) { return next(error); }
+});
+
+const mfaVerifyFailLimiter = rateLimit({ windowMs: 15 * 60 * 1000, limit: 6, standardHeaders: "draft-7", legacyHeaders: false, skipSuccessfulRequests: true, message: { error: "Too many incorrect authentication codes. Please wait 15 minutes and try again." } });
+app.use("/api/accounts/login/verify", mfaVerifyFailLimiter);
+app.post("/api/accounts/login/verify", requireDatabase, async (req, res, next) => {
+  const mfaToken = typeof req.body.mfaToken === "string" ? req.body.mfaToken.trim() : "";
+  const code = typeof req.body.code === "string" ? req.body.code.trim() : "";
+  if (!mfaToken || !/^\d{6}$/.test(code)) return res.status(400).json({ error: "Enter the current 6-digit code from your authenticator app." });
+  try {
+    const found = await pool.query(
+      "SELECT c.account_id, a.mfa_secret_encrypted FROM mfa_challenges c JOIN accounts a ON a.id = c.account_id WHERE c.token_hash = $1 AND c.expires_at > NOW()",
+      [sha256Hex(mfaToken)]
+    );
+    if (!found.rowCount) return res.status(400).json({ error: "This verification request expired. Please sign in again." });
+    const secret = decryptTotpSecret(found.rows[0].mfa_secret_encrypted);
+    if (!secret || !verifyTotpCode(secret, code)) {
+      securityLogger(pool, "mfa_failed", { accountId: found.rows[0].account_id, ip: req.ip, detail: "Incorrect MFA code." });
+      return res.status(401).json({ error: "That code is not correct. Enter the current 6-digit code from your authenticator app." });
+    }
+    await pool.query("DELETE FROM mfa_challenges WHERE token_hash = $1", [sha256Hex(mfaToken)]);
+    await pool.query("UPDATE accounts SET failed_login_count = 0, lockout_cycles = 0, lockout_until = NULL, last_login_at = NOW() WHERE id = $1", [found.rows[0].account_id]);
+    const session = createSessionToken();
+    await pool.query(
+      "INSERT INTO account_sessions (token_hash, account_id, expires_at) VALUES ($1, $2, NOW() + INTERVAL '7 days')",
+      [session.tokenHash, found.rows[0].account_id]
+    );
+    securityLogger(pool, "login_success", { accountId: found.rows[0].account_id, ip: req.ip, detail: "Signed in with an MFA code." });
+    const profile = await pool.query(
+      "SELECT a.id AS account_id, a.roster_id, a.created_at AS member_since, a.mfa_enabled, r.display_name, r.member_type, r.game, r.platform, r.role, r.bio, r.social_links, r.profile_image_url, r.social_url, r.age, r.show_age_on_profile FROM accounts a JOIN roster_players r ON r.id = a.roster_id WHERE a.id = $1",
+      [found.rows[0].account_id]
+    );
+    res.set("Cache-Control", "no-store, private");
+    res.json({
+      session: { token: session.token, expiresAt: new Date(Date.now() + SESSION_TTL_DAYS * 86400000).toISOString() },
+      member: memberProfilePayload(profile.rows[0])
+    });
+  } catch (error) { return next(error); }
+});
+
+app.post("/api/me/mfa/enroll", requireMemberSession, async (req, res, next) => {
+  if (req.member.mfa_enabled) return res.status(409).json({ error: "Multi-factor authentication is already enabled on your account. Disable it first if you need to re-enroll." });
+  if (!process.env.JWT_SECRET) return res.status(503).json({ error: "MFA setup is not available: the server encryption key is missing. Contact staff." });
+  try {
+    const secret = base32Encode(crypto.randomBytes(20));
+    const uri = "otpauth://totp/" + encodeURIComponent("VAYNTR:" + req.member.display_name) + "?secret=" + secret + "&issuer=VAYNTR&algorithm=SHA1&digits=6&period=30";
+    await pool.query(
+      "UPDATE accounts SET mfa_secret_encrypted = $1, mfa_enabled = FALSE WHERE id = $2",
+      [encryptTotpSecret(secret), req.member.account_id]
+    );
+    securityLogger(pool, "mfa_enroll_started", { accountId: req.member.account_id, ip: req.ip });
+    res.set("Cache-Control", "no-store, private");
+    res.json({ secret, uri, message: "Add this secret (or the linked ticket) to your authenticator app, then confirm with a current code below." });
+  } catch (error) { next(error); }
+});
+
+app.post("/api/me/mfa/activate", requireMemberSession, async (req, res, next) => {
+  const code = typeof req.body.code === "string" ? req.body.code.trim() : "";
+  try {
+    const stored = await pool.query("SELECT mfa_secret_encrypted, mfa_enabled FROM accounts WHERE id = $1", [req.member.account_id]);
+    const row = stored.rows[0];
+    if (!row || row.mfa_enabled) return res.status(409).json({ error: "There is no pending MFA setup for your account." });
+    if (!row.mfa_secret_encrypted) return res.status(409).json({ error: "Start the MFA setup first." });
+    const secret = decryptTotpSecret(row.mfa_secret_encrypted);
+    if (!secret || !verifyTotpCode(secret, code)) {
+      securityLogger(pool, "mfa_failed", { accountId: req.member.account_id, ip: req.ip, detail: "Incorrect enrollment code." });
+      return res.status(400).json({ error: "That code is not correct. Enter the current 6-digit code from your authenticator app." });
+    }
+    await pool.query("UPDATE accounts SET mfa_enabled = TRUE WHERE id = $1", [req.member.account_id]);
+    securityLogger(pool, "mfa_activated", { accountId: req.member.account_id, ip: req.ip });
+    res.json({ mfaEnabled: true, message: "Multi-factor authentication is on. Every sign-in now needs your authenticator app." });
+  } catch (error) { next(error); }
+});
+
+app.post("/api/me/mfa/disable", requireMemberSession, async (req, res, next) => {
+  const code = typeof req.body.code === "string" ? req.body.code.trim() : "";
+  try {
+    const stored = await pool.query("SELECT mfa_secret_encrypted, mfa_enabled FROM accounts WHERE id = $1", [req.member.account_id]);
+    const row = stored.rows[0];
+    if (!row || !row.mfa_enabled) return res.status(409).json({ error: "Multi-factor authentication is not enabled on your account." });
+    const secret = decryptTotpSecret(row.mfa_secret_encrypted);
+    if (!secret || !verifyTotpCode(secret, code)) {
+      securityLogger(pool, "mfa_failed", { accountId: req.member.account_id, ip: req.ip, detail: "Incorrect code while disabling MFA." });
+      return res.status(400).json({ error: "That code is not correct. Enter the current 6-digit code from your authenticator app." });
+    }
+    await pool.query("UPDATE accounts SET mfa_enabled = FALSE, mfa_secret_encrypted = NULL WHERE id = $1", [req.member.account_id]);
+    securityLogger(pool, "mfa_disabled", { accountId: req.member.account_id, ip: req.ip });
+    res.json({ mfaEnabled: false, message: "Multi-factor authentication is off for your account." });
+  } catch (error) { next(error); }
 });
 
 app.post("/api/accounts/logout", requireMemberSession, async (req, res, next) => {
@@ -884,6 +1197,28 @@ ALTER TABLE roster_players ADD COLUMN IF NOT EXISTS social_links JSONB NOT NULL 
 ALTER TABLE recruitment_applications ADD COLUMN IF NOT EXISTS track TEXT NOT NULL DEFAULT 'player';
 ALTER TABLE recruitment_applications ADD COLUMN IF NOT EXISTS social_links JSONB NOT NULL DEFAULT '[]'::jsonb;
 ALTER TABLE invite_codes ADD COLUMN IF NOT EXISTS bound_roster_id BIGINT;
+ALTER TABLE accounts ADD COLUMN IF NOT EXISTS failed_login_count INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE accounts ADD COLUMN IF NOT EXISTS lockout_until TIMESTAMPTZ;
+ALTER TABLE accounts ADD COLUMN IF NOT EXISTS lockout_cycles INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE accounts ADD COLUMN IF NOT EXISTS mfa_enabled BOOLEAN NOT NULL DEFAULT FALSE;
+ALTER TABLE accounts ADD COLUMN IF NOT EXISTS mfa_secret_encrypted TEXT;
+CREATE TABLE IF NOT EXISTS mfa_challenges (
+ token_hash TEXT PRIMARY KEY,
+ account_id BIGINT NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
+ created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+ expires_at TIMESTAMPTZ NOT NULL
+);
+CREATE INDEX IF NOT EXISTS mfa_challenges_expiry_idx ON mfa_challenges (expires_at);
+CREATE TABLE IF NOT EXISTS security_events (
+ id BIGSERIAL PRIMARY KEY,
+ event_type TEXT NOT NULL,
+ account_id BIGINT,
+ name_hint TEXT,
+ ip_hash TEXT,
+ detail TEXT,
+ created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS security_events_created_at_idx ON security_events (created_at DESC);
 
 -- Member accounts: one account per accepted roster member, bound to the roster row
 -- (cascade delete removes accounts and sessions when a player is removed).

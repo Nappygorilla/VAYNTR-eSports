@@ -75,7 +75,7 @@
             <div class="field">
               <label for="memberPassword">Choose a password *</label>
               <input id="memberPassword" name="password" type="password" minlength="10" maxlength="128" autocomplete="new-password" required>
-              <small class="form-note">At least 10 characters, including a letter and a number. Stored only as a salted scrypt hash on the backend.</small>
+              <small class="form-note">At least 12 characters with an uppercase letter, a lowercase letter, a number, and a symbol. Common passwords are rejected. Stored only as a salted scrypt hash on the backend.</small>
             </div>
             <div class="field field--full">
               <button class="button button--primary" type="submit" id="memberRegisterButton">Create my account</button>
@@ -94,6 +94,18 @@
             </div>
             <div class="field field--full">
               <button class="button button--outline" type="submit" id="memberLoginButton">Sign in ↗</button>
+            </div>
+          </form>
+
+          <form id="memberMfaForm" class="application-form" hidden novalidate>
+            <p class="eyebrow"><span></span> Two-step verification</p>
+            <div class="field">
+              <label for="mfaCode">Authenticator code</label>
+              <input id="mfaCode" name="code" type="text" inputmode="numeric" pattern="\d{6}" maxlength="6" autocomplete="one-time-code" required>
+              <small class="form-note">Open your authenticator app and enter the current 6-digit code for your VAYNTR entry.</small>
+            </div>
+            <div class="field field--full">
+              <button class="button button--primary" type="submit" id="memberMfaButton">Verify and sign in</button>
             </div>
           </form>
         </div>
@@ -115,6 +127,22 @@
             </div>
           </div>
           <p id="memberProfileStatus" class="form-note member-profile__status" role="status" aria-live="polite"></p>
+          <div id="memberMfaPanel" class="member-mfa" hidden>
+            <h3>Extra sign-in security (MFA)</h3>
+            <p id="memberMfaState" class="form-note"></p>
+            <div id="memberMfaEnrollPanel" hidden>
+              <p class="form-note">Add this secret to your authenticator app (Google Authenticator, Authy, Microsoft Authenticator, 1Password…) or tap the link on your phone:</p>
+              <code id="memberMfaSecret" class="member-mfa__secret"></code>
+              <p><a id="memberMfaOtpauth" class="button button--outline" href="#">Open in authenticator app ↗</a></p>
+              <div class="field"><label for="memberMfaConfirmCode">Confirm with a current 6-digit code</label><input id="memberMfaConfirmCode" type="text" inputmode="numeric" pattern="\d{6}" maxlength="6" autocomplete="one-time-code"></div>
+              <button class="button button--primary" type="button" id="memberMfaActivate">Turn on MFA</button>
+            </div>
+            <div id="memberMfaDisableRow" hidden>
+              <div class="field"><label for="memberMfaDisableCode">Current 6-digit code from your authenticator app</label><input id="memberMfaDisableCode" type="text" inputmode="numeric" pattern="\d{6}" maxlength="6" autocomplete="one-time-code"></div>
+              <button class="button button--outline" type="button" id="memberMfaDisable">Turn MFA off</button>
+            </div>
+            <button class="button button--outline" type="button" id="memberMfaEnrollButton">Set up authenticator app</button>
+          </div>
           <div class="member-profile__grid">
             <div class="member-profile__col">
               <h3>Profile</h3>

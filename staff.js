@@ -83,6 +83,60 @@
     });
   }
 
+  function renderSecurityEvent(event) {
+    const card = document.createElement("article");
+    card.className = "application-panel staff-application";
+    const top = document.createElement("div");
+    top.className = "staff-application__top";
+    const identity = document.createElement("div");
+    const typeLabels = {
+      login_failed: "Failed sign-in",
+      login_locked: "Sign-in blocked",
+      account_locked: "Account auto-locked",
+      login_success: "Successful sign-in",
+      mfa_failed: "Failed MFA code",
+      mfa_enroll_started: "MFA setup started",
+      mfa_activated: "MFA enabled",
+      mfa_disabled: "MFA disabled"
+    };
+    addText(identity, "h3", "staff-application__name", (typeLabels[event.event_type] || event.event_type) + (event.name_hint ? " — " + event.name_hint : ""));
+    addText(identity, "p", "staff-application__meta", "IP hash: " + (event.ip_hash || "n/a"));
+    top.appendChild(identity);
+    addText(top, "span", "pill", "SECURITY");
+    card.appendChild(top);
+    const details = document.createElement("div");
+    details.className = "staff-application__details";
+    addText(details, "p", "", "When: " + (event.created_at ? new Date(event.created_at).toLocaleString() : "Unknown"));
+    addText(details, "p", "", "Detail: " + (event.detail || "—"));
+    card.appendChild(details);
+    return card;
+  }
+
+  async function loadSecurityEvents(showLoading = true) {
+    const eventsList = $("#securityEventsList");
+    const eventsStatus = $("#securityLogStatus");
+    if (!eventsList || !eventsStatus) return;
+    if (showLoading) setStatus(eventsStatus, "Loading security activity…");
+    eventsList.replaceChildren();
+    try {
+      const result = await api("/api/staff/security-events");
+      const events = Array.isArray(result.events) ? result.events : [];
+      if (!events.length) {
+        addText(eventsList, "div", "empty-state", "No security events recorded yet.");
+        setStatus(eventsStatus, "No security events yet.", "success");
+        return;
+      }
+      for (const event of events) eventsList.appendChild(renderSecurityEvent(event));
+      setStatus(eventsStatus, "Latest " + events.length + " security event(s). Failed sign-in spikes and lockouts are visible here.", "success");
+    } catch (error) {
+      if (error.status === 401 || error.status === 403) {
+        signOut("Staff access expired or was rejected. Enter the access key again.", "error");
+        return;
+      }
+      setStatus(eventsStatus, error.message || "Could not load security activity.", "error");
+    }
+  }
+
   async function loadOverview() {
     const databaseStatus = $("#overviewDatabaseStatus");
     const databaseNote = $("#overviewDatabaseNote");
@@ -115,6 +169,11 @@
     if (activeView === "roster") return loadRoster();
     if (activeView === "content") return loadContent();
     if (activeView === "invites") return loadInvites();
+    if (activeView === "operations") {
+      await loadOverview();
+      await loadSecurityEvents(false);
+      return;
+    }
     if (activeView === "overview") {
       await loadApplications(false);
       return;
@@ -181,6 +240,9 @@
     }
     const inviteResult = $("#inviteResultPanel");
     if (inviteResult) { inviteResult.hidden = true; inviteResult.replaceChildren(); }
+    $("#securityEventsList")?.replaceChildren();
+    const securityInput = document.getElementById("securityLogStatus");
+    if (securityInput) setStatus(securityInput, "");
     setStatus($("#inviteIssueStatus"), "");
     setStatus($("#inviteStatus"), "");
     const editor = $("#contentEditorForm");
@@ -828,7 +890,7 @@
       else if (activeView === "content") await loadContent();
       else if (activeView === "invites") await loadInvites();
       else if (activeView === "overview") await loadApplications(false);
-      else await loadOverview();
+      else { await loadOverview(); await loadSecurityEvents(false); }
     });
   });
   document.querySelectorAll("[data-open-view]").forEach((button) => {

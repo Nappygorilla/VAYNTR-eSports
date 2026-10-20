@@ -187,6 +187,43 @@ if (!memberPage.includes('id="memberRegisterForm"') || !memberPage.includes('id=
   addError("member.html", "The member portal must offer both invite redemption and sign-in and disclose the hashing policy.");
 }
 
+// Hardening: MFA, proof-of-work, account lockout, security events.
+if (!serverSource.includes("isHardenedPassword(password)") || !serverSource.includes("COMMON_PASSWORDS") ||
+    !serverSource.includes("12 characters")) {
+  addError("server.js", "Registration must enforce the hardened password policy (12+ chars, four character classes, common-password blocklist).");
+}
+if (!serverSource.includes("lockout_until") || !serverSource.includes("bumpFailedLogins") ||
+    !serverSource.includes("lockout_cycles")) {
+  addError("server.js", "Failed sign-ins must feed a progressive per-account lockout.");
+}
+if (!serverSource.includes("POW_DIFFICULTY_BITS") || !serverSource.includes("meetsProofOfWork") ||
+    !serverSource.includes("noteIpFailure")) {
+  addError("server.js", "Repeated failed sign-ins must require a verified proof-of-work challenge.");
+}
+if (!serverSource.includes("verifyTotpCode") || !serverSource.includes("timingSafeEqual(Buffer.from(totpCodeAt")) {
+  addError("server.js", "TOTP codes must be verified through a timing-safe comparison.");
+}
+if (!serverSource.includes("aes-256-gcm") || !serverSource.includes("mfa_secret_encrypted")) {
+  addError("server.js", "TOTP secrets must be encrypted at rest (AES-256-GCM) and never stored in plaintext.");
+}
+if (!serverSource.includes("CREATE TABLE IF NOT EXISTS security_events")) {
+  addError("server.js", "Security-relevant auth events must be recorded in the security_events table.");
+}
+if (!serverSource.includes("INSERT INTO mfa_challenges") || !serverSource.includes("sha256Hex(mfaToken)")) {
+  addError("server.js", "MFA login challenges must be stored as hashed tokens with a short expiry.");
+}
+const memberAuthSource = fs.readFileSync(path.join(root, "auth.js"), "utf8");
+if (!memberAuthSource.includes("solvePow") || !memberAuthSource.includes("crypto.subtle.digest") ||
+    !memberAuthSource.includes("mfaRequired") || !memberAuthSource.includes("powNonce")) {
+  addError("auth.js", "The member client must solve the proof-of-work challenge and complete the MFA signing stage.");
+}
+if (!memberPage.includes("memberMfaPanel") || !memberPage.includes("Two-step verification")) {
+  addError("member.html", "The member profile must expose MFA enrollment and the mandatory second step at sign-in.");
+}
+if (!staffSource.includes("/api/staff/security-events")) {
+  addError("staff.js", "Staff operations must expose the security activity log.");
+}
+
 if (!/content_type='result' AND published=TRUE AND verified=TRUE AND source_url IS NOT NULL/.test(serverSource) ||
     !/SELECT id, content_type, verified, title/.test(serverSource)) {
   addError("server.js", "Public match results must remain published, explicitly verified, and backed by a source link.");
