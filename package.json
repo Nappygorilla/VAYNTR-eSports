@@ -6,7 +6,7 @@
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
-    "check": "node --check server.js && node --check app.js && node --check recruitment.js && node --check staff.js && node --check roster.js && node --check content.js && node --check player.js && node --check navigation.js && node --check scripts/check-site.js && node scripts/check-site.js"
+    "check": "node --check server.js && node --check security-check.js && node security-check.js && node --check app.js && node --check recruitment.js && node --check staff.js && node --check roster.js && node --check content.js && node --check player.js && node --check navigation.js && node --check scripts/check-site.js && node scripts/check-site.js"
   },
   "engines": {
     "node": "24.x"
