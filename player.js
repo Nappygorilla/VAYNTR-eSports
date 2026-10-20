@@ -119,6 +119,13 @@
       role.textContent = String(player.role);
       meta.appendChild(role);
     }
+    // The API only returns age when the player consented to a public age; it is NULL otherwise.
+    if (player.age != null) {
+      const agePill = document.createElement("span");
+      agePill.className = "pill";
+      agePill.textContent = "Age " + player.age;
+      meta.appendChild(agePill);
+    }
     copy.appendChild(meta);
 
     if (player.bio) text(copy, "p", "player-profile__bio", player.bio);

@@ -20,7 +20,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700;800;900&family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="styles.css?v=20261020-design-polish">
   <script src="app.js?v=20261019-siteupgrade" defer></script>
-  <script src="recruitment.js?v=20261020-readiness-retry" defer></script>
+  <script src="recruitment.js?v=20261021-age-consent" defer></script>
   <script src="navigation.js?v=20261019-siteupgrade" defer></script>
   <link rel="icon" type="image/png" href="assets/vayntr-icon.png?v=20261016-tabs">
   <link rel="shortcut icon" type="image/png" href="assets/vayntr-icon.png?v=20261016-tabs">
@@ -76,6 +76,16 @@
             <div class="field">
               <label for="email">Email address *</label>
               <input id="email" name="email" type="email" maxlength="254" autocomplete="email" required>
+            </div>
+            <div class="field">
+              <label for="age">Your age *</label>
+              <input id="age" name="age" type="number" min="13" max="120" step="1" inputmode="numeric" required>
+            </div>
+            <div class="field field--full">
+              <label class="consent-label">
+                <input id="showAgeOnProfile" name="showAgeOnProfile" type="checkbox">
+                <span>Show my age on my public player profile. Your age stays private unless you tick this box, and you can ask staff to change it at any time.</span>
+              </label>
             </div>
             <div class="field">
               <label for="platform">Platform *</label>

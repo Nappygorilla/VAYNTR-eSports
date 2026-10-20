@@ -254,6 +254,9 @@
     details.className = "staff-application__details";
     addText(details, "p", "", "Game / division: " + application.game);
     addText(details, "p", "", "Platform: " + application.platform);
+    addText(details, "p", "", application.age != null
+      ? "Age: " + application.age + " · public profile age: " + (application.show_age_on_profile ? "yes" : "private")
+      : "Age: not provided");
     addText(details, "p", "", "Submitted: " + (application.created_at ? new Date(application.created_at).toLocaleString() : "Unknown"));
     card.appendChild(details);
 
@@ -400,6 +403,9 @@
         details.className = "staff-application__details";
         addText(details, "p", "", "Game / division: " + player.game);
         addText(details, "p", "", "Platform: " + player.platform);
+        addText(details, "p", "", player.age != null
+          ? "Age: " + player.age + " (" + (player.show_age_on_profile ? "public" : "private") + ")"
+          : "Age: not recorded");
         addText(details, "p", "", "Added: " + (player.accepted_at ? new Date(player.accepted_at).toLocaleDateString() : "Unknown"));
         card.appendChild(details);
 
@@ -460,6 +466,8 @@
           ["game", "Game / division", player.game || "", "text", 80],
           ["platform", "Platform", player.platform || "Cross-platform", "select", 0],
           ["role", "Team role", player.role || "Player", "text", 60],
+          ["age", "Age (blank = stays private)", player.age == null ? "" : player.age, "number", 0],
+          ["showAgeOnProfile", "Show age on the public profile", player.show_age_on_profile === true, "checkbox", 0],
           ["socialUrl", "Social profile URL", player.social_url || "", "url", 500],
           ["highlightUrl", "Highlights URL", player.highlight_url || "", "url", 500],
           ["profileImageUrl", "Profile image URL", player.profile_image_url || "", "url", 500],
@@ -476,8 +484,16 @@
               const option = document.createElement("option"); option.value = optionValue; option.textContent = optionValue; input.appendChild(option);
             }
             input.value = value;
+          } else if (type === "checkbox") {
+            input = document.createElement("input");
+            input.type = "checkbox";
+            input.checked = Boolean(value);
           } else if (type === "textarea") {
             input = document.createElement("textarea"); input.rows = 3; input.maxLength = maxLength;
+          } else if (type === "number") {
+            input = document.createElement("input");
+            input.type = "number";
+            input.min = "13"; input.max = "120"; input.step = "1";
           } else {
             input = document.createElement("input"); input.type = type; if (maxLength) input.maxLength = maxLength;
           }
@@ -501,7 +517,10 @@
           event.preventDefault(); if (!editForm.reportValidity()) return;
           saveProfile.disabled = true; setStatus(profileStatus, "Saving profile…");
           try {
-            const payload = Object.fromEntries(new FormData(editForm).entries());
+            const formData = new FormData(editForm);
+            const payload = Object.fromEntries(formData.entries());
+            // FormData reports unclaimed checkboxes by omission; send an explicit boolean for age visibility.
+            payload.showAgeOnProfile = Boolean(editForm.elements.showAgeOnProfile && editForm.elements.showAgeOnProfile.checked);
             const updated = await api("/api/staff/roster/" + encodeURIComponent(player.id) + "/update", { method: "POST", body: JSON.stringify(payload) });
             setStatus($("#portalActionStatus"), updated.message || "Player profile updated.", "success");
             await loadRoster(false);

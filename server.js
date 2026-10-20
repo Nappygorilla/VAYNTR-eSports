@@ -39,6 +39,13 @@ function parseOptionalHttpsUrl(value) {
   } catch { return undefined; }
 }
 
+// Age is optional on the roster but required on applications. null = not provided/hidden.
+function parseOptionalAge(value) {
+  if (value == null || String(value).trim() === "") return null;
+  const parsed = Number(value);
+  return Number.isSafeInteger(parsed) && parsed >= 13 && parsed <= 120 ? parsed : undefined;
+}
+
 function parseYouTubeVideoUrl(value) {
   if (typeof value !== "string" || value.length > 500) return null;
   let url;
@@ -229,7 +236,8 @@ app.get("/api/roster", requireDatabase, async (_req, res, next) => {
   try {
     // Only fields needed by public cards/profiles leave this route. Contact emails and internal timestamps stay private.
     const result = await pool.query(
-      "SELECT id, display_name, game, platform, role, bio, social_url, highlight_url, profile_image_url FROM roster_players ORDER BY game ASC, display_name ASC"
+      // The age is published only when the player consented to showing it; otherwise it leaves the database as NULL.
+      "SELECT id, display_name, game, platform, role, bio, social_url, highlight_url, profile_image_url, (CASE WHEN show_age_on_profile THEN age ELSE NULL END) AS age FROM roster_players ORDER BY game ASC, display_name ASC"
     );
     res.set("Cache-Control", "no-store");
     res.json({ players: result.rows });
@@ -249,6 +257,8 @@ app.post("/api/recruitment/applications", recruitmentLimiter, requireDatabase, a
     const youtubeUrl = parseYouTubeVideoUrl(req.body.youtubeUrl);
     const privacyConsent = req.body.privacyConsent === true;
     const ageConfirmed = req.body.ageConfirmed === true;
+    const age = parseOptionalAge(req.body.age);
+    const showAgeOnProfile = req.body.showAgeOnProfile === true;
 
     if (displayName.length < 2 || displayName.length > 50) return res.status(400).json({ error: "Display name must be 2–50 characters." });
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || email.length > 254) return res.status(400).json({ error: "Enter a valid email address." });
@@ -257,11 +267,12 @@ app.post("/api/recruitment/applications", recruitmentLimiter, requireDatabase, a
     if (!youtubeUrl) return res.status(400).json({ error: "Submit a valid YouTube video link, not a channel or playlist link." });
     if (!ageConfirmed) return res.status(400).json({ error: "Confirm the age and parent/guardian statement before submitting." });
     if (!privacyConsent) return res.status(400).json({ error: "Confirm the application privacy acknowledgement before submitting." });
+    if (!Number.isSafeInteger(age)) return res.status(400).json({ error: "Enter your age as a whole number (13 or older)." });
     if (message.length > 2000) return res.status(400).json({ error: "Additional information must be 2,000 characters or fewer." });
 
     const result = await pool.query(
-      "INSERT INTO recruitment_applications (display_name, email, platform, game, message, youtube_url, privacy_consent, privacy_consent_at) VALUES ($1, $2, $3, $4, $5, $6, $7, NOW()) RETURNING id, status, created_at",
-      [displayName, email, platform, game, message, youtubeUrl, privacyConsent]
+      "INSERT INTO recruitment_applications (display_name, email, platform, game, message, youtube_url, privacy_consent, age, show_age_on_profile, privacy_consent_at) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, NOW()) RETURNING id, status, created_at",
+      [displayName, email, platform, game, message, youtubeUrl, privacyConsent, age, showAgeOnProfile]
     );
     const application = { ...result.rows[0], display_name: displayName, email };
     // VAYNTR is using manual applicant contact for now; never send a confirmation email automatically.
@@ -290,7 +301,7 @@ app.get("/api/staff/roster", requireDatabase, requireStaffAccess, async (_req, r
   try {
     // Email is exposed only inside this authenticated staff endpoint so the operator can contact players manually.
     const result = await pool.query(
-      "SELECT id, display_name, email, game, platform, role, bio, social_url, highlight_url, profile_image_url, accepted_at FROM roster_players ORDER BY accepted_at DESC"
+      "SELECT id, display_name, email, game, platform, role, bio, social_url, highlight_url, profile_image_url, age, show_age_on_profile, accepted_at FROM roster_players ORDER BY accepted_at DESC"
     );
     res.json({ players: result.rows });
   } catch (error) { next(error); }
@@ -325,6 +336,8 @@ app.post("/api/staff/roster/:id/update", requireDatabase, requireStaffAccess, as
   const game = typeof req.body.game === "string" ? req.body.game.trim() : "";
   const platform = typeof req.body.platform === "string" ? req.body.platform.trim() : "";
   const role = typeof req.body.role === "string" ? req.body.role.trim() : "Player";
+  const age = parseOptionalAge(req.body.age);
+  const showAgeOnProfile = req.body.showAgeOnProfile === true;
   const bio = typeof req.body.bio === "string" ? req.body.bio.trim() : "";
   const socialUrl = parseOptionalHttpsUrl(req.body.socialUrl);
   const highlightUrl = parseOptionalHttpsUrl(req.body.highlightUrl);
@@ -335,10 +348,11 @@ app.post("/api/staff/roster/:id/update", requireDatabase, requireStaffAccess, as
   if (!["PlayStation", "Xbox", "PC", "Cross-platform"].includes(platform)) return res.status(400).json({ error: "Choose a valid platform." });
   if (role.length < 2 || role.length > 60 || bio.length > 500) return res.status(400).json({ error: "Role must be 2–60 characters and bio 500 characters or fewer." });
   if ([socialUrl, highlightUrl, profileImageUrl].some((url) => url === undefined)) return res.status(400).json({ error: "Profile, highlight, and image links must be valid HTTPS URLs." });
+  if (age === undefined) return res.status(400).json({ error: "Age must be a whole number between 13 and 120, or leave it blank to keep it private." });
   try {
     const result = await pool.query(
-      "UPDATE roster_players SET display_name=$1, game=$2, platform=$3, role=$4, bio=$5, social_url=$6, highlight_url=$7, profile_image_url=$8 WHERE id=$9 RETURNING id, display_name, game, platform, role, bio, social_url, highlight_url, profile_image_url, accepted_at",
-      [displayName, game, platform, role, bio, socialUrl, highlightUrl, profileImageUrl, id]
+      "UPDATE roster_players SET display_name=$1, game=$2, platform=$3, role=$4, bio=$5, social_url=$6, highlight_url=$7, profile_image_url=$8, age=$9, show_age_on_profile=$10 WHERE id=$11 RETURNING id, display_name, game, platform, role, bio, social_url, highlight_url, profile_image_url, age, show_age_on_profile, accepted_at",
+      [displayName, game, platform, role, bio, socialUrl, highlightUrl, profileImageUrl, age, showAgeOnProfile, id]
     );
     if (!result.rowCount) return res.status(404).json({ error: "This roster player no longer exists. Refresh the roster." });
     res.json({ player: result.rows[0], message: "Player profile updated." });
@@ -484,7 +498,7 @@ app.post("/api/staff/applications/:id/decision", requireDatabase, requireStaffAc
     client = await pool.connect();
     await client.query("BEGIN");
     const found = await client.query(
-      "SELECT id, display_name, email, game, platform FROM recruitment_applications WHERE id = $1 FOR UPDATE",
+      "SELECT id, display_name, email, game, platform, age, show_age_on_profile FROM recruitment_applications WHERE id = $1 FOR UPDATE",
       [id]
     );
     if (!found.rowCount) {
@@ -495,15 +509,17 @@ app.post("/api/staff/applications/:id/decision", requireDatabase, requireStaffAc
     let rosterPlayer = null;
     if (decision === "accept") {
       const added = await client.query(
-        `INSERT INTO roster_players (display_name, email, game, platform, source_application_id)
-         VALUES ($1, $2, $3, $4, $5)
+        `INSERT INTO roster_players (display_name, email, game, platform, age, show_age_on_profile, source_application_id)
+         VALUES ($1, $2, $3, $4, $5, $6, $7)
          ON CONFLICT (source_application_id) DO UPDATE
          SET display_name = EXCLUDED.display_name,
              email = EXCLUDED.email,
              game = EXCLUDED.game,
-             platform = EXCLUDED.platform
-         RETURNING id, display_name, game, platform, accepted_at`,
-        [applicant.display_name, applicant.email, applicant.game, applicant.platform, applicant.id]
+             platform = EXCLUDED.platform,
+             age = EXCLUDED.age,
+             show_age_on_profile = EXCLUDED.show_age_on_profile
+         RETURNING id, display_name, game, platform, age, show_age_on_profile, accepted_at`,
+        [applicant.display_name, applicant.email, applicant.game, applicant.platform, applicant.age, applicant.show_age_on_profile, applicant.id]
       );
       rosterPlayer = added.rows[0];
     }
@@ -590,6 +606,8 @@ ALTER TABLE recruitment_applications ADD COLUMN IF NOT EXISTS confirmation_email
 ALTER TABLE recruitment_applications ADD COLUMN IF NOT EXISTS confirmation_email_sent_at TIMESTAMPTZ;
 ALTER TABLE recruitment_applications ADD COLUMN IF NOT EXISTS decision_notified_status TEXT;
 ALTER TABLE recruitment_applications ADD COLUMN IF NOT EXISTS decision_email_error TEXT;
+ALTER TABLE recruitment_applications ADD COLUMN IF NOT EXISTS age INTEGER;
+ALTER TABLE recruitment_applications ADD COLUMN IF NOT EXISTS show_age_on_profile BOOLEAN NOT NULL DEFAULT FALSE;
 CREATE INDEX IF NOT EXISTS recruitment_applications_created_at_idx ON recruitment_applications (created_at DESC);
 CREATE TABLE IF NOT EXISTS roster_players (
  id BIGSERIAL PRIMARY KEY,
@@ -606,6 +624,8 @@ ALTER TABLE roster_players ADD COLUMN IF NOT EXISTS bio TEXT NOT NULL DEFAULT ''
 ALTER TABLE roster_players ADD COLUMN IF NOT EXISTS social_url TEXT;
 ALTER TABLE roster_players ADD COLUMN IF NOT EXISTS highlight_url TEXT;
 ALTER TABLE roster_players ADD COLUMN IF NOT EXISTS profile_image_url TEXT;
+ALTER TABLE roster_players ADD COLUMN IF NOT EXISTS age INTEGER;
+ALTER TABLE roster_players ADD COLUMN IF NOT EXISTS show_age_on_profile BOOLEAN NOT NULL DEFAULT FALSE;
 
 -- One-time member invites. code_hash is a SHA-256 hex digest; the plaintext code is returned once by the API and is never stored.
 CREATE TABLE IF NOT EXISTS invite_codes (

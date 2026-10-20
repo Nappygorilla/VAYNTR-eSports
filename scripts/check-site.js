@@ -112,6 +112,32 @@ if (!/inviteResultPanel/.test(staffSource) || !/staff-invite-code/.test(staffSou
   addError("staff.js", "The invite generator must surface one-time codes in a dedicated result panel that warns the code is shown only once.");
 }
 
+// Applicant age: registration asks for it, storage keeps the consent flag, the public feed gates it, and staff can edit both.
+if (!serverSource.includes("(CASE WHEN show_age_on_profile THEN age ELSE NULL END) AS age")) {
+  addError("server.js", "Public roster queries must gate the age behind the player's consent; a private age must never leave the database.");
+}
+if (!serverSource.includes("showAgeOnProfile") || !serverSource.includes("show_age_on_profile") ||
+    !serverSource.includes('error: "Enter your age as a whole number (13 or older)."')) {
+  addError("server.js", "Registration must require the applicant age and store the public-age consent flag.");
+}
+if (!serverSource.includes("INSERT INTO roster_players (display_name, email, game, platform, age, show_age_on_profile, source_application_id)")) {
+  addError("server.js", "Accepting an applicant must copy their age and age-visibility consent onto the roster record.");
+}
+if (!serverSource.includes("UPDATE roster_players SET display_name=$1, game=$2, platform=$3, role=$4, bio=$5, social_url=$6, highlight_url=$7, profile_image_url=$8, age=$9, show_age_on_profile=$10")) {
+  addError("server.js", "Staff profile edits must be able to update the recorded age and its public visibility.");
+}
+const recruitmentClientSource = fs.readFileSync(path.join(root, "recruitment.js"), "utf8");
+if (!recruitmentClientSource.includes("form.elements.age.value") || !recruitmentClientSource.includes("showAgeOnProfile")) {
+  addError("recruitment.js", "The application payload must include the applicant age and the public-age consent.");
+}
+const playerClientSource = fs.readFileSync(path.join(root, "player.js"), "utf8");
+if (!playerClientSource.includes("player.age != null") || !playerClientSource.includes('\"Age \" + player.age')) {
+  addError("player.js", "Public player profiles must render the age only when the API returns a consented, non-null value.");
+}
+if (!staffSource.includes("editForm.elements.showAgeOnProfile") || !staffSource.includes("show_age_on_profile")) {
+  addError("staff.js", "Staff profile editing must include the player's age and a public-visibility toggle.");
+}
+
 if (!/content_type='result' AND published=TRUE AND verified=TRUE AND source_url IS NOT NULL/.test(serverSource) ||
     !/SELECT id, content_type, verified, title/.test(serverSource)) {
   addError("server.js", "Public match results must remain published, explicitly verified, and backed by a source link.");

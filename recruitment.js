@@ -100,6 +100,8 @@
     const payload = {
       displayName: form.elements.displayName.value.trim(),
       email: form.elements.email.value.trim(),
+      age: form.elements.age.value,
+      showAgeOnProfile: form.elements.showAgeOnProfile.checked,
       platform: form.elements.platform.value,
       game: form.elements.game.value,
       youtubeUrl,
