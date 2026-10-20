@@ -194,6 +194,8 @@ function requireStaffAccess(req, res, next) {
 }
 
 app.get("/health", healthLimiter, async (_req, res) => {
+  // Health/status probes must never be served from a stale cache by browsers or proxies.
+  res.set("Cache-Control", "no-store");
   let database = "not_configured";
   if (pool) {
     try { await pool.query("SELECT 1"); database = "connected"; }
@@ -202,6 +204,8 @@ app.get("/health", healthLimiter, async (_req, res) => {
   res.status(database === "unavailable" ? 503 : 200).json({ ok: database !== "unavailable", service: "vayntr-api", database, time: new Date().toISOString() });
 });
 app.get("/api/status", async (_req, res) => {
+  // The recruitment page probes this endpoint to enable the form; keep it uncached so availability is always current.
+  res.set("Cache-Control", "no-store");
   let databaseReady = false;
   if (pool) {
     try { await pool.query("SELECT 1"); databaseReady = true; }
@@ -296,19 +300,21 @@ app.get("/api/staff/roster", requireDatabase, requireStaffAccess, async (_req, r
 // Public feeds return published items only. Match results also require staff verification.
 app.get("/api/news", requireDatabase, async (_req, res, next) => {
   try {
-    const result = await pool.query("SELECT id, content_type, title, category, excerpt, body, game, event_name, opponent, score, outcome, played_at, source_url, image_url, created_at, updated_at FROM site_content WHERE content_type='news' AND published=TRUE ORDER BY created_at DESC LIMIT 50");
+    // played_at is returned as YYYY-MM-DD text instead of a UTC-midnight timestamp so
+    // the date is rendered identically for every visitor time zone.
+    const result = await pool.query("SELECT id, content_type, title, category, excerpt, body, game, event_name, opponent, score, outcome, to_char(played_at, 'YYYY-MM-DD') AS played_at, source_url, image_url, created_at, updated_at FROM site_content WHERE content_type='news' AND published=TRUE ORDER BY created_at DESC LIMIT 50");
     res.set("Cache-Control", "no-store"); res.json({ items: result.rows });
   } catch (error) { next(error); }
 });
 app.get("/api/results", requireDatabase, async (_req, res, next) => {
   try {
-    const result = await pool.query("SELECT id, content_type, verified, title, category, excerpt, body, game, event_name, opponent, score, outcome, played_at, source_url, image_url, created_at, updated_at FROM site_content WHERE content_type='result' AND published=TRUE AND verified=TRUE AND source_url IS NOT NULL ORDER BY played_at DESC NULLS LAST, created_at DESC LIMIT 100");
+    const result = await pool.query("SELECT id, content_type, verified, title, category, excerpt, body, game, event_name, opponent, score, outcome, to_char(played_at, 'YYYY-MM-DD') AS played_at, source_url, image_url, created_at, updated_at FROM site_content WHERE content_type='result' AND published=TRUE AND verified=TRUE AND source_url IS NOT NULL ORDER BY site_content.played_at DESC NULLS LAST, created_at DESC LIMIT 100");
     res.set("Cache-Control", "no-store"); res.json({ items: result.rows });
   } catch (error) { next(error); }
 });
 app.get("/api/media", requireDatabase, async (_req, res, next) => {
   try {
-    const result = await pool.query("SELECT id, content_type, title, category, excerpt, body, game, event_name, opponent, score, outcome, played_at, source_url, image_url, created_at, updated_at FROM site_content WHERE content_type='media' AND published=TRUE AND (source_url IS NOT NULL OR image_url IS NOT NULL) ORDER BY created_at DESC LIMIT 100");
+    const result = await pool.query("SELECT id, content_type, title, category, excerpt, body, game, event_name, opponent, score, outcome, to_char(played_at, 'YYYY-MM-DD') AS played_at, source_url, image_url, created_at, updated_at FROM site_content WHERE content_type='media' AND published=TRUE AND (source_url IS NOT NULL OR image_url IS NOT NULL) ORDER BY created_at DESC LIMIT 100");
     res.set("Cache-Control", "no-store"); res.json({ items: result.rows });
   } catch (error) { next(error); }
 });
@@ -341,7 +347,7 @@ app.post("/api/staff/roster/:id/update", requireDatabase, requireStaffAccess, as
 
 app.get("/api/staff/content", requireDatabase, requireStaffAccess, async (_req, res, next) => {
   try {
-    const result = await pool.query("SELECT id, content_type, title, category, excerpt, body, game, event_name, opponent, score, outcome, played_at, source_url, image_url, published, verified, created_at, updated_at FROM site_content ORDER BY updated_at DESC LIMIT 200");
+    const result = await pool.query("SELECT id, content_type, title, category, excerpt, body, game, event_name, opponent, score, outcome, to_char(played_at, 'YYYY-MM-DD') AS played_at, source_url, image_url, published, verified, created_at, updated_at FROM site_content ORDER BY updated_at DESC LIMIT 200");
     res.json({ items: result.rows });
   } catch (error) { next(error); }
 });
@@ -377,13 +383,13 @@ app.post("/api/staff/content", requireDatabase, requireStaffAccess, async (req, 
     let result;
     if (id !== null) {
       result = await pool.query(
-        "UPDATE site_content SET content_type=$1, title=$2, category=$3, excerpt=$4, body=$5, game=$6, event_name=$7, opponent=$8, score=$9, outcome=$10, played_at=$11, source_url=$12, image_url=$13, published=$14, verified=$15, updated_at=NOW() WHERE id=$16 RETURNING id, content_type, title, category, excerpt, body, game, event_name, opponent, score, outcome, played_at, source_url, image_url, published, verified, created_at, updated_at",
+        "UPDATE site_content SET content_type=$1, title=$2, category=$3, excerpt=$4, body=$5, game=$6, event_name=$7, opponent=$8, score=$9, outcome=$10, played_at=$11, source_url=$12, image_url=$13, published=$14, verified=$15, updated_at=NOW() WHERE id=$16 RETURNING id, content_type, title, category, excerpt, body, game, event_name, opponent, score, outcome, to_char(played_at, 'YYYY-MM-DD') AS played_at, source_url, image_url, published, verified, created_at, updated_at",
         [...values, id]
       );
       if (!result.rowCount) return res.status(404).json({ error: "Content item not found. Refresh the content desk." });
     } else {
       result = await pool.query(
-        "INSERT INTO site_content (content_type, title, category, excerpt, body, game, event_name, opponent, score, outcome, played_at, source_url, image_url, published, verified) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15) RETURNING id, content_type, title, category, excerpt, body, game, event_name, opponent, score, outcome, played_at, source_url, image_url, published, verified, created_at, updated_at",
+        "INSERT INTO site_content (content_type, title, category, excerpt, body, game, event_name, opponent, score, outcome, played_at, source_url, image_url, published, verified) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15) RETURNING id, content_type, title, category, excerpt, body, game, event_name, opponent, score, outcome, to_char(played_at, 'YYYY-MM-DD') AS played_at, source_url, image_url, published, verified, created_at, updated_at",
         values
       );
     }

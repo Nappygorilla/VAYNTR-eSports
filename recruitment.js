@@ -10,9 +10,30 @@
   const controls = [...form.querySelectorAll("input, select, textarea, button")];
   controls.forEach((control) => { control.disabled = true; });
 
+  function clearRetry() {
+    const retry = status?.querySelector("button");
+    retry?.remove();
+  }
+
+  function appendRetry() {
+    if (!status || status.querySelector("button")) return;
+    const retry = document.createElement("button");
+    retry.type = "button";
+    retry.className = "button button--outline";
+    retry.textContent = "Check availability again ↗".trim();
+    retry.addEventListener("click", () => {
+      retry.disabled = true;
+      retry.textContent = "Checking…";
+      checkRecruitmentAvailability();
+    });
+    status.appendChild(retry);
+  }
+
   async function checkRecruitmentAvailability() {
+    clearRetry();
     try {
-      const response = await fetch(API_BASE + "/api/status");
+      // no-store so a retry after Render wakes up is never answered from the browser cache.
+      const response = await fetch(API_BASE + "/api/status", { cache: "no-store" });
       const data = await response.json().catch(() => ({}));
       const features = data.features || {};
       recruitmentAvailable = response.ok &&
@@ -24,11 +45,13 @@
       } else {
         status.textContent = "Applications are temporarily paused until the database and secure staff-review access are ready. No application details have been submitted.";
         status.dataset.state = "warning";
+        appendRetry();
       }
     } catch {
       recruitmentAvailable = false;
       status.textContent = "Recruitment availability could not be verified. The form is paused and no application details have been submitted.";
       status.dataset.state = "error";
+      appendRetry();
     }
   }
   checkRecruitmentAvailability();
