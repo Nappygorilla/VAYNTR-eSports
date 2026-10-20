@@ -224,6 +224,46 @@ if (!staffSource.includes("/api/staff/security-events")) {
   addError("staff.js", "Staff operations must expose the security activity log.");
 }
 
+// Account upgrades: self-service profile picture, public bio/privacy, keep-alive workflow.
+if (!serverSource.includes("detectImageContentType") || !serverSource.includes("MAX_AVATAR_BYTES") ||
+    !serverSource.includes("app.post(\"/api/me/avatar\", express.raw")) {
+  addError("server.js", "Member avatar uploads must be validated by magic bytes and capped in size before storage.");
+}
+if (!serverSource.includes("app.delete(\"/api/me/avatar\"") ||
+    !serverSource.includes("app.get(\"/api/members/:id/avatar\"")) {
+  addError("server.js", "Members must be able to remove their picture and the public avatar endpoint must exist.");
+}
+if (serverSource.includes("avatar_data") && !serverSource.includes("avatar_data BYTEA")) {
+  addError("server.js", "Avatar bytes must live in a BYTEA database column, not on the ephemeral filesystem.");
+}
+if (!serverSource.includes("app.post(\"/api/me/profile\"") ||
+    !serverSource.includes("SET bio = $1, show_age_on_profile = $2")) {
+  addError("server.js", "Members must be able to edit their own public bio and age visibility.");
+}
+if (!memberPage.includes("memberAvatarUpload") || !memberPage.includes("memberBioForm") ||
+    !memberPage.includes("memberProfileEditors")) {
+  addError("member.html", "The member portal must expose the picture upload and the bio/privacy editor.");
+}
+if (!memberAuthSource.includes("/api/me/avatar") || !memberAuthSource.includes("/api/me/profile") ||
+    !memberAuthSource.includes("arrayBuffer()")) {
+  addError("auth.js", "The member client must upload the picture bytes and save the bio through the session API.");
+}
+if (!rosterClientSource.includes("/api/members/") ||
+    !fs.readFileSync(path.join(root, "player.js"), "utf8").includes("/api/members/")) {
+  addError("roster.js", "Roster and player profiles must render member-uploaded pictures from the avatar endpoint.");
+}
+if (fs.existsSync(path.join(root, ".github", "workflows", "keep-alive.yml"))) {
+  const keepAlive = fs.readFileSync(path.join(root, ".github", "workflows", "keep-alive.yml"), "utf8");
+  if (!keepAlive.includes("on:\n    schedule:") && !keepAlive.includes("schedule:")) {
+    addError("keep-alive.yml", "The keep-alive workflow must run on a schedule.");
+  }
+  if (!keepAlive.includes("/health")) {
+    addError("keep-alive.yml", "The keep-alive workflow must ping the backend /health endpoint.");
+  }
+} else {
+  addError("keep-alive.yml", "The scheduled keep-alive workflow must exist so the Render backend stays warm.");
+}
+
 if (!/content_type='result' AND published=TRUE AND verified=TRUE AND source_url IS NOT NULL/.test(serverSource) ||
     !/SELECT id, content_type, verified, title/.test(serverSource)) {
   addError("server.js", "Public match results must remain published, explicitly verified, and backed by a source link.");

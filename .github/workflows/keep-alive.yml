@@ -1,0 +1,34 @@
+name: Keep Render API awake
+
+# Render's free plan spins the service down after ~15 minutes without traffic.
+# A short /health ping every 10 minutes keeps the API warm so visitors never wait
+# for a cold start. This uses no external keep-alive service and stores no secrets.
+on:
+  schedule:
+    # Every 10 minutes. GitHub can delay scheduled runs by a few minutes; that is fine.
+    - cron: "*/10 * * * *"
+  workflow_dispatch:
+
+permissions: {}
+
+concurrency:
+  group: keep-alive
+  cancel-in-progress: false
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Wake the API with /health
+        continue-on-error: true
+        run: |
+          set +e
+          curl -fsS --max-time 45 https://vayntr-esports.onrender.com/health -o /tmp/health.json
+          code=$(head -c 200 /tmp/health.json 2>/dev/null || echo "no body")
+          echo "health: $code"
+      - name: Warm the recruitment status path too
+        continue-on-error: true
+        run: |
+          set +e
+          curl -fsS --max-time 45 -o /dev/null https://vayntr-esports.onrender.com/api/status
+          echo "status path warmed"

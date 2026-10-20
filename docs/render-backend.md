@@ -46,7 +46,13 @@ The operator currently sends applicant and decision emails manually. The Accept/
 
 Applications carry an optional track (`player` or `media team`) and up to three HTTPS social links; accepting copies the social links and member type onto the roster record automatically, and media applicants must include at least one social link. Staff issue a player invite from the roster card (`POST /api/staff/invites/for-roster/:id`), which binds the one-time code to that roster member. The member redeems it at `POST /api/accounts/register` with the code, their exact application/roster name (case-insensitive match), and a password; the backend stores only a salted scrypt hash, and sessions are random 7-day tokens persisted as SHA-256 hashes (`account_sessions`). `POST /api/accounts/login` signs in with name + password (failed logins are rate-limited); `GET /api/me` and `POST /api/me/social-links` are Bearer-session protected and let members review their own profile and update up to 3 public social links; `POST /api/accounts/logout` deletes the session server-side. Removing a roster player cascades to the account and its sessions. Staff profile edits keep the sign-in name in sync and save the social-links editor (one HTTPS link per line, folded into both `social_links` and the legacy `social_url` column).
 
+Members also manage their public presentation self-service. All Bearer-session protected: `POST /api/me/profile` edits the public bio (up to 500 characters) and the age-visibility toggle on the roster record; `POST /api/me/avatar` uploads a profile picture as raw bytes (PNG/JPEG/WebP only, validated by magic bytes, capped at 300 KB) stored in the roster_players.avatar_data BYTEA column; `DELETE /api/me/avatar` removes it; `GET /api/members/:id/avatar` serves the picture publicly with short caching, which the roster and player pages prefer over external artwork (has_avatar flags it in the roster payload). Avatar writes count toward the account rate limit and are recorded in security_events.
+
 The email sender does not use a placeholder address automatically. Until \`RESEND_FROM_EMAIL\` is configured with a verified sending domain, application and decision records can be saved, but email notifications will report as not sent.
+
+## Keep-alive
+
+The free Render tier sleeps the backend after idle time. `.github/workflows/keep-alive.yml` pings `https://vayntr-esports.onrender.com/health` every 10 minutes (GitHub Actions cron), keeping the service warm so visitor requests do not cold-start it. It only performs health pings; no credentials are needed for the public endpoint.
 
 ## Current limits and safety
 

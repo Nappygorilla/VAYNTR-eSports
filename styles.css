@@ -432,3 +432,13 @@ input:focus-visible,select:focus-visible,textarea:focus-visible{border-color:var
 .member-mfa{border:1px solid var(--line);border-left:3px solid var(--red);background:#0c0e11;padding:20px;margin-top:22px}
 .member-mfa h3{font-family:"Barlow Condensed",Impact,sans-serif;font-size:1.5rem;margin:0 0 8px}
 .member-mfa__secret{display:block;font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:1rem;letter-spacing:.08em;word-break:break-all;color:#f4f5f7;background:#08090b;border:1px solid #343841;padding:12px 14px;margin:10px 0}
+
+/* Member self-service profile: picture upload editor and bio/privacy form (20261021 account-upgrades) */
+.member-editor{display:grid;grid-template-columns:1fr 1.2fr;gap:28px;border-top:1px solid var(--line);margin-top:26px;padding-top:22px}
+.member-editor__col h3{font-family:"Barlow Condensed",Impact,sans-serif;font-size:1.6rem;margin:0 0 10px}
+.member-avatar-editor{display:flex;align-items:center;gap:16px;margin:14px 0 10px}
+.member-avatar-editor__preview{width:96px;height:96px;border-radius:6px;border:1px solid #8f1c2a;object-fit:cover;background:#12090b}
+.member-avatar-editor__fallback{display:grid;place-items:center;width:96px;height:96px;border-radius:6px;border:1px solid #8f1c2a;background:rgba(217,31,50,.12);color:#fff;font-family:"Barlow Condensed",sans-serif;font-size:2.6rem;font-weight:900}
+.member-avatar-editor__actions .field__input{max-width:260px}
+.application-form textarea{resize:vertical;min-height:96px}
+@media(max-width:800px){.member-editor{grid-template-columns:1fr}}

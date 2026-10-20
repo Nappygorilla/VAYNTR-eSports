@@ -88,12 +88,16 @@
 
     const art = document.createElement("div");
     art.className = "player-profile__art";
-    const imageUrl = safeHttpsUrl(player.profile_image_url);
+    // A member-uploaded picture (stored in the backend database) takes priority over linked artwork.
+    const uploadedAvatarUrl = player.has_avatar && /^\d+$/.test(String(player.id || ""))
+      ? API_BASE + "/api/members/" + player.id + "/avatar"
+      : "";
+    const imageUrl = uploadedAvatarUrl || safeHttpsUrl(player.profile_image_url);
     if (imageUrl) {
       const image = document.createElement("img");
       image.className = "player-profile__image";
       image.src = imageUrl;
-      image.alt = "Player artwork for " + String(player.display_name || "VAYNTR player");
+      image.alt = (uploadedAvatarUrl ? "Profile picture for " : "Player artwork for ") + String(player.display_name || "VAYNTR player");
       image.loading = "eager";
       image.decoding = "async";
       image.referrerPolicy = "no-referrer";

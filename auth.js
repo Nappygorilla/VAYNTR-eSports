@@ -137,6 +137,42 @@
     if (enrollButton) enrollButton.hidden = false;
   }
 
+  function avatarUrl(member, bust) {
+    const id = member && member.id ? String(member.id) : "";
+    if (!id) return "";
+    return API_BASE + "/api/members/" + encodeURIComponent(id) + "/avatar" + (bust ? "?t=" + Date.now() : "");
+  }
+
+  function renderAvatarAndBio(member) {
+    if (!member) return;
+    const preview = $("#memberAvatarPreview");
+    const fallback = $("#memberAvatarFallback");
+    const removeButton = $("#memberAvatarRemove");
+    const hasUpload = member.hasAvatar === true;
+    if (preview) {
+      if (hasUpload) {
+        preview.src = avatarUrl(member, true);
+        preview.hidden = false;
+        if (fallback) fallback.hidden = true;
+      } else {
+        preview.removeAttribute("src");
+        preview.hidden = true;
+        if (fallback) {
+          fallback.textContent = (member.displayName || "V").trim().charAt(0).toUpperCase();
+          fallback.hidden = false;
+        }
+      }
+    }
+    if (removeButton) removeButton.hidden = !hasUpload;
+    const expiry = new Date();
+    const bioInput = $("#memberBioInput");
+    if (bioInput && document.activeElement !== bioInput) bioInput.value = member.bio || "";
+    const ageToggle = $("#memberAgePublic");
+    if (ageToggle) ageToggle.checked = member.showAgeOnProfile === true;
+    const file = $("#memberAvatarFile");
+    if (file) file.value = "";
+  }
+
   function showProfile(member) {
     memberState = member;
     gate.hidden = true;
@@ -158,6 +194,7 @@
         ["Role", member.role || "Player"],
         ["Public age", member.age != null ? String(member.age) : "Private"],
         ["Public age allowed", member.showAgeOnProfile ? "Yes" : "No"],
+        ["Profile picture", member.hasAvatar ? "Uploaded image" : "Default initials badge"],
         ["MFA", member.mfaEnabled ? "On (authenticator app)" : "Off"]
       ];
       for (const [label, value] of rows) {
@@ -170,6 +207,7 @@
     }
     fillSocialForm(member.socialLinks);
     renderMfaPanel(member);
+    renderAvatarAndBio(member);
     setStatus($("#memberProfileStatus"), "");
   }
 
@@ -347,6 +385,91 @@
         return showGate("Your session has expired. Please sign in again.");
       }
       setStatus($("#memberProfileStatus"), error.message || "Could not save social links.", "error");
+    } finally {
+      if (button) button.disabled = false;
+    }
+  });
+
+  // --- Self-service profile picture (PNG/JPEG/WebP, ≤ 300 KB, uploaded as raw bytes) ---
+  const MAX_AVATAR_BYTES = 300 * 1024;
+  const AVATAR_TYPES = new Set(["image/png", "image/jpeg", "image/webp"]);
+
+  $("#memberAvatarUpload")?.addEventListener("click", async () => {
+    const input = $("#memberAvatarFile");
+    const button = $("#memberAvatarUpload");
+    const statusNode2 = $("#memberAvatarStatus");
+    const file = input && input.files ? input.files[0] : null;
+    if (!file) return setStatus(statusNode2, "Choose an image file first.", "error");
+    if (!AVATAR_TYPES.has(file.type)) return setStatus(statusNode2, "The picture must be a PNG, JPEG, or WebP image.", "error");
+    if (file.size > MAX_AVATAR_BYTES) return setStatus(statusNode2, "Profile pictures must be 300 KB or smaller.", "error");
+    if (button) button.disabled = true;
+    setStatus(statusNode2, "Uploading your profile picture…");
+    try {
+      const buffer = await file.arrayBuffer();
+      const result = await api("/api/me/avatar", {
+        method: "POST",
+        headers: { "Content-Type": file.type },
+        body: buffer
+      });
+      if (memberState) { memberState.hasAvatar = true; renderAvatarAndBio(memberState); }
+      setStatus(statusNode2, result.message || "Profile picture uploaded.", "success");
+    } catch (error) {
+      if (error.status === 401) {
+        clearSessionToken();
+        return showGate("Your session has expired. Please sign in again.");
+      }
+      setStatus(statusNode2, error.message || "Could not upload the picture.", "error");
+    } finally {
+      if (button) button.disabled = false;
+    }
+  });
+
+  $("#memberAvatarRemove")?.addEventListener("click", async () => {
+    const button = $("#memberAvatarRemove");
+    const statusNode2 = $("#memberAvatarStatus");
+    if (button) button.disabled = true;
+    setStatus(statusNode2, "Removing your profile picture…");
+    try {
+      const result = await api("/api/me/avatar", { method: "DELETE" });
+      if (memberState) { memberState.hasAvatar = false; renderAvatarAndBio(memberState); }
+      setStatus(statusNode2, result.message || "Profile picture removed.", "success");
+    } catch (error) {
+      if (error.status === 401) {
+        clearSessionToken();
+        return showGate("Your session has expired. Please sign in again.");
+      }
+      setStatus(statusNode2, error.message || "Could not remove the picture.", "error");
+    } finally {
+      if (button) button.disabled = false;
+    }
+  });
+
+  // --- Self-service public bio & age visibility ---
+  $("#memberBioForm")?.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    if (!event.currentTarget.reportValidity()) return;
+    const button = $("#memberBioSave");
+    const statusNode2 = $("#memberBioStatus");
+    const bioInput = $("#memberBioInput");
+    const ageToggle = $("#memberAgePublic");
+    if (button) button.disabled = true;
+    setStatus(statusNode2, "Saving your public bio…");
+    try {
+      const result = await api("/api/me/profile", {
+        method: "POST",
+        body: JSON.stringify({ bio: bioInput ? bioInput.value : "", showAgeOnProfile: ageToggle ? ageToggle.checked : false })
+      });
+      if (memberState) {
+        memberState.bio = bioInput ? bioInput.value.trim() : "";
+        memberState.showAgeOnProfile = Boolean(ageToggle && ageToggle.checked);
+      }
+      setStatus(statusNode2, result.message || "Bio saved.", "success");
+    } catch (error) {
+      if (error.status === 401) {
+        clearSessionToken();
+        return showGate("Your session has expired. Please sign in again.");
+      }
+      setStatus(statusNode2, error.message || "Could not save the bio.", "error");
     } finally {
       if (button) button.disabled = false;
     }

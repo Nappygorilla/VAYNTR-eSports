@@ -96,12 +96,16 @@
     addText(top, "span", "roster-player-card__platform", player.platform || "Platform not listed");
     card.appendChild(top);
 
-    const imageUrl = safeHttpsUrl(player.profile_image_url);
+    // A member-uploaded picture (stored in the backend database) takes priority over linked artwork.
+    const uploadedAvatarUrl = player.has_avatar && /^\d+$/.test(String(player.id || ""))
+      ? API_BASE + "/api/members/" + player.id + "/avatar"
+      : "";
+    const imageUrl = uploadedAvatarUrl || safeHttpsUrl(player.profile_image_url);
     if (imageUrl) {
       const image = document.createElement("img");
       image.className = "roster-player-card__image";
       image.src = imageUrl;
-      image.alt = "Player artwork for " + displayName;
+      image.alt = (uploadedAvatarUrl ? "Profile picture for " : "Player artwork for ") + displayName;
       image.loading = "lazy";
       image.decoding = "async";
       image.referrerPolicy = "no-referrer";

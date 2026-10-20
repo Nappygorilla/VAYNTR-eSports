@@ -161,6 +161,31 @@
               </form>
             </div>
           </div>
+          <div class="member-editor" id="memberProfileEditors">
+            <div class="member-editor__col">
+              <h3>Your profile picture</h3>
+              <p class="form-note">Upload a square image (PNG, JPEG, or WebP, up to 300 KB). It replaces the initials badge everywhere your profile appears.</p>
+              <div class="member-avatar-editor">
+                <img id="memberAvatarPreview" class="member-avatar-editor__preview" hidden alt="Your current profile picture">
+                <div class="member-avatar-editor__initials member-avatar-editor__fallback" id="memberAvatarFallback" aria-hidden="true"></div>
+              </div>
+              <div class="member-avatar-editor__actions">
+                <input id="memberAvatarFile" type="file" accept="image/png,image/jpeg,image/webp" class="field__input">
+                <p><button type="button" class="button button--primary" id="memberAvatarUpload">Upload picture</button>
+                <button type="button" class="button button--outline" id="memberAvatarRemove" hidden>Remove</button></p>
+              </div>
+              <p id="memberAvatarStatus" class="form-note" role="status" aria-live="polite"></p>
+            </div>
+            <div class="member-editor__col">
+              <h3>Public bio &amp; privacy</h3>
+              <form id="memberBioForm" class="application-form" novalidate>
+                <div class="field field--full"><label for="memberBioInput">Public bio (max 500 characters)</label><textarea id="memberBioInput" maxlength="500" rows="4" placeholder="Tell visitors how you play and what you compete for…"></textarea></div>
+                <div class="field field--full field--check"><label><input type="checkbox" id="memberAgePublic"> Show my age on the public roster and player profile</label></div>
+                <div class="field field--full"><button class="button button--primary" type="submit" id="memberBioSave">Save bio &amp; privacy</button></div>
+              </form>
+              <p id="memberBioStatus" class="form-note" role="status" aria-live="polite"></p>
+            </div>
+          </div>
         </div>
       </div>
     </section>

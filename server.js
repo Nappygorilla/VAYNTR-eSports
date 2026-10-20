@@ -46,6 +46,17 @@ function parseOptionalAge(value) {
   return Number.isSafeInteger(parsed) && parsed >= 13 && parsed <= 120 ? parsed : undefined;
 }
 
+// Member avatars live in the database (Render's filesystem is ephemeral) and are served
+// from a dedicated GET endpoint; uploads are validated by magic bytes and capped at 300 KB.
+const MAX_AVATAR_BYTES = 300 * 1024;
+function detectImageContentType(bytes) {
+  if (!bytes || !Buffer.isBuffer(bytes) || bytes.length < 12) return null;
+  if (bytes[0] === 0x89 && bytes[1] === 0x50 && bytes[2] === 0x4e && bytes[3] === 0x47) return "image/png";
+  if (bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff) return "image/jpeg";
+  if (bytes.toString("ascii", 0, 4) === "RIFF" && bytes.toString("ascii", 8, 12) === "WEBP") return "image/webp";
+  return null;
+}
+
 // --- Member accounts (passwords are hashed with scrypt and never leave the backend) ---
 const SESSION_TTL_DAYS = 7;
 const MAX_SOCIAL_LINKS = 3;
@@ -440,7 +451,7 @@ async function requireMemberSession(req, res, next) {
   if (!match) return res.status(401).json({ error: "Sign in to view your member profile." });
   try {
     const result = await pool.query(
-      "SELECT a.id AS account_id, a.roster_id, a.created_at AS member_since, a.mfa_enabled, r.display_name, r.member_type, r.game, r.platform, r.role, r.bio, r.social_links, r.profile_image_url, r.social_url, r.age, r.show_age_on_profile FROM account_sessions s JOIN accounts a ON a.id = s.account_id JOIN roster_players r ON r.id = a.roster_id WHERE s.token_hash = $1 AND s.expires_at > NOW()",
+      "SELECT a.id AS account_id, a.roster_id, a.created_at AS member_since, a.mfa_enabled, r.display_name, r.member_type, r.game, r.platform, r.role, r.bio, r.social_links, r.profile_image_url, r.social_url, r.age, r.show_age_on_profile, (r.avatar_data IS NOT NULL) AS has_avatar FROM account_sessions s JOIN accounts a ON a.id = s.account_id JOIN roster_players r ON r.id = a.roster_id WHERE s.token_hash = $1 AND s.expires_at > NOW()",
       [sha256Hex(match[1])]
     );
     if (!result.rowCount) return res.status(401).json({ error: "Your session has expired. Please sign in again." });
@@ -451,6 +462,7 @@ async function requireMemberSession(req, res, next) {
 
 function memberProfilePayload(member) {
   return {
+    id: member.roster_id,
     displayName: member.display_name,
     memberType: member.member_type || "player",
     game: member.game || "",
@@ -461,6 +473,7 @@ function memberProfilePayload(member) {
     age: member.age,
     showAgeOnProfile: member.show_age_on_profile === true,
     mfaEnabled: member.mfa_enabled === true,
+    hasAvatar: member.has_avatar === true,
     memberSince: member.member_since
   };
 }
@@ -502,7 +515,7 @@ app.get("/api/roster", requireDatabase, async (_req, res, next) => {
     // Only fields needed by public cards/profiles leave this route. Contact emails and internal timestamps stay private.
     const result = await pool.query(
       // The age is published only when the player consented to showing it; otherwise it leaves the database as NULL.
-      "SELECT id, display_name, game, platform, role, bio, social_url, social_links, highlight_url, profile_image_url, (CASE WHEN show_age_on_profile THEN age ELSE NULL END) AS age, member_type FROM roster_players ORDER BY game ASC, display_name ASC"
+      "SELECT id, display_name, game, platform, role, bio, social_url, social_links, highlight_url, profile_image_url, (CASE WHEN show_age_on_profile THEN age ELSE NULL END) AS age, member_type, (avatar_data IS NOT NULL) AS has_avatar FROM roster_players ORDER BY game ASC, display_name ASC"
     );
     res.set("Cache-Control", "no-store");
     res.json({ players: result.rows });
@@ -578,7 +591,7 @@ app.get("/api/staff/roster", requireDatabase, requireStaffAccess, async (_req, r
   try {
     // Email is exposed only inside this authenticated staff endpoint so the operator can contact players manually.
     const result = await pool.query(
-      "SELECT id, display_name, email, game, platform, role, bio, social_url, social_links, highlight_url, profile_image_url, age, show_age_on_profile, member_type, accepted_at FROM roster_players ORDER BY accepted_at DESC"
+      "SELECT id, display_name, email, game, platform, role, bio, social_url, social_links, highlight_url, profile_image_url, age, show_age_on_profile, member_type, (avatar_data IS NOT NULL) AS has_avatar, accepted_at FROM roster_players ORDER BY accepted_at DESC"
     );
     res.json({ players: result.rows });
   } catch (error) { next(error); }
@@ -916,7 +929,7 @@ app.post("/api/accounts/login", requireDatabase, async (req, res, next) => {
     );
     securityLogger(pool, "login_success", { accountId: account.id, nameHint: name, ip: req.ip });
     const profile = await pool.query(
-      "SELECT a.id AS account_id, a.roster_id, a.created_at AS member_since, a.mfa_enabled, r.display_name, r.member_type, r.game, r.platform, r.role, r.bio, r.social_links, r.profile_image_url, r.social_url, r.age, r.show_age_on_profile FROM accounts a JOIN roster_players r ON r.id = a.roster_id WHERE a.id = $1",
+      "SELECT a.id AS account_id, a.roster_id, a.created_at AS member_since, a.mfa_enabled, r.display_name, r.member_type, r.game, r.platform, r.role, r.bio, r.social_links, r.profile_image_url, r.social_url, r.age, r.show_age_on_profile, (r.avatar_data IS NOT NULL) AS has_avatar FROM accounts a JOIN roster_players r ON r.id = a.roster_id WHERE a.id = $1",
       [account.id]
     );
     res.set("Cache-Control", "no-store, private");
@@ -953,7 +966,7 @@ app.post("/api/accounts/login/verify", requireDatabase, async (req, res, next) =
     );
     securityLogger(pool, "login_success", { accountId: found.rows[0].account_id, ip: req.ip, detail: "Signed in with an MFA code." });
     const profile = await pool.query(
-      "SELECT a.id AS account_id, a.roster_id, a.created_at AS member_since, a.mfa_enabled, r.display_name, r.member_type, r.game, r.platform, r.role, r.bio, r.social_links, r.profile_image_url, r.social_url, r.age, r.show_age_on_profile FROM accounts a JOIN roster_players r ON r.id = a.roster_id WHERE a.id = $1",
+      "SELECT a.id AS account_id, a.roster_id, a.created_at AS member_since, a.mfa_enabled, r.display_name, r.member_type, r.game, r.platform, r.role, r.bio, r.social_links, r.profile_image_url, r.social_url, r.age, r.show_age_on_profile, (r.avatar_data IS NOT NULL) AS has_avatar FROM accounts a JOIN roster_players r ON r.id = a.roster_id WHERE a.id = $1",
       [found.rows[0].account_id]
     );
     res.set("Cache-Control", "no-store, private");
@@ -1044,6 +1057,64 @@ app.post("/api/me/social-links", requireMemberSession, async (req, res, next) =>
       [JSON.stringify(validated), req.member.roster_id]
     );
     res.json({ socialLinks: result.rows[0].social_links, message: "Your public social links were updated." });
+  } catch (error) { next(error); }
+});
+
+// Self-service public profile: bio text and age visibility live on the roster record.
+app.post("/api/me/profile", requireMemberSession, async (req, res, next) => {
+  const bio = typeof req.body.bio === "string" ? req.body.bio.trim().slice(0, 1000) : "";
+  const showAgeOnProfile = req.body.showAgeOnProfile === true;
+  if (bio.length > 500) return res.status(400).json({ error: "Your public bio must be 500 characters or fewer." });
+  try {
+    await pool.query(
+      "UPDATE roster_players SET bio = $1, show_age_on_profile = $2 WHERE id = $3",
+      [bio, showAgeOnProfile, req.member.roster_id]
+    );
+    res.json({ message: showAgeOnProfile ? "Public bio saved; your age is now visible on the roster." : "Public bio saved; your age stays private." });
+  } catch (error) { next(error); }
+});
+
+// Self-service profile picture: a true binary upload stored in the database.
+app.post("/api/me/avatar", express.raw({ type: () => true, limit: MAX_AVATAR_BYTES + 2048 }), requireMemberSession, async (req, res, next) => {
+  const image = Buffer.isBuffer(req.body) ? req.body : null;
+  if (!image || !image.length) return res.status(400).json({ error: "Choose an image file to upload." });
+  const contentType = detectImageContentType(image);
+  if (!contentType) return res.status(400).json({ error: "The picture must be a PNG, JPEG, or WebP image." });
+  if (image.length > MAX_AVATAR_BYTES) return res.status(400).json({ error: "Profile pictures must be 300 KB or smaller." });
+  try {
+    await pool.query(
+      "UPDATE roster_players SET avatar_data = $1, avatar_content_type = $2, avatar_updated_at = NOW() WHERE id = $3",
+      [image, contentType, req.member.roster_id]
+    );
+    securityLogger(pool, "avatar_updated", { accountId: req.member.account_id, ip: req.ip });
+    res.json({ hasAvatar: true, message: "Your profile picture was saved. It may take a minute to appear everywhere." });
+  } catch (error) { next(error); }
+});
+
+app.delete("/api/me/avatar", requireMemberSession, async (req, res, next) => {
+  try {
+    await pool.query(
+      "UPDATE roster_players SET avatar_data = NULL, avatar_content_type = NULL, avatar_updated_at = NULL WHERE id = $1",
+      [req.member.roster_id]
+    );
+    res.json({ hasAvatar: false, message: "Your uploaded profile picture was removed." });
+  } catch (error) { next(error); }
+});
+
+// Public avatar bytes for a roster member; referenced by the roster/player pages and the staff site.
+app.get("/api/members/:id/avatar", requireDatabase, async (req, res, next) => {
+  const id = Number(req.params.id);
+  if (!Number.isSafeInteger(id) || id < 1) return res.status(400).json({ error: "Invalid member ID." });
+  try {
+    const found = await pool.query(
+      "SELECT avatar_data, avatar_content_type, avatar_updated_at FROM roster_players WHERE id = $1",
+      [id]
+    );
+    const row = found.rows[0];
+    if (!row || !row.avatar_data) return res.status(404).json({ error: "No profile picture." });
+    res.set("Content-Type", row.avatar_content_type || "image/png");
+    res.set("Cache-Control", "public, max-age=300");
+    res.send(row.avatar_data);
   } catch (error) { next(error); }
 });
 
@@ -1193,6 +1264,9 @@ ALTER TABLE roster_players ADD COLUMN IF NOT EXISTS profile_image_url TEXT;
 ALTER TABLE roster_players ADD COLUMN IF NOT EXISTS age INTEGER;
 ALTER TABLE roster_players ADD COLUMN IF NOT EXISTS show_age_on_profile BOOLEAN NOT NULL DEFAULT FALSE;
 ALTER TABLE roster_players ADD COLUMN IF NOT EXISTS member_type TEXT NOT NULL DEFAULT 'player';
+ALTER TABLE roster_players ADD COLUMN IF NOT EXISTS avatar_data BYTEA;
+ALTER TABLE roster_players ADD COLUMN IF NOT EXISTS avatar_content_type TEXT;
+ALTER TABLE roster_players ADD COLUMN IF NOT EXISTS avatar_updated_at TIMESTAMPTZ;
 ALTER TABLE roster_players ADD COLUMN IF NOT EXISTS social_links JSONB NOT NULL DEFAULT '[]'::jsonb;
 ALTER TABLE recruitment_applications ADD COLUMN IF NOT EXISTS track TEXT NOT NULL DEFAULT 'player';
 ALTER TABLE recruitment_applications ADD COLUMN IF NOT EXISTS social_links JSONB NOT NULL DEFAULT '[]'::jsonb;
