@@ -413,3 +413,17 @@ input:focus-visible,select:focus-visible,textarea:focus-visible{border-color:var
 @media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}.nav__links a,.nav__links a::after,.button,.content-card,.feature-card,.footer__links a,input,select,textarea{transition:none!important}.button:hover,.content-card:hover,.feature-card:hover{transform:none;box-shadow:none}}
 
 .consent-label{display:flex;gap:10px;align-items:flex-start;font-weight:500;letter-spacing:0;text-transform:none}.consent-label input[type=checkbox]{width:auto;margin-top:5px;flex:none}
+
+/* Member portal (invite redemption, sign-in, profile) */
+.member-panels{display:grid;gap:34px}
+.member-panels .application-form{display:grid;gap:14px}
+.member-profile__top{display:flex;justify-content:space-between;align-items:flex-start;gap:18px;flex-wrap:wrap;margin-bottom:14px}
+.member-profile__top>div:first-child{min-width:0}
+.member-profile__title{font-family:"Barlow Condensed",Impact,sans-serif;font-size:clamp(2.4rem,6vw,3.6rem);line-height:.92;margin:10px 0 6px}
+.member-profile__top .button{margin-left:10px}
+.member-profile__grid{display:grid;grid-template-columns:1fr 1.4fr;gap:28px;border-top:1px solid var(--line);padding-top:22px}
+.member-profile__grid h3{font-family:"Barlow Condensed",Impact,sans-serif;font-size:1.6rem;margin:0 0 12px}
+.member-profile__details{display:grid;grid-template-columns:max-content 1fr;gap:8px 18px;margin:0;font-size:.86rem}
+.member-profile__details dt{color:#ff6574;font-weight:800;letter-spacing:.08em;text-transform:uppercase;font-size:.66rem;padding-top:3px}
+.member-profile__details dd{margin:0;color:#dfe2e7}
+@media(max-width:800px){.member-profile__grid{grid-template-columns:1fr}.member-profile__top{flex-direction:column}.member-profile__top .button{margin-left:0;margin-top:8px}}

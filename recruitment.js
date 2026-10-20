@@ -81,6 +81,29 @@
     return /^[A-Za-z0-9_-]{11}$/.test(id) ? canonical : null;
   }
 
+  // Media team applicants may skip the division; their first social link is required instead.
+  const trackSelect = form.elements.track;
+  const gameSelect = form.elements.game;
+  const youtubeField = form.elements.youtubeUrl;
+  const social1Field = form.elements.socialUrl1;
+  const mediaHint = document.getElementById("mediaGameHint");
+  const youtubeHint = document.getElementById("youtubeHint");
+  function applyTrackRequirements() {
+    const isMedia = trackSelect.value === "media";
+    gameSelect.required = !isMedia;
+    youtubeField.required = !isMedia;
+    social1Field.required = isMedia;
+    if (mediaHint) mediaHint.hidden = !isMedia;
+    if (youtubeHint) {
+      youtubeHint.hidden = isMedia;
+      youtubeHint.textContent = isMedia
+        ? "Media team: a gameplay video is not required — at least one social link is."
+        : "Paste the link to the actual video. YouTube watch, Shorts, and youtu.be links are supported.";
+    }
+  }
+  trackSelect.addEventListener("change", applyTrackRequirements);
+  applyTrackRequirements();
+
   form.addEventListener("submit", async (event) => {
     event.preventDefault();
     status.textContent = "";
@@ -91,24 +114,36 @@
     }
     if (!form.reportValidity()) return;
     const youtubeUrl = normalizeYouTubeUrl(form.elements.youtubeUrl.value);
-    if (!youtubeUrl) {
+    // Media team applicants may apply without a gameplay video.
+    if (!youtubeUrl && track === "player") {
       form.elements.youtubeUrl.setCustomValidity("Enter a direct link to a YouTube video (not a channel or playlist).");
       form.elements.youtubeUrl.reportValidity();
       form.elements.youtubeUrl.setCustomValidity("");
       return;
     }
+    const track = form.elements.track.value;
     const payload = {
       displayName: form.elements.displayName.value.trim(),
       email: form.elements.email.value.trim(),
       age: form.elements.age.value,
       showAgeOnProfile: form.elements.showAgeOnProfile.checked,
+      track,
       platform: form.elements.platform.value,
       game: form.elements.game.value,
-      youtubeUrl,
+      socialUrl1: form.elements.socialUrl1.value.trim(),
+      socialUrl2: form.elements.socialUrl2.value.trim(),
+      socialUrl3: form.elements.socialUrl3.value.trim(),
+      youtubeUrl: youtubeUrl || "",
       privacyConsent: form.elements.privacyConsent.checked,
       ageConfirmed: form.elements.ageConfirmed.checked,
       message: form.elements.message.value.trim()
     };
+    if (track === "media" && !payload.socialUrl1) {
+      status.textContent = "Media team applicants must include at least one social media link.";
+      status.dataset.state = "error";
+      submit.disabled = !recruitmentAvailable;
+      return;
+    }
     submit.disabled = true;
     submit.textContent = "Submitting application…";
     status.textContent = "Sending your application securely to VAYNTR.";

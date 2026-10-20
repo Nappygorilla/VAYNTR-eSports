@@ -120,10 +120,10 @@ if (!serverSource.includes("showAgeOnProfile") || !serverSource.includes("show_a
     !serverSource.includes('error: "Enter your age as a whole number (13 or older)."')) {
   addError("server.js", "Registration must require the applicant age and store the public-age consent flag.");
 }
-if (!serverSource.includes("INSERT INTO roster_players (display_name, email, game, platform, age, show_age_on_profile, source_application_id)")) {
+if (!serverSource.includes("INSERT INTO roster_players (display_name, email, game, platform, age, show_age_on_profile, member_type, social_links, source_application_id)")) {
   addError("server.js", "Accepting an applicant must copy their age and age-visibility consent onto the roster record.");
 }
-if (!serverSource.includes("UPDATE roster_players SET display_name=$1, game=$2, platform=$3, role=$4, bio=$5, social_url=$6, highlight_url=$7, profile_image_url=$8, age=$9, show_age_on_profile=$10")) {
+if (!serverSource.includes("UPDATE roster_players SET display_name=$1, game=$2, platform=$3, role=$4, bio=$5, social_url=$6, social_links=$7, highlight_url=$8, profile_image_url=$9, age=$10, show_age_on_profile=$11")) {
   addError("server.js", "Staff profile edits must be able to update the recorded age and its public visibility.");
 }
 const recruitmentClientSource = fs.readFileSync(path.join(root, "recruitment.js"), "utf8");
@@ -136,6 +136,55 @@ if (!playerClientSource.includes("player.age != null") || !playerClientSource.in
 }
 if (!staffSource.includes("editForm.elements.showAgeOnProfile") || !staffSource.includes("show_age_on_profile")) {
   addError("staff.js", "Staff profile editing must include the player's age and a public-visibility toggle.");
+}
+
+// Member accounts: passwords are scrypt-hashed in the backend only; sessions are stored as SHA-256 hashes.
+if (!serverSource.includes("crypto.scryptSync(String(password)") ||
+    !serverSource.includes("crypto.timingSafeEqual(hash, Buffer.from(hashHex, \"hex\"))")) {
+  addError("server.js", "Member passwords must be hashed with scrypt and compared with a timing-safe function.");
+}
+if (!serverSource.includes("password_hash TEXT NOT NULL") || /SELECT[^;]*password_hash[^;]*--.public/.test(serverSource)) {
+  addError("server.js", "The accounts schema must never expose password hashes outside the login/register paths.");
+}
+if (!serverSource.includes("token_hash TEXT PRIMARY KEY") || !serverSource.includes("sha256Hex(match[1])")) {
+  addError("server.js", "Member sessions must be stored only as SHA-256 token hashes.");
+}
+if (!serverSource.includes("LOWER(display_name) = LOWER($1)")) {
+  addError("server.js", "Member sign-in must match the player name case-insensitively.");
+}
+const accountsRegisterRoute = serverSource.match(/app\.post\(["']\/api\/accounts\/register["'][\s\S]*?(?=\napp\.)/);
+if (!accountsRegisterRoute || !/bound_roster_id/.test(accountsRegisterRoute[0]) ||
+    !/display_name\)\.toLowerCase\(\)/.test(accountsRegisterRoute[0])) {
+  addError("server.js", "Invite redemption must be bound to a roster member and verify the application name.");
+}
+const accountsLoginRoute = serverSource.match(/app\.post\(["']\/api\/accounts\/login["'][\s\S]*?(?=\napp\.post\(["']\/api\/accounts\/logout|\napp\.get\(|\napp\.use\()/);
+if (!accountsLoginRoute || !/verifyPassword\(password/.test(accountsLoginRoute[0])) {
+  addError("server.js", "Member sign-in must verify the password through the hashed backend path.");
+}
+const meRoute = serverSource.match(/app\.get\(["']\/api\/me["'],\s*requireMemberSession/);
+if (!meRoute) addError("server.js", "The member profile route must require an authenticated member session.");
+if (!serverSource.includes("INSERT INTO roster_players (display_name, email, game, platform, age, show_age_on_profile, member_type, social_links, source_application_id)")) {
+  addError("server.js", "Accepting media team or player applicants must carry their track and social links onto the roster record.");
+}
+const rosterClientSource = fs.readFileSync(path.join(root, "roster.js"), "utf8");
+if (!rosterClientSource.includes('member_type === "media"')) {
+  addError("roster.js", "Roster grouping must recognize media team members.");
+}
+if (!rosterClientSource.includes("isMediaTeam")) {
+  addError("roster.js", "The public roster must render a separate media team section.");
+}
+if (!rosterClientSource.includes("memberSocialLinks(player)")) {
+  addError("roster.js", "Roster cards must render the member's validated social links.");
+}
+const memberClientSource = fs.readFileSync(path.join(root, "auth.js"), "utf8");
+if (!memberClientSource.includes("sessionStorage.setItem(SESSION_KEY, token)") ||
+    memberClientSource.includes("localStorage")) {
+  addError("auth.js", "Member sessions must live in sessionStorage only.");
+}
+const memberPage = fs.readFileSync(path.join(root, "member.html"), "utf8");
+if (!memberPage.includes('id="memberRegisterForm"') || !memberPage.includes('id="memberLoginForm"') ||
+    !memberPage.includes("salted scrypt hash")) {
+  addError("member.html", "The member portal must offer both invite redemption and sign-in and disclose the hashing policy.");
 }
 
 if (!/content_type='result' AND published=TRUE AND verified=TRUE AND source_url IS NOT NULL/.test(serverSource) ||

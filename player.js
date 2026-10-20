@@ -65,6 +65,22 @@
     parent.appendChild(link);
   }
 
+  // Consented member social links come from the validated JSONB array; the legacy single URL is folded in.
+  function memberSocialLinks(player) {
+    const seen = new Set();
+    const links = [];
+    const arrayLinks = Array.isArray(player.social_links) ? player.social_links : [];
+    for (const entry of arrayLinks) {
+      const safeUrl = entry && typeof entry === "object" ? safeHttpsUrl(entry.url) : "";
+      if (!safeUrl || seen.has(safeUrl)) continue;
+      seen.add(safeUrl);
+      links.push({ label: (entry.label && typeof entry.label === "string" && entry.label.trim()) || "Social", url: safeUrl });
+    }
+    const legacy = safeHttpsUrl(player.social_url);
+    if (legacy && !seen.has(legacy)) links.push({ label: "Player socials", url: legacy });
+    return links;
+  }
+
   function renderPlayer(player) {
     root.replaceChildren();
     const layout = document.createElement("div");
@@ -133,7 +149,9 @@
 
     const actions = document.createElement("div");
     actions.className = "player-profile__actions";
-    addExternalLink(actions, player.social_url, "Player socials");
+    for (const social of memberSocialLinks(player)) {
+      addExternalLink(actions, social.url, social.label);
+    }
     addExternalLink(actions, player.highlight_url, "Watch highlights");
 
     const share = document.createElement("button");

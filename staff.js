@@ -253,10 +253,12 @@
     const details = document.createElement("div");
     details.className = "staff-application__details";
     addText(details, "p", "", "Game / division: " + application.game);
-    addText(details, "p", "", "Platform: " + application.platform);
-    addText(details, "p", "", application.age != null
-      ? "Age: " + application.age + " · public profile age: " + (application.show_age_on_profile ? "yes" : "private")
-      : "Age: not provided");
+    addText(details, "p", "", "Platform: " + application.platform);        addText(details, "p", "", application.age != null
+          ? "Age: " + application.age + " · public profile age: " + (application.show_age_on_profile ? "yes" : "private")
+          : "Age: not provided");
+        const applicantLinks = Array.isArray(application.social_links) ? application.social_links.map((link) => (link && link.url) || "").filter(Boolean) : [];
+        addText(details, "p", "", "Applying as: " + (application.track === "media" ? "Media team" : "Player"));
+        addText(details, "p", "", applicantLinks.length ? "Social links: " + applicantLinks.join("  ·  ") : "Social links: none submitted");
     addText(details, "p", "", "Submitted: " + (application.created_at ? new Date(application.created_at).toLocaleString() : "Unknown"));
     card.appendChild(details);
 
@@ -452,6 +454,28 @@
           }
         });
         actions.appendChild(removeButton);
+        const issueInviteButton = document.createElement("button");
+        issueInviteButton.type = "button";
+        issueInviteButton.className = "button button--outline";
+        issueInviteButton.textContent = "Issue invite code";
+        issueInviteButton.addEventListener("click", async () => {
+          if (window.confirm("Generate a one-time invite code bound to " + player.display_name + "? Only they can redeem it with their exact application name.")) {
+            issueInviteButton.disabled = true;
+            setStatus($("#staffRosterStatus"), "Generating a bound invite code…");
+            try {
+              const result = await api("/api/staff/invites/for-roster/" + encodeURIComponent(String(player.id)), { method: "POST" });
+              activateView("invites");
+              showInviteResult(result);
+              setStatus($("#staffRosterStatus"), "Invite code created for " + player.display_name + " — it is shown in the Invites tab. Copy it now.", "success");
+            } catch (error) {
+              if (error.status === 401 || error.status === 403) signOut("Staff access expired or was rejected. Enter the access key again.", "error");
+              setStatus($("#staffRosterStatus"), error.message || "Unable to issue an invite for this player.", "error");
+            } finally {
+              issueInviteButton.disabled = false;
+            }
+          }
+        });
+        actions.appendChild(issueInviteButton);
         const editProfileButton = document.createElement("button");
         editProfileButton.type = "button";
         editProfileButton.className = "button button--outline";
@@ -461,6 +485,8 @@
         const editForm = document.createElement("form");
         editForm.className = "staff-profile-form";
         editForm.hidden = true;
+        const storedLinks = Array.isArray(player.social_links) ? player.social_links.map((link) => (link && link.url) || "") : [];
+        const socialLinksText = (storedLinks.filter(Boolean).length ? storedLinks.filter(Boolean) : (player.social_url ? [player.social_url] : [])).join("\n");
         const profileFields = [
           ["displayName", "Display name", player.display_name || "", "text", 50],
           ["game", "Game / division", player.game || "", "text", 80],
@@ -468,7 +494,7 @@
           ["role", "Team role", player.role || "Player", "text", 60],
           ["age", "Age (blank = stays private)", player.age == null ? "" : player.age, "number", 0],
           ["showAgeOnProfile", "Show age on the public profile", player.show_age_on_profile === true, "checkbox", 0],
-          ["socialUrl", "Social profile URL", player.social_url || "", "url", 500],
+          ["socialLinks", "Social links (one per line, up to 3, HTTPS)", socialLinksText, "textarea", 500],
           ["highlightUrl", "Highlights URL", player.highlight_url || "", "url", 500],
           ["profileImageUrl", "Profile image URL", player.profile_image_url || "", "url", 500],
           ["bio", "Public bio", player.bio || "", "textarea", 500]

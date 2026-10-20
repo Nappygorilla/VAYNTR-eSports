@@ -6,7 +6,8 @@
     { id: "warzone", game: "Call of Duty: Warzone", label: "Warzone" },
     { id: "cod", game: "Call of Duty Multiplayer", label: "Call of Duty Multiplayer" },
     { id: "rocketleague", game: "Rocket League", label: "Rocket League" },
-    { id: "other", game: "Other / future division", label: "Other / future division" }
+    { id: "other", game: "Other / future division", label: "Other / future division" },
+    { id: "media", label: "Media team", isMediaTeam: true }
   ];
 
   const searchInput = document.getElementById("rosterSearch");
@@ -41,6 +42,22 @@
     link.textContent = label;
     if (accessibleLabel) link.setAttribute("aria-label", accessibleLabel);
     parent.appendChild(link);
+  }
+
+  // Member social links arrive as a validated JSONB array from the API plus the legacy single URL.
+  function memberSocialLinks(player) {
+    const seen = new Set();
+    const links = [];
+    const arrayLinks = Array.isArray(player.social_links) ? player.social_links : [];
+    for (const entry of arrayLinks) {
+      const safeUrl = entry && typeof entry === "object" ? safeHttpsUrl(entry.url) : "";
+      if (!safeUrl || seen.has(safeUrl)) continue;
+      seen.add(safeUrl);
+      links.push({ label: (entry.label && typeof entry.label === "string" && entry.label.trim()) || "Social", url: safeUrl });
+    }
+    const legacy = safeHttpsUrl(player.social_url);
+    if (legacy && !seen.has(legacy)) links.push({ label: "Social", url: legacy });
+    return links;
   }
 
   function showEmpty(section, label, title, message, state) {
@@ -107,7 +124,7 @@
     }
 
     addText(card, "h3", "roster-player-card__name", displayName);
-    addText(card, "p", "roster-player-card__division", player.game || "Division not listed");
+    addText(card, "p", "roster-player-card__division", player.game || (player.member_type === "media" ? "Media team" : "Division not listed"));
     if (player.role) addText(card, "p", "roster-player-card__role", player.role);
     if (player.bio) addText(card, "p", "roster-player-card__bio", player.bio);
 
@@ -121,7 +138,9 @@
       profile.setAttribute("aria-label", "View " + displayName + "'s VAYNTR profile");
       links.appendChild(profile);
     }
-    addExternalLink(links, player.social_url, "Player socials ↗", displayName + " social profile");
+    for (const social of memberSocialLinks(player)) {
+      addExternalLink(links, social.url, social.label + " ↗", displayName + " " + social.label + " link");
+    }
     addExternalLink(links, player.highlight_url, "Highlights ↗", displayName + " highlights");
     if (links.childElementCount) card.appendChild(links);
     return card;
@@ -194,10 +213,13 @@
       for (const group of groups) {
         const section = document.getElementById(group.id);
         if (!section) continue;
-        const playersForGroup = players.filter((player) =>
-          (player.game || "") === group.game || (group.id === "other" &&
-            !groups.slice(0, 3).some((known) => known.game === player.game))
-        );
+        const playersForGroup = group.isMediaTeam
+          ? players.filter((player) => player.member_type === "media")
+          : players.filter((player) =>
+              (player.member_type || "player") !== "media" &&
+              ((player.game || "") === group.game || (group.id === "other" &&
+                !groups.slice(0, 3).some((known) => known.game === player.game)))
+            );
         if (!playersForGroup.length) {
           showEmpty(section, group.label, "No players confirmed yet", "Accepted VAYNTR players will appear here after staff approval.");
           continue;

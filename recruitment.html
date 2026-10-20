@@ -20,7 +20,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700;800;900&family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="styles.css?v=20261020-design-polish">
   <script src="app.js?v=20261019-siteupgrade" defer></script>
-  <script src="recruitment.js?v=20261021-age-consent" defer></script>
+  <script src="recruitment.js?v=20261021-media-track" defer></script>
   <script src="navigation.js?v=20261019-siteupgrade" defer></script>
   <link rel="icon" type="image/png" href="assets/vayntr-icon.png?v=20261016-tabs">
   <link rel="shortcut icon" type="image/png" href="assets/vayntr-icon.png?v=20261016-tabs">
@@ -37,7 +37,7 @@
       <button class="menu-toggle" id="menuToggle" aria-expanded="false" aria-controls="primaryNav" aria-label="Open navigation"><span></span><span></span><span></span></button>
       <nav class="nav__links" id="primaryNav" aria-label="Primary navigation">
         <a href="roster.html">Roster</a><a href="results.html">Results</a><a href="news.html">Intel</a><a href="media.html">Media</a><a href="recruitment.html" aria-current="page">Recruitment</a>
-      </nav>
+      <a href="member.html">Members</a></nav>
       <a class="button button--small button--primary nav__cta" href="#application">Apply to VAYNTR <span aria-hidden="true">↗</span></a>
     </div>
   </header>
@@ -95,6 +95,13 @@
               </select>
             </div>
             <div class="field">
+              <label for="track">What are you applying for? *</label>
+              <select id="track" name="track" required>
+                <option value="player">Player roster</option>
+                <option value="media">Media team (clips, casting, content)</option>
+              </select>
+            </div>
+            <div class="field">
               <label for="game">Game / division *</label>
               <select id="game" name="game" required>
                 <option value="">Select a division</option>
@@ -103,7 +110,21 @@
                 <option>Rocket League</option>
                 <option>Other / future division</option>
               </select>
+              <small id="mediaGameHint" class="form-note" hidden>Media team applicants can leave the division blank.</small>
             </div>
+            <div class="field field--full">
+              <label for="socialUrl1">Your social media links</label>
+              <input id="socialUrl1" name="socialUrl1" type="url" inputmode="url" maxlength="500" placeholder="https://twitch.tv/your-channel" autocomplete="off">
+            </div>
+            <div class="field field--full">
+              <label for="socialUrl2">Second social link (optional)</label>
+              <input id="socialUrl2" name="socialUrl2" type="url" inputmode="url" maxlength="500" placeholder="https://x.com/your-handle" autocomplete="off">
+            </div>
+            <div class="field field--full">
+              <label for="socialUrl3">Third social link (optional)</label>
+              <input id="socialUrl3" name="socialUrl3" type="url" inputmode="url" maxlength="500" placeholder="https://youtube.com/@your-channel" autocomplete="off">
+            </div>
+            <input type="hidden" id="youtubeRequirementNote">
             <div class="field field--full">
               <label for="youtubeUrl">YouTube video link — why you want to join VAYNTR *</label>
               <input id="youtubeUrl" name="youtubeUrl" type="url" inputmode="url" maxlength="500" placeholder="https://youtu.be/your-video-id" autocomplete="url" required aria-describedby="youtubeHint">
