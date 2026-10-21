@@ -33,6 +33,11 @@ const HAS_MIC_OPTIONS = ["Yes", "No"];
 const OTHER_ROSTER_OPTIONS = ["No", "Yes — applied to VAYNTR before", "Yes — currently on another team's roster", "Both"];
 const MEDIA_SKILL_OPTIONS = ["Clip editing", "Video editing / montages", "Casting / commentary", "Graphic design", "Photography", "Writing / journalism", "Streaming"];
 
+// Fixed option lists for partnership inquiries. Reuse the published division list plus
+// partner types so staff portal grouping and server validation share one source of truth.
+const PARTNERSHIP_TYPE_OPTIONS = ["Brand / community partnership", "Event / tournament organizer", "Creator / media collaboration", "Other (explained below)"];
+const PARTNERSHIP_BUDGET_OPTIONS = ["Not applicable / in-kind", "Small budget (under $1,000)", "Medium budget ($1,000–$10,000)", "Larger budget (over $10,000)", "Prefer to discuss"];
+
 function escapeHtml(value) {
   return String(value ?? "").replace(/[&<>"']/g, (character) => ({
     "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"
@@ -413,6 +418,7 @@ app.use(cors({
 }));
 app.use(express.json({ limit: "20kb" }));
 const recruitmentLimiter = rateLimit({ windowMs: 15 * 60 * 1000, limit: 10, standardHeaders: "draft-7", legacyHeaders: false, message: { error: "Too many applications from this connection. Please wait and try again." } });
+const partnershipLimiter = rateLimit({ windowMs: 15 * 60 * 1000, limit: 10, standardHeaders: "draft-7", legacyHeaders: false, message: { error: "Too many partnership inquiries from this connection. Please wait and try again." } });
 const apiLimiter = rateLimit({ windowMs: 15 * 60 * 1000, limit: 120, standardHeaders: "draft-7", legacyHeaders: false, message: { error: "Too many requests. Please wait a few minutes and try again." }, skip: (req) => req.path.startsWith("/staff") });
 const healthLimiter = rateLimit({ windowMs: 60 * 1000, limit: 30, standardHeaders: "draft-7", legacyHeaders: false });
 // Count unsuccessful staff requests only. Successful staff dashboard calls do not consume this budget.
@@ -516,6 +522,7 @@ app.get("/api/status", async (_req, res) => {
       health: true,
       accounts: databaseReady,
       recruitmentApplications: databaseReady,
+      partnershipInquiries: databaseReady,
       staffTools: databaseReady,
       emailNotifications: Boolean(RESEND_API_KEY && RESEND_FROM_EMAIL),
       staffReviewConfigured: STAFF_REVIEW_TOKEN.length >= 32
@@ -640,12 +647,72 @@ app.post("/api/recruitment/applications", recruitmentLimiter, requireDatabase, a
   }
 });
 
+// Partnership inquiries: like recruitment applications but simpler — no age, no roster
+// conversion, and the reply happens by email. Stored in the same PostgreSQL database and
+// reviewed in the same staff portal. Contact details never reach any public endpoint.
+app.post("/api/partnerships", partnershipLimiter, requireDatabase, async (req, res, next) => {
+  if (STAFF_REVIEW_TOKEN.length < 32) {
+    return res.status(503).json({ error: "Partnership intake is temporarily paused while secure staff review is configured." });
+  }
+  try {
+    const trimValue = (value) => (typeof value === "string" ? value.trim() : "");
+    const orgName = trimValue(req.body.orgName);
+    const contactName = trimValue(req.body.contactName);
+    const email = trimValue(req.body.email).toLowerCase();
+    const partnershipType = trimValue(req.body.partnershipType);
+    const message = trimValue(req.body.message);
+    const website = parseOptionalHttpsUrl(req.body.website);
+    const proposalUrl = parseOptionalHttpsUrl(req.body.proposalUrl);
+    const budget = trimValue(req.body.budget);
+    const timeline = trimValue(req.body.timeline);
+    const followUp = req.body.followUp === true;
+    const consent = req.body.consent === true;
+
+    if (orgName.length < 2 || orgName.length > 120) return res.status(400).json({ error: "Organization / creator name must be 2–120 characters." });
+    if (contactName.length < 2 || contactName.length > 80) return res.status(400).json({ error: "Contact name must be 2–80 characters." });
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || email.length > 254) return res.status(400).json({ error: "Enter a valid email address." });
+    if (!PARTNERSHIP_TYPE_OPTIONS.includes(partnershipType)) return res.status(400).json({ error: "Choose what kind of partnership you are proposing." });
+    if (message.length < 30 || message.length > 2500) return res.status(400).json({ error: "Describe the collaboration in 30–2,500 characters." });
+    if ([website, proposalUrl].some((url) => url === undefined)) return res.status(400).json({ error: "Website and proposal links must be valid HTTPS URLs." });
+    if (budget && !PARTNERSHIP_BUDGET_OPTIONS.includes(budget)) return res.status(400).json({ error: "Choose a valid budget range or leave it blank." });
+    if (timeline.length > 120) return res.status(400).json({ error: "Timeline must be 120 characters or fewer." });
+    if (!consent) return res.status(400).json({ error: "Confirm the partnership privacy acknowledgement before submitting." });
+
+    const result = await pool.query(
+      "INSERT INTO partnership_inquiries (org_name, contact_name, email, partnership_type, budget, timeline, website, proposal_url, message, follow_up_requested, privacy_consent, consent_at) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,NOW()) RETURNING id, status, created_at",
+      [orgName, contactName, email, partnershipType, budget || null, timeline || null, website, proposalUrl, message, followUp, consent]
+    );
+    res.status(201).json({
+      inquiry: result.rows[0],
+      message: "Inquiry received. VAYNTR reviews partnership inquiries manually and contacts you by email."
+    });
+  } catch (error) { next(error); }
+});
+
 app.get("/api/staff/applications", requireDatabase, requireStaffAccess, async (_req, res, next) => {
   try {
     const result = await pool.query("SELECT id, display_name, email, platform, game, message, youtube_url, age, show_age_on_profile, track, social_links, in_game_handle, rank_level, competitive_experience, proudest_moment, game_details, availability, timezone_region, schedule_window, feedback_story, has_mic, why_vayntr, other_roster_status, schedule_agreement, media_skills, media_tools, best_content_url, status, created_at, confirmation_email_status, decision_notified_status, decision_email_error FROM recruitment_applications ORDER BY created_at DESC LIMIT 100");
     res.json({ applications: result.rows });
   } catch (error) { next(error); }
 });
+// Partnership inquiries: reviewable by staff, deleted manually once handled. Staff-only;
+// no public endpoint ever exposes this data.
+app.get("/api/staff/partnerships", requireDatabase, requireStaffAccess, async (_req, res, next) => {
+  try {
+    const result = await pool.query("SELECT id, org_name, contact_name, email, partnership_type, budget, timeline, website, proposal_url, message, follow_up_requested, status, created_at FROM partnership_inquiries ORDER BY created_at DESC LIMIT 100");
+    res.json({ inquiries: result.rows });
+  } catch (error) { next(error); }
+});
+app.post("/api/staff/partnerships/delete", requireDatabase, requireStaffAccess, async (req, res, next) => {
+  const id = Number(req.body.id);
+  if (!Number.isSafeInteger(id) || id < 1) return res.status(400).json({ error: "Invalid partnership inquiry ID." });
+  try {
+    const result = await pool.query("DELETE FROM partnership_inquiries WHERE id = $1 RETURNING id", [id]);
+    if (!result.rowCount) return res.status(404).json({ error: "This inquiry was already removed. Refresh the list." });
+    res.json({ deleted: true, message: "Partnership inquiry deleted." });
+  } catch (error) { next(error); }
+});
+
 app.get("/api/staff/roster", requireDatabase, requireStaffAccess, async (_req, res, next) => {
   try {
     // Email is exposed only inside this authenticated staff endpoint so the operator can contact players manually.
@@ -1425,6 +1492,25 @@ CREATE TABLE IF NOT EXISTS site_content (
  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
+CREATE TABLE IF NOT EXISTS partnership_inquiries (
+ id BIGSERIAL PRIMARY KEY,
+ org_name TEXT NOT NULL,
+ contact_name TEXT NOT NULL,
+ email TEXT NOT NULL,
+ partnership_type TEXT NOT NULL,
+ budget TEXT,
+ timeline TEXT,
+ website TEXT,
+ proposal_url TEXT,
+ message TEXT NOT NULL,
+ follow_up_requested BOOLEAN NOT NULL DEFAULT FALSE,
+ status TEXT NOT NULL DEFAULT 'new' CHECK (status IN ('new', 'closed')),
+ privacy_consent BOOLEAN NOT NULL DEFAULT FALSE,
+ consent_at TIMESTAMPTZ,
+ created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS partnership_inquiries_created_at_idx ON partnership_inquiries (created_at DESC);
+
 CREATE INDEX IF NOT EXISTS site_content_public_feed_idx ON site_content (content_type, published, created_at DESC);
 `;
 async function start() {

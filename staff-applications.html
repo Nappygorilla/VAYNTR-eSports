@@ -65,8 +65,9 @@
             <button class="staff-portal-tab" type="button" data-staff-tab="applications"><span>02</span> Applications <b id="applicationTabCount">—</b></button>
             <button class="staff-portal-tab" type="button" data-staff-tab="roster"><span>03</span> Roster & contacts <b id="rosterTabCount">—</b></button>
             <button class="staff-portal-tab" type="button" data-staff-tab="content"><span>04</span> Content desk</button>
-            <button class="staff-portal-tab" type="button" data-staff-tab="invites"><span>05</span> Invites <b id="inviteTabCount">—</b></button>
-            <button class="staff-portal-tab" type="button" data-staff-tab="operations"><span>06</span> Site operations</button>
+            <button class="staff-portal-tab" type="button" data-staff-tab="partnerships"><span>05</span> Partnerships <b id="partnershipTabCount">—</b></button>
+            <button class="staff-portal-tab" type="button" data-staff-tab="invites"><span>06</span> Invites <b id="inviteTabCount">—</b></button>
+            <button class="staff-portal-tab" type="button" data-staff-tab="operations"><span>07</span> Site operations</button>
           </nav>
 
           <p id="portalActionStatus" class="form-note portal-action-status" role="status" aria-live="polite"></p>
@@ -82,6 +83,7 @@
               <article class="staff-stat-card"><span class="staff-stat-label">Database</span><strong id="overviewDatabaseStatus">CHECKING</strong><p id="overviewDatabaseNote">Checking API and database status</p><a class="staff-stat-link" href="https://vayntr-esports.onrender.com/health" target="_blank" rel="noopener noreferrer">Open health check ↗</a></article>
               <article class="staff-stat-card"><span class="staff-stat-label">Applicant contact</span><strong class="staff-stat-word">MANUAL</strong><p>Email applicants yourself for now. No automatic messages are sent by decisions.</p><span class="staff-stat-footnote">Email notifications optional</span></article>
               <article class="staff-stat-card"><span class="staff-stat-label">Live invite codes</span><strong id="overviewInviteCount">—</strong><p>Unused member invites currently valid</p><button type="button" class="staff-stat-link" data-open-view="invites">Generate invites ↗</button></article>
+              <article class="staff-stat-card"><span class="staff-stat-label">Partnership inquiries</span><strong id="overviewPartnershipCount">—</strong><p>Collaboration inquiries waiting for review</p><button type="button" class="staff-stat-link" data-open-view="partnerships">Review inquiries ↗</button></article>
             </div>
             <div class="staff-overview-lower">
               <article class="staff-panel">
@@ -157,6 +159,16 @@
             <div class="staff-content-list-heading"><h3>Saved content</h3><p>Edit, unpublish, or remove items below.</p></div>
             <div id="contentItemsList" class="staff-applications" aria-live="polite"></div>
           </section>
+          <section id="staffView-partnerships" class="staff-portal-view" data-staff-view="partnerships" aria-labelledby="partnershipsHeading" hidden>
+            <div class="staff-view-heading">
+              <div><p class="eyebrow"><span></span> Partnerships &amp; media</p><h2 id="partnershipsHeading" class="staff-title">PARTNERSHIP QUEUE.</h2></div>
+              <button type="button" class="button button--outline" id="refreshPartnerships">Refresh queue</button>
+            </div>
+            <p class="form-note">Inquiries from the partnerships page arrive here. Contact the requester by their own email, then delete the inquiry once it is handled. Nothing on this list is public.</p>
+            <p id="staffPartnershipStatus" class="form-note" role="status" aria-live="polite"></p>
+            <div id="partnershipsList" class="staff-applications" aria-live="polite"></div>
+          </section>
+
           <section id="staffView-invites" class="staff-portal-view" data-staff-view="invites" aria-labelledby="invitesHeading" hidden>
             <div class="staff-view-heading">
               <div><p class="eyebrow"><span></span> Members</p><h2 id="invitesHeading" class="staff-title">INVITE CODES.</h2></div>

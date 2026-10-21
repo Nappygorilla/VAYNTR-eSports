@@ -14,6 +14,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700;800;900&family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="styles.css?v=20261020-design-polish"><script src="app.js?v=20261019-siteupgrade" defer></script>
+  <script src="partnerships.js?v=20261021-form" defer></script>
   <script src="navigation.js?v=20261019-siteupgrade" defer></script>
   <link rel="icon" type="image/png" href="assets/vayntr-icon.png?v=20261016-tabs">
   <link rel="shortcut icon" type="image/png" href="assets/vayntr-icon.png?v=20261016-tabs">
@@ -23,8 +24,7 @@
   <a class="skip-link" href="#main">Skip to content</a>
   <header class="site-header"><div class="container nav">
     <a class="brand" href="index.html" aria-label="VAYNTR home"><img src="assets/vayntr-icon.png" alt="" class="brand__mark"><span>VAYNTR<span class="brand__dot">.</span></span></a>
-    <button class="menu-toggle" id="menuToggle" aria-expanded="false" aria-controls="primaryNav" aria-label="Open navigation"><span></span><span></span><span></span></button>
-    <nav class="nav__links" id="primaryNav" aria-label="Primary navigation"><a href="about.html">About</a><a href="roster.html">Roster</a><a href="news.html">Intel</a><a href="results.html">Results</a><a href="media.html">Media</a><a href="member.html">Members</a></nav>
+    <button class="menu-toggle" id="menuToggle" aria-expanded="false" aria-controls="primaryNav" aria-label="Open navigation"><span></span><span></span><span></span></button>      <nav class="nav__links" id="primaryNav" aria-label="Primary navigation"><a href="about.html">About</a><a href="roster.html">Roster</a><a href="news.html">Intel</a><a href="results.html">Results</a><a href="media.html">Media</a><a href="partnerships.html" aria-current="page">Partnerships</a><a href="member.html">Members</a></nav>
     
     <a class="button button--small button--primary nav__cta" href="recruitment.html">Join VAYNTR <span aria-hidden="true">↗</span></a>
   </div></header>
@@ -35,7 +35,75 @@
       <article class="feature-card"><span class="feature-card__number">02 / COMPETITION</span><span class="icon-frame" aria-hidden="true">02</span><h3>Events & tournaments</h3><p>Share confirmed event information, organizer requirements, registration details, and potential participation opportunities.</p></article>
       <article class="feature-card"><span class="feature-card__number">03 / MEDIA</span><span class="icon-frame" aria-hidden="true">03</span><h3>Creator & media</h3><p>Discuss approved clips, interviews, content collaborations, and ways to credit original players and creators.</p></article>
     </div></div></section>
-    <section class="section section--border"><div class="container split-layout"><div class="side-intro"><p class="eyebrow"><span></span>Before reaching out</p><h2>BE CLEAR.<br>BE REAL.</h2><p>Useful inquiries explain who you are, what you are proposing, and how the collaboration would work.</p></div><div class="application-panel"><p class="eyebrow"><span></span>Include in your message</p><ul class="mission-list"><li>Your name or organization and the best way to reply.</li><li>The type of collaboration and the specific goal.</li><li>Any relevant dates, requirements, links, and deliverables.</li><li>For media, the original source and permission or credit requirements.</li></ul><p class="muted">For now, use the site's contact page. Do not send passwords, private account credentials, or payment details. VAYNTR does not promise sponsorship, compensation, or tournament placement through this page.</p><a class="button button--primary" href="contact.html">Contact VAYNTR <span aria-hidden="true">↗</span></a> <a class="button button--outline" href="media.html">View the media library <span aria-hidden="true">↗</span></a></div></div></section>
+    <section class="section section--border" id="apply"><div class="container split-layout"><div class="side-intro"><p class="eyebrow"><span></span>Before you reach out</p><h2>BE CLEAR.<br>BE REAL.</h2><p>Useful inquiries explain who you are, what you are proposing, and how the collaboration would work. The application below goes straight to VAYNTR staff review.</p><div class="callout"><strong>No promises</strong><br>VAYNTR does not promise sponsorship, compensation, brand status, or tournament placement. Inquiry details are used only for evaluating the collaboration.</div><p class="form-note">Read the <a href="privacy.html">Privacy Policy</a> before submitting. Do not send passwords, private account credentials, or payment details.</p><a class="button button--outline" href="media.html">View the media library <span aria-hidden="true">↗</span></a></div><div class="application-panel"><p class="eyebrow"><span></span>Partnership inquiry</p><h2 style="font-family:'Barlow Condensed',Impact,sans-serif;font-size:clamp(2.2rem,5vw,3.4rem);line-height:.95;margin:12px 0">PROPOSE A COLLABORATION.</h2><p class="form-note">Fields marked required must be completed. Your details go to the VAYNTR partnership backend for staff review.</p><form id="partnershipForm" class="application-form" novalidate>
+              <h3 class="form-section-title" data-section-label="Who you are">Who you are</h3>
+              <div class="field field--full">
+                <label for="orgName">Organization / brand / creator name *</label>
+                <input id="orgName" name="orgName" type="text" minlength="2" maxlength="120" autocomplete="organization" required>
+              </div>
+              <div class="field">
+                <label for="contactName">Your name *</label>
+                <input id="contactName" name="contactName" type="text" minlength="2" maxlength="80" autocomplete="name" required>
+              </div>
+              <div class="field">
+                <label for="pEmail">Email address *</label>
+                <input id="pEmail" name="email" type="email" maxlength="254" autocomplete="email" required>
+              </div>
+              <h3 class="form-section-title" data-section-label="The collaboration">The collaboration</h3>
+              <div class="field">
+                <label for="partnershipType">What kind of partnership are you proposing? *</label>
+                <select id="partnershipType" name="partnershipType" required>
+                  <option value="">Select a type</option>
+                  <option>Brand / community partnership</option>
+                  <option>Event / tournament organizer</option>
+                  <option>Creator / media collaboration</option>
+                  <option>Other (explained below)</option>
+                </select>
+              </div>
+              <div class="field">
+                <label for="budget">Budget range (optional)</label>
+                <select id="budget" name="budget">
+                  <option value="">Select a range</option>
+                  <option>Not applicable / in-kind</option>
+                  <option>Small budget (under $1,000)</option>
+                  <option>Medium budget ($1,000–$10,000)</option>
+                  <option>Larger budget (over $10,000)</option>
+                  <option>Prefer to discuss</option>
+                </select>
+              </div>
+              <div class="field field--full">
+                <label for="timeline">Dates or timeline (optional)</label>
+                <input id="timeline" name="timeline" type="text" maxlength="120" placeholder="e.g. Season starting November; ideally wraps by March" autocomplete="off">
+              </div>
+              <div class="field field--full">
+                <label for="pWebsite">Website or main channel (optional)</label>
+                <input id="pWebsite" name="website" type="url" inputmode="url" maxlength="500" placeholder="https://your-site.com" autocomplete="off"> 
+              </div>
+              <div class="field field--full">
+                <label for="proposalUrl">Deck / proposal / media kit link (optional)</label>
+                <input id="proposalUrl" name="proposalUrl" type="url" inputmode="url" maxlength="500" placeholder="https://drive.google.com/…" autocomplete="off"> 
+              </div>
+              <div class="field field--full">
+                <label for="pMessage">Describe the collaboration *</label>
+                <textarea id="pMessage" name="message" rows="5" minlength="30" maxlength="2500" placeholder="Who you are, what you propose, what each side would do, and what you want VAYNTR to decide on. Include relevant links in the fields above, not in this box." required></textarea>
+              </div>
+              <div class="field field--full">
+                <label class="consent-label">
+                  <input id="followUp" name="followUp" type="checkbox">
+                  <span>Staff may email me a short follow-up if details are missing; happy to get one email.</span>
+                </label>
+              </div>
+              <div class="field field--full">
+                <label class="consent-label">
+                  <input id="privacyConsent" name="privacyConsent" type="checkbox" required>
+                  <span>I confirm the details are accurate and VAYNTR may use them to evaluate this inquiry (see the Privacy Policy). *</span>
+                </label>
+              </div>
+              <div class="field field--full">
+                <button class="button button--primary" type="submit" id="partnershipSubmit" disabled>Submit inquiry <span aria-hidden="true">↗</span></button>
+                <p id="partnershipStatus" class="form-note" role="status" aria-live="polite">Checking partnership intake availability…</p>
+              </div>
+            </form></div></div></section>
   </main>
   <footer class="site-footer"><div class="container footer__top"><div class="footer__brand"><a class="brand" href="index.html"><img src="assets/vayntr-icon.png" alt="" class="brand__mark"><span>VAYNTR<span class="brand__dot">.</span></span></a><p>Built to compete. Made to endure.<br>An independent esports organization.</p></div><div class="footer__links"><div><b>Organization</b><a href="about.html">About VAYNTR</a><a href="roster.html">Roster</a><a href="news.html">News &amp; intel</a><a href="results.html">Results</a></div><div><b>Media</b><a href="media.html">Media library</a><a href="partnerships.html">Partnerships</a><a href="recruitment.html">Recruitment</a></div><div><b>Connect</b><a href="contact.html">Contact</a><a href="privacy.html">Privacy</a><a href="terms.html">Terms</a></div></div></div><div class="container resource-links" aria-label="More VAYNTR resources"><strong>Explore VAYNTR</strong><a href="tryout-process.html">Tryout Process</a><a href="player-development.html">Player Development</a><a href="competitive-standards.html">Competitive Standards</a><a href="recruitment.html">Join the Roster</a></div>
     <div class="container footer__bottom"><span>© <span data-year></span> VAYNTR. All rights reserved.</span><span>Partnerships · Media · Collaboration</span></div></footer>

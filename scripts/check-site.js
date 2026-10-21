@@ -88,6 +88,29 @@ if (/app\.post\(["']\/api\/staff\/applications\/:id\/status["']/.test(serverSour
   addError("server.js", "The obsolete status endpoint must not bypass the atomic roster/application decision flow or send automatic decision emails.");
 }
 
+// Partnership inquiry intake: rate-limited, consent-gated, staff-only listing, insert-only public route.
+if (!/app\.post\(["']\/api\/partnerships["'],\s*partnershipLimiter,\s*requireDatabase/.test(serverSource)) {
+  addError("server.js", "Partnership intake must be rate-limited and require a configured database.");
+}
+if (!serverSource.includes("Confirm the partnership privacy acknowledgement before submitting.")) {
+  addError("server.js", "Partnership intake must require the privacy acknowledgement like the application form does.");
+}
+const partnershipsPublicRoute = serverSource.match(/app\.post\(["']\/api\/partnerships["'][\s\S]*?(?=\napp\.)/);
+if (!partnershipsPublicRoute || /res\.json\(\{ inquiries|SELECT[\s\S]*FROM partnership_inquiries/.test(partnershipsPublicRoute[0])) {
+  addError("server.js", "The public partnership route must only insert inquiries; listing them must stay staff-only.");
+}
+if (!/app\.get\(["']\/api\/staff\/partnerships["'],\s*requireDatabase,\s*requireStaffAccess/.test(serverSource) ||
+    !/app\.post\(["']\/api\/staff\/partnerships\/delete["'],\s*requireDatabase,\s*requireStaffAccess/.test(serverSource)) {
+  addError("server.js", "Partnership inquiry review and deletion must be staff-token protected.");
+}
+const partnershipsClientSource = fs.readFileSync(path.join(root, "partnerships.js"), "utf8");
+if (!partnershipsClientSource.includes("features.partnershipInquiries") ||
+    !partnershipsClientSource.includes("https:") ||
+    !partnershipsClientSource.includes("/api/partnerships") ||
+    !partnershipsClientSource.includes("consent: form.elements.privacyConsent.checked")) {
+  addError("partnerships.js", "The partnership client must gate on backend availability, enforce https links, and send the consent flag to /api/partnerships.");
+}
+
 // Member invite codes: generation is server-side, storage is hash-only, plaintext is returned exactly once.
 if (!serverSource.includes('app.post("/api/staff/invites"') ||
     !serverSource.includes('hashInviteCode(code)') ||

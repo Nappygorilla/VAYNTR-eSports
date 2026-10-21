@@ -168,6 +168,7 @@
     if (activeView === "applications") return loadApplications();
     if (activeView === "roster") return loadRoster();
     if (activeView === "content") return loadContent();
+    if (activeView === "partnerships") return loadPartnerships();
     if (activeView === "invites") return loadInvites();
     if (activeView === "operations") {
       await loadOverview();
@@ -227,14 +228,14 @@
     activateView("overview");
 
     // Remove private applicant/roster details and unpublished drafts from the DOM on sign-out.
-    for (const selector of ["#applicationsList", "#staffRosterList", "#contentItemsList", "#invitesList"]) {
+    for (const selector of ["#applicationsList", "#staffRosterList", "#contentItemsList", "#invitesList", "#partnershipsList"]) {
       $(selector)?.replaceChildren();
     }
-    for (const id of ["applicationsSearchInput", "rosterSearchInput", "contentSearchInput", "invitesSearchInput", "inviteLabel"]) {
+    for (const id of ["applicationsSearchInput", "rosterSearchInput", "contentSearchInput", "invitesSearchInput", "partnershipsSearchInput", "inviteLabel"]) {
       const input = document.getElementById(id);
       if (input) input.value = "";
     }
-    for (const id of ["overviewApplicationCount", "applicationTabCount", "overviewRosterCount", "rosterTabCount", "overviewInviteCount", "inviteTabCount"]) {
+    for (const id of ["overviewApplicationCount", "applicationTabCount", "overviewRosterCount", "rosterTabCount", "overviewInviteCount", "inviteTabCount", "overviewPartnershipCount", "partnershipTabCount"]) {
       const count = document.getElementById(id);
       if (count) count.textContent = "—";
     }
@@ -250,6 +251,7 @@
     if (editor && editor.elements.id) editor.elements.id.value = "";
     setStatus($("#contentEditorStatus"), "");
     setStatus($("#staffRosterStatus"), "");
+    setStatus($("#staffPartnershipStatus"), "");
     setStatus(reviewStatus, "");
     if (manualEmailFollowup) {
       manualEmailFollowup.hidden = true;
@@ -445,6 +447,127 @@
     return card;
   }
 
+  async function loadPartnerships(showLoading = true) {
+    const inquiryList = $("#partnershipsList");
+    const inquiryStatus = $("#staffPartnershipStatus");
+    if (!inquiryList || !inquiryStatus) return;
+    if (showLoading) setStatus(inquiryStatus, "Loading partnership inquiries…");
+    inquiryList.replaceChildren();
+    try {
+      const result = await api("/api/staff/partnerships");
+      const inquiries = Array.isArray(result.inquiries) ? result.inquiries : [];
+      const inquiryCount = String(inquiries.length);
+      if ($("#overviewPartnershipCount")) $("#overviewPartnershipCount").textContent = inquiryCount;
+      if ($("#partnershipTabCount")) $("#partnershipTabCount").textContent = inquiryCount;
+      if (inquiries.length === 0) {
+        addText(inquiryList, "div", "empty-state", "There are no partnership inquiries waiting.");
+        ensureListSearch(inquiryList, "partnershipsSearch", "SEARCH PARTNERSHIPS", "Organization, contact, type…");
+        setStatus(inquiryStatus, "Partnership queue is empty.", "success");
+        return;
+      }
+      for (const inquiry of inquiries) inquiryList.appendChild(renderPartnershipInquiry(inquiry));
+      ensureListSearch(inquiryList, "partnershipsSearch", "SEARCH PARTNERSHIPS", "Organization, contact, type…");
+      setStatus(inquiryStatus, "Loaded " + inquiries.length + " partnership inquiry/inquiries.", "success");
+    } catch (error) {
+      if (error.status === 401 || error.status === 403) {
+        signOut("Staff access expired or was rejected. Enter the access key again.", "error");
+      }
+      setStatus(inquiryStatus, error.message || "Unable to load partnership inquiries.", "error");
+    }
+  }
+
+  function renderPartnershipInquiry(inquiry) {
+    const card = document.createElement("article");
+    card.className = "application-panel staff-application";
+
+    const top = document.createElement("div");
+    top.className = "staff-application__top";
+    const identity = document.createElement("div");
+    addText(identity, "h3", "staff-application__name", inquiry.org_name);
+    addText(identity, "p", "staff-application__meta", inquiry.contact_name + " · " + inquiry.email);
+    top.appendChild(identity);
+    addText(top, "span", "pill", "AWAITING REVIEW");
+    card.appendChild(top);
+
+    const details = document.createElement("div");
+    details.className = "staff-application__details";
+    addText(details, "p", "", "Partnership type: " + inquiry.partnership_type);
+    if (inquiry.budget) addText(details, "p", "", "Budget range: " + inquiry.budget);
+    if (inquiry.timeline) addText(details, "p", "", "Timeline: " + inquiry.timeline);
+    addText(details, "p", "", "Follow-up email welcome: " + (inquiry.follow_up_requested ? "yes" : "no"));
+    addText(details, "p", "", "Submitted: " + (inquiry.created_at ? new Date(inquiry.created_at).toLocaleString() : "Unknown"));
+    if (inquiry.website || inquiry.proposal_url) {
+      const linkLine = document.createElement("p");
+      if (inquiry.website) {
+        const webLink = document.createElement("a");
+        webLink.href = inquiry.website;
+        webLink.target = "_blank";
+        webLink.rel = "noopener noreferrer";
+        webLink.textContent = "Website ↗";
+        linkLine.appendChild(document.createTextNode("Links: "));
+        linkLine.appendChild(webLink);
+        if (inquiry.proposal_url) linkLine.appendChild(document.createTextNode("  ·  "));
+      }
+      if (inquiry.proposal_url) {
+        const propLink = document.createElement("a");
+        propLink.href = inquiry.proposal_url;
+        propLink.target = "_blank";
+        propLink.rel = "noopener noreferrer";
+        propLink.textContent = "Proposal/deck ↗";
+        if (inquiry.website) linkLine.appendChild(document.createTextNode("  ·  "));
+        linkLine.appendChild(propLink);
+      }
+      details.appendChild(linkLine);
+    }
+    card.appendChild(details);
+
+    if (inquiry.message) {
+      const note = document.createElement("div");
+      note.className = "staff-application__note";
+      addText(note, "b", "", "The proposal");
+      addText(note, "p", "", inquiry.message);
+      card.appendChild(note);
+    }
+
+    const actions = document.createElement("div");
+    actions.className = "staff-application__actions";
+    if (/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(inquiry.email || ""))) {
+      const emailLink = document.createElement("a");
+      emailLink.className = "button button--outline";
+      emailLink.href = "mailto:" + encodeURIComponent(String(inquiry.email)).replace("%40", "@") +
+        "?subject=" + encodeURIComponent("VAYNTR Esports | Partnership inquiry (" + inquiry.org_name + ")");
+      emailLink.textContent = "Compose reply email ↗";
+      emailLink.setAttribute("aria-label", "Reply by email to " + inquiry.org_name);
+      actions.appendChild(emailLink);
+    }
+    const deleteButton = document.createElement("button");
+    deleteButton.type = "button";
+    deleteButton.className = "button button--outline";
+    deleteButton.textContent = "Delete inquiry";
+    deleteButton.addEventListener("click", async () => {
+      const message = "Delete the partnership inquiry from " + inquiry.org_name + "? Do this after you have replied or evaluated it. This cannot be undone.";
+      if (!window.confirm(message)) return;
+      deleteButton.disabled = true;
+      setStatus($("#staffPartnershipStatus"), "Deleting inquiry…");
+      try {
+        const result = await api("/api/staff/partnerships/delete", { method: "POST", body: JSON.stringify({ id: inquiry.id }) });
+        await loadPartnerships(false);
+        setStatus($("#staffPartnershipStatus"), result.message || "Partnership inquiry deleted.", "success");
+        setStatus($("#portalActionStatus"), result.message || "Partnership inquiry deleted.", "success");
+      } catch (error) {
+        if (error.status === 401 || error.status === 403) {
+          signOut("Staff access expired or was rejected. Enter the access key again.", "error");
+        }
+        setStatus($("#staffPartnershipStatus"), error.message || "Unable to delete this inquiry.", "error");
+      } finally {
+        deleteButton.disabled = false;
+      }
+    });
+    actions.appendChild(deleteButton);
+    card.appendChild(actions);
+    return card;
+  }
+
   async function loadApplications(showLoading = true) {
     if (showLoading) setStatus(reviewStatus, "Loading applications…");
     list.replaceChildren();
@@ -462,6 +585,7 @@
         addText(list, "div", "empty-state", "No applications have been submitted yet.");
         ensureListSearch(list, "applicationsSearch", "SEARCH APPLICATIONS", "Name, email, game, platform…");
         await loadRoster(false);
+        await loadPartnerships(false);
         await loadOverview();
         setStatus(reviewStatus, "Queue loaded. No applications are waiting.", "success");
         return;
@@ -469,6 +593,7 @@
       for (const application of applications) list.appendChild(renderApplication(application));
       ensureListSearch(list, "applicationsSearch", "SEARCH APPLICATIONS", "Name, email, game, platform…");
       await loadRoster(false);
+      await loadPartnerships(false);
       await loadOverview();
       setStatus(reviewStatus, "Loaded " + applications.length + " application(s).", "success");
     } catch (error) {
@@ -938,6 +1063,7 @@
       else if (activeView === "roster") await loadRoster();
       else if (activeView === "content") await loadContent();
       else if (activeView === "invites") await loadInvites();
+      else if (activeView === "partnerships") await loadPartnerships();
       else if (activeView === "overview") await loadApplications(false);
       else { await loadOverview(); await loadSecurityEvents(false); }
     });
@@ -949,10 +1075,12 @@
       else if (activeView === "roster") await loadRoster();
       else if (activeView === "content") await loadContent();
       else if (activeView === "invites") await loadInvites();
+      else if (activeView === "partnerships") await loadPartnerships();
       else await loadOverview();
     });
   });
   $("#refreshInvites")?.addEventListener("click", () => loadInvites());
+  $("#refreshPartnerships")?.addEventListener("click", () => loadPartnerships());
   $("#refreshApplications").addEventListener("click", () => loadApplications());
   $("#refreshRoster")?.addEventListener("click", () => loadRoster());
   $("#refreshContent")?.addEventListener("click", () => loadContent());
