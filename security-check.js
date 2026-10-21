@@ -13,6 +13,8 @@ assert.match(source, /limit:\s*10/,
   "Staff access failures must be rate-limited.");
 assert.match(source, /crypto\.timingSafeEqual\(supplied, expected\)/,
   "Staff token comparison must use a timing-safe comparison.");
+assert.match(source, /rejectUnauthorized:\s*process\.env\.PG_SSL_REJECT_UNAUTHORIZED\s*!==\s*["']false["']/,
+  "The database TLS connection must stay fail-secure: certificate verification on by default, opt-out only via an explicit PG_SSL_REJECT_UNAUTHORIZED=false setting.");
 assert.match(source, /res\.set\(["']Cache-Control["'],\s*["']no-store, private["']\)/,
   "Protected staff responses must disable caching.");
 
