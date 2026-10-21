@@ -1,0 +1,15 @@
+# Dependencies (installed via npm ci / yarn install on each build)
+node_modules/
+
+# Private credentials stay out of version control (see README)
+secrets/
+
+# Local build artifacts and environment overrides
+dist/
+.env
+.env.*
+!.env.example
+
+# OS/editor noise
+.DS_Store
+Thumbs.db
