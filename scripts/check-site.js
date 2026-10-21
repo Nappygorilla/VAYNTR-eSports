@@ -355,7 +355,7 @@ for (const file of htmlFiles) {
     try { target = new URL(raw, pageUrl); } catch { continue; }
 
     const rawPath = raw.split(/[?#]/, 1)[0].toLowerCase();
-    const explicitlyTargetsResultsPage = rawPath === "results.html" || rawPath.endsWith("/results.html");
+    const explicitlyTargetsResultsPage = /(^|\/)results(\.html)?$/.test(rawPath);
     if (target.origin === previewOrigin && target.pathname.startsWith(legacyProjectPrefix)) {
       addError(file, "Legacy project-site URL detected; use the root GitHub Pages URL instead: " + raw);
       continue;
@@ -363,10 +363,12 @@ for (const file of htmlFiles) {
 
     const isExternalProjectPage = target.origin === previewOrigin &&
       externalProjectPrefixes.some((prefix) => target.pathname.startsWith(prefix));
+    const allowedResultsAbsolute = raw === "https://nappygorilla.github.io/VAYNTR-eSports/results" ||
+      raw === "https://nappygorilla.github.io/VAYNTR-eSports/results.html";
     if (explicitlyTargetsResultsPage && target.origin === previewOrigin &&
-        target.pathname === siteBasePath + "results.html" &&
+        (target.pathname === siteBasePath + "results" || target.pathname === siteBasePath + "results.html") &&
         /^[a-z][a-z0-9+.-]*:/i.test(raw) &&
-        raw !== "https://nappygorilla.github.io/VAYNTR-eSports/results.html") {
+        !allowedResultsAbsolute) {
       addError(file, "Results links must use a relative URL or the configured root GitHub Pages URL.");
     }
 
@@ -376,7 +378,13 @@ for (const file of htmlFiles) {
     let relative = target.pathname.slice(siteBasePath.length);
     if (!relative || relative.endsWith("/")) relative += "index.html";
     relative = decodeURIComponent(relative);
-    const destination = path.resolve(root, relative);
+    let destination = path.resolve(root, relative);
+    // Internal page links are extensionless (/roster); GitHub Pages serves /roster from roster.html,
+    // so resolve clean paths back to their .html file to keep link checks accurate.
+    if (!fs.existsSync(destination) && !/\.[a-z0-9]+$/i.test(relative)) {
+      const candidate = destination + ".html";
+      if (fs.existsSync(candidate)) destination = candidate;
+    }
     if (!destination.startsWith(root + path.sep) && destination !== path.join(root, "index.html")) {
       addError(file, "local URL escapes site directory: " + raw);
       continue;
@@ -393,6 +401,25 @@ for (const file of htmlFiles) {
       try { hash = decodeURIComponent(hash); } catch {}
       if (hash && !targetIds.has(hash)) addError(file, "missing anchor '" + raw + "' (no id #" + hash + " in " + path.basename(destination) + ")");
     }
+  }
+}
+
+// URLs are site-wide extensionless: internal page links use clean paths because GitHub Pages
+// resolves /name from name.html. Guard against .html links creeping back into pages or clients.
+for (const file of htmlFiles) {
+  const source = fs.readFileSync(path.join(root, file), "utf8");
+  if (/(?:href|src)="[a-z][a-z0-9_-]*\.html(?:["?#])/i.test(source)) {
+    addError(file, "Internal page links must be extensionless (e.g. href=\"roster\"), matching the live pretty URLs.");
+  }
+}
+for (const [file, source] of [["roster.js", rosterClientSource], ["staff.js", staffSource], ["player.js", playerClientSource]]) {
+  if (/"(?:\.\/|\.\.\/)?[a-z][a-z0-9_-]*\.html"/i.test(source)) {
+    addError(file, "Client-built internal links must be extensionless (e.g. 'player?id=' or 'roster'), matching the live pretty URLs.");
+  }
+}
+if (fs.existsSync(path.join(root, "sitemap.xml"))) {
+  if (/\.html<\/loc>/.test(fs.readFileSync(path.join(root, "sitemap.xml"), "utf8"))) {
+    addError("sitemap.xml", "Sitemap URLs must be extensionless, matching the live pretty URLs.");
   }
 }
 

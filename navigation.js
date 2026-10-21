@@ -14,8 +14,11 @@
     let url;
     try { url = new URL(anchor.href, window.location.href); } catch { return null; }
     if (url.origin !== window.location.origin || !url.pathname.startsWith(basePath)) return null;
-    if (url.pathname.endsWith("/staff-applications.html") || url.pathname.endsWith("/404.html")) return null;
-    if (!(url.pathname === basePath || /\.html?$/i.test(url.pathname))) return null;
+    if (url.pathname.endsWith("/staff-applications.html") || url.pathname.endsWith("/staff-applications") || url.pathname.endsWith("/404.html")) return null;
+    // Internal links are extensionless (e.g. /roster) or .html; assets have a file extension,
+    // so a last segment without any dot is a page document while anything else is skipped.
+    const lastSegment = url.pathname.split("/").pop() || "";
+    if (!(url.pathname === basePath || /\.html?$/i.test(lastSegment) || !lastSegment.includes("."))) return null;
     if (url.pathname === window.location.pathname && !url.search) return null;
     url.hash = "";
     return url.href;
@@ -36,7 +39,7 @@
     // API-backed pages can wake Render or issue duplicate data requests while prerendered.
     // They can still be prefetched as documents, but only static pages are prerendered.
     const parsed = new URL(url, window.location.href);
-    if (/(?:^|\/)(?:index|roster|news|results|media|player)\.html?$/i.test(parsed.pathname)) return;
+    if (/(?:index|roster|news|results|media|player)(?:\.html?)?$/i.test(parsed.pathname.split("/").pop() || "")) return;
     primedForPrerender.add(url);
     // Browsers without Speculation Rules ignore the hint and use the normal navigation.
     if (!("HTMLScriptElement" in window) || !("supports" in HTMLScriptElement) ||

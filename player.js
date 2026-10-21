@@ -39,7 +39,7 @@
     text(panel, "p", "", message);
     const back = document.createElement("a");
     back.className = "button button--outline";
-    back.href = "roster.html";
+    back.href = "roster";
     back.textContent = "Back to roster";
     panel.appendChild(back);
     if (retryable) {
@@ -174,7 +174,7 @@
 
     const backToRoster = document.createElement("a");
     backToRoster.className = "button button--outline";
-    backToRoster.href = "roster.html";
+    backToRoster.href = "roster";
     backToRoster.textContent = "Back to roster";
     actions.appendChild(backToRoster);
 

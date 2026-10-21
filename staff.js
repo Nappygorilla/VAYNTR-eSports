@@ -659,7 +659,7 @@
 
         const profileLink = document.createElement("a");
         profileLink.className = "button button--outline";
-        profileLink.href = "player.html?id=" + encodeURIComponent(String(player.id));
+        profileLink.href = "player?id=" + encodeURIComponent(String(player.id));
         profileLink.target = "_blank";
         profileLink.rel = "noopener noreferrer";
         profileLink.textContent = "Preview public profile ↗";

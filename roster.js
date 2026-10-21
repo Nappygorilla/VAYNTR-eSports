@@ -137,7 +137,7 @@
     const playerId = String(player.id == null ? "" : player.id);
     if (/^\d+$/.test(playerId)) {
       const profile = document.createElement("a");
-      profile.href = "player.html?id=" + encodeURIComponent(playerId);
+      profile.href = "player?id=" + encodeURIComponent(playerId);
       profile.textContent = "View player profile ↗";
       profile.setAttribute("aria-label", "View " + displayName + "'s VAYNTR profile");
       links.appendChild(profile);
