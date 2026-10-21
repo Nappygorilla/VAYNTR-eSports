@@ -110,6 +110,22 @@ if (!partnershipsClientSource.includes("features.partnershipInquiries") ||
     !partnershipsClientSource.includes("consent: form.elements.privacyConsent.checked")) {
   addError("partnerships.js", "The partnership client must gate on backend availability, enforce https links, and send the consent flag to /api/partnerships.");
 }
+// The Pages workflow deploys from dist/ with an explicit copy list: every root-level script
+// referenced by a page must be on that list or it will 404 silently in production.
+const pagesWorkflowPath = path.join(root, ".github", "workflows", "pages.yml");
+if (fs.existsSync(pagesWorkflowPath)) {
+  const workflow = fs.readFileSync(pagesWorkflowPath, "utf8");
+  const copyLine = workflow.match(/cp [^\n]*\.js dist\//);
+  const copied = copyLine ? (copyLine[0].match(/[\w.-]+\.js/g) || []) : [];
+  const referenced = new Set();
+  for (const file of htmlFiles) {
+    const source = fs.readFileSync(path.join(root, file), "utf8");
+    for (const match of source.matchAll(/<script src=["']([\w.-]+\.js)/g)) referenced.add(match[1]);
+  }
+  for (const script of referenced) {
+    if (!copied.includes(script)) addError("pages.yml", "Root script '" + script + "' is referenced by a page but missing from the dist/ copy list; it would 404 on the live site.");
+  }
+}
 
 // Member invite codes: generation is server-side, storage is hash-only, plaintext is returned exactly once.
 if (!serverSource.includes('app.post("/api/staff/invites"') ||

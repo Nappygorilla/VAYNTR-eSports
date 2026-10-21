@@ -41,14 +41,14 @@ jobs:
           test -s assets/vayntr-mark.svg
           node security-check.js
           node scripts/check-site.js
-          for f in app.js year.js navigation.js recruitment.js staff.js roster.js content.js player.js server.js; do node --check "$f"; done
+          for f in app.js year.js navigation.js recruitment.js partnerships.js staff.js roster.js content.js player.js server.js; do node --check "$f"; done
           grep -q 'name="viewport"' index.html
           grep -q 'prefers-reduced-motion' styles.css
       - name: Assemble public site (static files only)
         run: |
           rm -rf dist && mkdir -p dist/assets
           cp ./*.html dist/
-          cp app.js year.js navigation.js recruitment.js staff.js roster.js content.js player.js dist/
+          cp app.js year.js navigation.js recruitment.js partnerships.js staff.js roster.js content.js player.js dist/
           cp styles.css staff.css sitemap.xml robots.txt dist/
           cp assets/* dist/assets/
       - name: Configure Pages
