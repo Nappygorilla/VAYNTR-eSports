@@ -66,21 +66,18 @@ Older Supabase membership-invitation files remain in \`supabase/\` during migrat
   which now POSTs the hook on every API-affecting change and warns while the secret is missing.
 - Fresh-database bootstrap: `mfa_challenges` declared a foreign key to `accounts` before `accounts` was created, so a first deploy against an empty database failed at startup with `relation "accounts" does not exist`. The schema now creates every table before anything references it, and `security-check.js` fails the build if a foreign key ever precedes its target table.
 
-## Staff access: one-time migration (required before staff tools work again)
+## Staff access: the private access key
 
-Staff tools no longer accept `STAFF_REVIEW_TOKEN`. Every staff action now requires an individual staff identity plus a 6-digit authenticator code, and every privileged action is written to `security_events` with that identity.
+Staff tools accept the private `STAFF_REVIEW_TOKEN` access key, exactly as before: open `staff-applications.html`, paste the key, and the portal opens. The key is compared in constant time on the server, is never written to the security log, and never appears in the site's JavaScript.
 
-1. Deploy the backend, then open `staff-applications.html`.
-2. Choose **First-time staff setup**. Enter `STAFF_REVIEW_TOKEN` as the setup key, plus your own email, display name, and a 12+ character password.
-3. Scan the returned secret into an authenticator app and confirm one current code. That creates the `owner` identity and signs you in.
-4. The setup key is now dead: `POST /api/staff/auth/bootstrap` returns 409 and the token grants nothing anywhere. Remove `STAFF_REVIEW_TOKEN` from Render once you are satisfied — nothing depends on it after migration.
-5. Add other staff from inside the portal (owner/admin only). Each person receives their own secret and cannot use staff tools until they confirm a code.
+1. In Render, keep `STAFF_REVIEW_TOKEN` set to a random value of 48+ characters.
+2. Open `staff-applications.html` and paste that key into **Staff access key**.
+3. Every privileged action is still written to `security_events` with the actor `staff-access-key`, so there is an audit trail of what was done and when.
 
 Behaviour to expect:
 
-- Sessions last 8 hours, are stored server-side as SHA-256 hashes, and are revoked by sign-out or by disabling the identity.
-- Five failed attempts lock an identity with doubling cooldowns (5 → 10 → 20 → 40 → 60 minutes), separate from member lockouts.
-- An authenticator code is single-use; replaying one is refused and recorded as `staff_mfa_replay`.
-- Recruitment and partnership intake stay paused (HTTP 503) until at least one staff identity finishes two-factor setup, so applications cannot arrive where nobody can review them.
-- `staffReviewConfigured` in `/api/status` now means "a staff identity exists with MFA enabled", not "a token is configured".
-- If `JWT_SECRET` is missing, staff MFA setup refuses to run (503) rather than storing an unencrypted secret.
+- The key is a bearer credential: anyone who holds it has full staff access, so treat it like a password and rotate it in Render if it is ever shared.
+- Staff responses are `no-store`; the key is held only in the tab's `sessionStorage` and cleared on sign-out.
+- Recruitment and partnership intake are open whenever the key is configured; if it is missing or shorter than 32 characters the API returns 503 rather than accepting applications nobody can review.
+- `staffReviewConfigured` in `/api/status` means "staff review access is configured".
+- Named staff accounts with a 6-digit authenticator code (`/api/staff/auth/*`: optional second factor, per-person hashed sessions, progressive lockout, single-use codes) remain implemented and covered by `security-check.js`; the portal simply does not require them.

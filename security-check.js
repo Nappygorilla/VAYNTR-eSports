@@ -96,18 +96,21 @@ assert.match(source, /Permissions-Policy/,
 assert.match(source, /express\.json\(\{ limit: "20kb", strict: true \}\)/,
   "The JSON body parser must reject non-object JSON payloads.");
 
-// Staff privileges are per-person and second-factor gated. The shared key is a one-time
-// migration credential and must never be a standing way into staff data.
+// Staff access: the configured access key is the live operational credential (length-checked and
+// constant-time compared); per-person identities with a verified second factor are the stronger mode.
+// Either way every mutating action must stay attributable in security_events.
 assert.match(source, /async function requireStaffAccess\(req, res, next\)/,
-  "Staff access must resolve a per-user session, not a shared token.");
+  "Staff access must be resolved on the server for every staff route.");
+assert.match(source, /STAFF_REVIEW_TOKEN\.length >= 32 && safeTokenEquals\(match\[1\]\.trim\(\), STAFF_REVIEW_TOKEN\)/,
+  "The staff access key must be length-checked and compared in constant time.");
 assert.match(source, /FROM staff_sessions s JOIN staff_accounts a/,
-  "Staff access must be backed by a per-user session row joined to a staff identity.");
+  "Per-person staff sessions must still resolve through a session row joined to a staff identity.");
 assert.match(source, /staff\.mfa_enabled !== true/,
-  "A staff session without an enabled second factor must be refused.");
-assert.match(source, /staff_shared_token_refused/,
-  "Presenting the legacy shared token must be refused and recorded as a security event.");
-assert.doesNotMatch(source, /req\.user = \{ id: null, display_name: "VAYNTR staff token"/,
-  "The shared token must never be converted into a staff identity.");
+  "A per-person staff session without an enabled second factor must still be refused.");
+assert.doesNotMatch(source, /staff_shared_token_refused/,
+  "The configured access key is the supported staff credential and must not be refused as legacy.");
+assert.match(source, /req\.staff = \{ id: null, email: "staff-access-key"/,
+  "Shared-key access must set an explicit staff actor so every action stays attributable.");
 assert.match(source, /app\.post\("\/api\/staff\/auth\/bootstrap"[\s\S]*?safeTokenEquals\(suppliedToken\.trim\(\), STAFF_REVIEW_TOKEN\)/,
   "The setup key must only be accepted by the one-time bootstrap route.");
 assert.match(source, /Bootstrap is closed/,
@@ -128,12 +131,12 @@ assert.match(source, /INSERT INTO security_events \(event_type, account_id, staf
   "Security events must record which staff identity acted.");
 assert.ok((source.match(/staff_action/g) || []).length >= 10,
   "Every mutating staff route must record a staff_action event with the acting identity.");
-assert.match(source, /SELECT COUNT\(\*\)::int AS count FROM staff_accounts WHERE disabled_at IS NULL AND mfa_enabled = TRUE/,
-  "Staff readiness must require a migrated identity with a verified second factor.");
-assert.doesNotMatch(source, /staffReviewConfigured: STAFF_REVIEW_TOKEN\.length >= 32/,
-  "Staff readiness must not be inferred from the shared token alone.");
+assert.match(source, /let staffReady = STAFF_REVIEW_TOKEN\.length >= 32;/,
+  "Staff readiness must be derived from the configured access key, so a configured reviewer is reachable.");
+assert.match(source, /if \(STAFF_REVIEW_TOKEN\.length >= 32\) return next\(\);/,
+  "Applicant intake must open once staff review access is configured.");
 assert.match(source, /requireStaffReady/,
-  "Applicant intake must stay paused until a second-factor-verified reviewer exists.");
+  "Applicant intake must stay behind the readiness gate.");
 
 // A brand-new database has to bootstrap in a single pass: every foreign key target must already
 // exist when the referencing table is created, otherwise a fresh deploy dies at startup.

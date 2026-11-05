@@ -253,13 +253,15 @@ async function bumpStaffFailedLogins(staffId) {
   return { locked: false, failures };
 }
 
-// Applicant intake stays closed until a real, second-factor-verified reviewer exists.
+// Applicant intake is open as soon as staff review access is configured: the configured access key is
+// a working reviewer path, and per-person second-factor identities are the optional stronger mode.
 async function requireStaffReady(_req, res, next) {
   if (!pool) return res.status(503).json({ error: "Database is not configured yet." });
+  if (STAFF_REVIEW_TOKEN.length >= 32) return next();
   try {
     const ready = await pool.query("SELECT COUNT(*)::int AS count FROM staff_accounts WHERE disabled_at IS NULL AND mfa_enabled = TRUE");
     if (!(Number(ready.rows[0] && ready.rows[0].count) > 0)) {
-      return res.status(503).json({ error: "Intake is paused until a staff reviewer has completed two-factor setup." });
+      return res.status(503).json({ error: "Intake is paused until staff review access is configured." });
     }
     return next();
   } catch (error) { return next(error); }
@@ -509,19 +511,24 @@ function requireDatabase(_req, res, next) {
   if (!pool) return res.status(503).json({ error: "Database is not configured yet." });
   next();
 }
-// Staff privileges always come from a per-user session whose account has a verified second factor.
-// The legacy shared token is not a credential here: holding it grants nothing.
+// Staff access accepts the private staff access key (the configured operational credential) and, when
+// per-person identities are in use, a session whose identity has a verified second factor. The key is
+// compared in constant time and is never written to the security log.
 async function requireStaffAccess(req, res, next) {
   // Staff endpoints contain private applicant and roster details; prevent shared/browser HTTP caching.
   res.set("Cache-Control", "no-store, private");
   res.set("Pragma", "no-cache");
   if (!pool) return res.status(503).json({ error: "Staff access is not available yet." });
   const match = (req.get("authorization") || "").match(/^Bearer\s+(.+)$/i);
-  if (!match) return res.status(401).json({ error: "Sign in with your staff account to continue." });
+  if (!match) return res.status(401).json({ error: "A staff access key is required." });
 
   if (STAFF_REVIEW_TOKEN.length >= 32 && safeTokenEquals(match[1].trim(), STAFF_REVIEW_TOKEN)) {
-    securityLogger(pool, "staff_shared_token_refused", { actor: "legacy-shared-token", ip: req.ip, detail: "The shared staff token no longer grants access." });
-    return res.status(401).json({ error: "The shared staff token no longer grants access. Sign in with your staff account and authenticator code." });
+    req.staff = { id: null, email: "staff-access-key", displayName: "VAYNTR staff access key", role: "admin" };
+    req.user = { id: null, display_name: "VAYNTR staff access key", role: "admin" };
+    return next();
+  }
+  if (STAFF_REVIEW_TOKEN.length < 32) {
+    return res.status(401).json({ error: "The staff access key is invalid." });
   }
 
   try {
@@ -842,9 +849,10 @@ app.get("/api/status", async (_req, res) => {
     try { await pool.query("SELECT 1"); databaseReady = true; }
     catch { databaseReady = false; }
   }
-  // Staff review is ready only when a real identity has completed second-factor setup.
-  let staffReady = false;
-  if (databaseReady) {
+  // Staff review is ready when the access key is configured, or when a per-person identity has a
+  // verified second factor.
+  let staffReady = STAFF_REVIEW_TOKEN.length >= 32;
+  if (!staffReady && databaseReady) {
     try {
       const staffCount = await pool.query("SELECT COUNT(*)::int AS count FROM staff_accounts WHERE disabled_at IS NULL AND mfa_enabled = TRUE");
       staffReady = Number(staffCount.rows[0] && staffCount.rows[0].count) > 0;

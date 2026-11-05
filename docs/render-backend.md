@@ -9,8 +9,8 @@ Node.js API for the static VAYNTR Esports site hosted on GitHub Pages. The Rende
 - The API validates supported YouTube video URL formats on the server before saving the application.
 - \`POST /api/recruitment/applications\` validates and stores the application, then marks contact as manual; it does not send a confirmation email.
 - \`GET /api/staff/applications\` lists pending submissions and YouTube links. \`POST /api/staff/applications/:id/decision\` accepts or denies an application in a database transaction. Accept copies the applicant's display name, email, platform, game, recorded age, and their public-age consent into \`roster_players\` and deletes the application; deny deletes the application without creating a roster entry. \`GET /api/roster\` returns the age only when the player consented via \`show_age_on_profile\`; staff can edit the age and that consent through \`POST /api/staff/roster/:id/update\`. No email is sent by this decision endpoint. \`GET /api/roster\` returns public-safe player details; \`GET /api/staff/roster\` is protected and includes email addresses for manual contact. The protected `staff-applications.html` screen is the staff portal with Overview, Applications, Roster & contacts, and Site operations tabs. `POST /api/staff/roster/:id/remove` is staff-only and removes a confirmed player plus their private contact record from the roster after a confirmation prompt.
-- Staff routes are protected by a per-person session that requires a password plus a verified authenticator code. The unlinked staff portal screen is not linked from the public navigation, is `noindex,nofollow`, and only displays application data after the API authorizes a signed-in staff identity.
-- The former public login, registration, and member-dashboard pages are not part of the intended public site. Public account registration returns 404 unless `ENABLE_PUBLIC_REGISTRATION=true`; leave this unset. Legacy staff/admin JWTs no longer unlock staff routes: the staff console requires a per-person staff account with a verified authenticator code.
+- Staff routes require the private staff access key (`STAFF_REVIEW_TOKEN`, at least 32 characters, compared in constant time) sent as a bearer token. The unlinked staff portal screen is not linked from the public navigation, is `noindex,nofollow`, and only displays application data after the API authorizes that key. Per-person staff identities with a verified authenticator code remain implemented for teams that want named accounts, but they are not required to review applications.
+- The former public login, registration, and member-dashboard pages are not part of the intended public site. Public account registration returns 404 unless `ENABLE_PUBLIC_REGISTRATION=true`; leave this unset. Legacy member/staff JWTs do not unlock staff routes: the staff console requires the configured staff access key.
 
 ## Render environment variables
 
@@ -20,22 +20,22 @@ Node.js API for the static VAYNTR Esports site hosted on GitHub Pages. The Rende
 - \`RESEND_API_KEY\`: optional secret API key from Resend. Without it, applications and status changes still work, but automatic emails are skipped.
 - \`RESEND_FROM_EMAIL\`: sender in the form \`VAYNTR Esports <recruitment@yourdomain.com>\`. The domain must be verified in Resend. Do not set this to an address on a domain you do not control.
 - \`RESEND_REPLY_TO\`: optional reply-to address.
-- `STAFF_REVIEW_TOKEN`: one-time setup key, at least 32 characters. It is accepted only by `POST /api/staff/auth/bootstrap`, only while no staff identity exists, and returns no session; after the first identity is activated it is permanently dead (409). Set it in Render Environment for the migration, then remove it. Never commit it or share it publicly.
+- `STAFF_REVIEW_TOKEN`: the private staff access key, at least 32 characters (48+ random recommended). Send it as `Authorization: Bearer <key>` to staff routes. It is compared in constant time, is never written to the security log, and is never shipped in browser code. Rotate it in Render if it is ever shared; never commit it.
 
 Never expose \`RESEND_API_KEY\`, \`STAFF_REVIEW_TOKEN\`, database credentials, or \`JWT_SECRET\` in public JavaScript, URLs, source files, screenshots, or GitHub. If any secret is exposed, rotate it.
 
 ## Staff authentication (current)
 
-Staff access is per person and always second-factor gated. The shared setup key is only a one-time migration credential and grants no privileges anywhere else.
+Staff access is gated by the private access key described above: the portal asks for that single key and nothing else is required. The per-person identity system below stays in the codebase for teams that want named staff accounts with a second factor — those routes are live and optional.
 
 - **Identities**: `staff_accounts` holds one row per person with a salted scrypt password hash, a role (`owner`, `admin`, `reviewer`), and an AES-256-GCM encrypted TOTP secret keyed from `JWT_SECRET`. Only an owner or admin can create or disable an identity, and nobody can disable their own.
 - **First-time setup**: `POST /api/staff/auth/bootstrap` accepts the setup key once, while `staff_accounts` is empty. It returns the TOTP secret and an `otpauth://` URI but **no session**; access exists only after the first code is verified at `POST /api/staff/auth/activate`. Afterwards bootstrap returns 409 permanently.
 - **Sign-in**: `POST /api/staff/auth/login` verifies the password and returns a hashed 5-minute `mfaToken` (`staff_mfa_challenges`); `POST /api/staff/auth/verify` checks the code, consumes its RFC 6238 time step so a code cannot be replayed (`last_totp_step`, `staff_mfa_replay`), and issues an 8-hour session stored as a SHA-256 hash in `staff_sessions`.
-- **Refusals**: a session whose identity has no verified second factor returns 403; a missing, expired or revoked session returns 401; presenting the legacy shared token returns 401 and is recorded as `staff_shared_token_refused`.
+- **Refusals**: a missing or incorrect access key returns 401; an invalid or expired per-person session returns 401; a per-person session whose identity has no verified second factor returns 403.
 - **Lockout**: five failed password or code attempts lock that identity with doubling cooldowns (5 → 10 → 20 → 40 → capped 60 minutes), independent of member lockouts.
 - **Attribution**: every mutating staff route writes a `staff_action` row in `security_events` with `staff_id` and `actor`.
 - **Revocation**: `POST /api/staff/auth/logout` deletes the session row; disabling an identity deletes all of its sessions immediately.
-- **Intake gate**: recruitment and partnership intake return 503 until at least one staff identity has a verified second factor.
+- **Intake gate**: recruitment and partnership intake return 503 until staff review access is configured — the access key is set, or a per-person identity has a verified second factor.
 
 ## Database setup and migrations
 
