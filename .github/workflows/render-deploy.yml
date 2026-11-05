@@ -33,7 +33,7 @@ jobs:
           RENDER_DEPLOY_HOOK_URL: ${{ secrets.RENDER_DEPLOY_HOOK_URL }}
         run: |
           if [ -z "$RENDER_DEPLOY_HOOK_URL" ]; then
-            echo "::notice title=Render deploy skipped::Add a repository secret named RENDER_DEPLOY_HOOK_URL (Render dashboard -> VAYNTR-eSports service -> Settings -> Deploy Hook) so API fixes deploy automatically."
+            echo "::warning title=Render deploy skipped::Add a repository secret named RENDER_DEPLOY_HOOK_URL (Render dashboard -> VAYNTR-eSports service -> Settings -> Deploy Hook) so API fixes deploy automatically."
             exit 0
           fi
           status=$(curl -sS -o /tmp/render-hook.txt -w '%{http_code}' -X POST "$RENDER_DEPLOY_HOOK_URL")
