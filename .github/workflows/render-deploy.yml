@@ -1,10 +1,10 @@
 name: Deploy VAYNTR API to Render
 
-# Render's repository auto-deploy stopped firing on pushes to main (verified 2026-11-05:
-# two pushes, no deploy). This workflow triggers the service's deploy hook instead.
-# It needs one repository secret, RENDER_DEPLOY_HOOK_URL, from
-# Render dashboard -> VAYNTR-eSports service -> Settings -> Deploy Hook.
-# Until that secret exists the job reports a notice and exits cleanly.
+# Render's repository auto-deploy is configured on main but never fires (verified 2026-11-05:
+# three pushes, zero deploys, while the service reports autoDeploy=yes/commit/main).
+# This workflow triggers the service's deploy hook instead. It needs one repository
+# secret, RENDER_DEPLOY_HOOK_URL, from Render dashboard -> VAYNTR-eSports service ->
+# Settings -> Deploy Hook. Until that secret exists the job warns and exits cleanly.
 
 on:
   push:
