@@ -536,7 +536,7 @@ async function requireStaffAccess(req, res, next) {
       "SELECT s.staff_id, a.email, a.display_name, a.role, a.mfa_enabled, a.disabled_at FROM staff_sessions s JOIN staff_accounts a ON a.id = s.staff_id WHERE s.token_hash = $1 AND s.expires_at > NOW()",
       [sha256Hex(match[1])]
     );
-    if (!result.rowCount) return res.status(401).json({ error: "Your staff session is invalid or has expired. Sign in again." });
+    if (!result.rowCount) return res.status(401).json({ error: "That staff access key is not valid, or your staff session has expired. Try again." });
     const staff = result.rows[0];
     if (staff.disabled_at) return res.status(401).json({ error: "This staff account has been disabled." });
     if (staff.mfa_enabled !== true) {
