@@ -51,6 +51,9 @@ jobs:
           cp app.js year.js navigation.js recruitment.js partnerships.js auth.js staff.js roster.js content.js player.js dist/
           cp styles.css staff.css sitemap.xml robots.txt dist/
           cp assets/* dist/assets/
+      - name: Stamp the sitemap with the deploy date
+        run: |
+          node -e "const fs=require('fs');const d=new Date().toISOString().slice(0,10);const p='dist/sitemap.xml';fs.writeFileSync(p,fs.readFileSync(p,'utf8').replace(/<lastmod>[^<]*<\/lastmod>/g,'<lastmod>'+d+'</lastmod>'));console.log('sitemap lastmod set to '+d)"
       - name: Configure Pages
         if: github.event_name != 'pull_request'
         uses: actions/configure-pages@v5

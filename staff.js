@@ -11,6 +11,15 @@
   const list = $("#applicationsList");
   const manualEmailFollowup = $("#manualEmailFollowup");
   const loginButton = $("#staffLoginButton");
+  const mfaForm = $("#staffMfaForm");
+  const mfaStatus = $("#staffMfaStatus");
+  const mfaButton = $("#staffMfaButton");
+  const bootstrapForm = $("#staffBootstrapForm");
+  const bootstrapStatus = $("#staffBootstrapStatus");
+  const bootstrapButton = $("#staffBootstrapButton");
+  const bootstrapPanel = $("#staffBootstrapPanel");
+  const activateButton = $("#staffActivateButton");
+  const showBootstrapButton = $("#showStaffBootstrap");
   let activeView = "overview";
   let token = "";
   try { token = sessionStorage.getItem(TOKEN_KEY) || ""; } catch {}
@@ -97,10 +106,24 @@
       mfa_failed: "Failed MFA code",
       mfa_enroll_started: "MFA setup started",
       mfa_activated: "MFA enabled",
-      mfa_disabled: "MFA disabled"
+      mfa_disabled: "MFA disabled",
+      staff_login: "Staff sign-in",
+      staff_login_failed: "Failed staff sign-in",
+      staff_login_locked: "Staff sign-in blocked (locked)",
+      staff_mfa_failed: "Failed staff authenticator code",
+      staff_mfa_replay: "Replayed staff authenticator code",
+      staff_mfa_activated: "Staff authenticator enabled",
+      staff_logout: "Staff sign-out",
+      staff_action: "Staff action",
+      staff_bootstrap_created: "Staff bootstrap completed",
+      staff_bootstrap_refused: "Staff bootstrap refused",
+      staff_account_created: "Staff identity created",
+      staff_account_disabled: "Staff identity disabled",
+      staff_session_refused: "Staff session refused",
+      staff_shared_token_refused: "Legacy shared token refused"
     };
     addText(identity, "h3", "staff-application__name", (typeLabels[event.event_type] || event.event_type) + (event.name_hint ? " — " + event.name_hint : ""));
-    addText(identity, "p", "staff-application__meta", "IP hash: " + (event.ip_hash || "n/a"));
+    addText(identity, "p", "staff-application__meta", "Identity: " + (event.actor || "unknown") + " · IP hash: " + (event.ip_hash || "n/a"));
     top.appendChild(identity);
     addText(top, "span", "pill", "SECURITY");
     card.appendChild(top);
@@ -130,7 +153,7 @@
       setStatus(eventsStatus, "Latest " + events.length + " security event(s). Failed sign-in spikes and lockouts are visible here.", "success");
     } catch (error) {
       if (error.status === 401 || error.status === 403) {
-        signOut("Staff access expired or was rejected. Enter the access key again.", "error");
+        signOut("Staff access expired or was rejected. Sign in again with your authenticator code.", "error");
         return;
       }
       setStatus(eventsStatus, error.message || "Could not load security activity.", "error");
@@ -220,6 +243,15 @@
   }
 
   function signOut(statusMessage = "Signed out.", statusState = "success") {
+    if (token) {
+      // End the server-side staff session too, so a copied token cannot outlive sign-out.
+      const sessionToken = token;
+      fetch(API_BASE + "/api/staff/auth/logout", {
+        method: "POST",
+        headers: { Authorization: "Bearer " + sessionToken },
+        cache: "no-store"
+      }).catch(() => {});
+    }
     token = "";
     try { sessionStorage.removeItem(TOKEN_KEY); } catch {}
     reviewPanel.hidden = true;
@@ -431,7 +463,7 @@
           : "Application denied and deleted."), "success");
       } catch (error) {
         if (error.status === 401 || error.status === 403) {
-          signOut("Staff access expired or was rejected. Enter the access key again.", "error");
+          signOut("Staff access expired or was rejected. Sign in again with your authenticator code.", "error");
         }
         setStatus(reviewStatus, error.message || "Unable to process this application.", "error");
       } finally {
@@ -470,7 +502,7 @@
       setStatus(inquiryStatus, "Loaded " + inquiries.length + " partnership inquiry/inquiries.", "success");
     } catch (error) {
       if (error.status === 401 || error.status === 403) {
-        signOut("Staff access expired or was rejected. Enter the access key again.", "error");
+        signOut("Staff access expired or was rejected. Sign in again with your authenticator code.", "error");
       }
       setStatus(inquiryStatus, error.message || "Unable to load partnership inquiries.", "error");
     }
@@ -556,7 +588,7 @@
         setStatus($("#portalActionStatus"), result.message || "Partnership inquiry deleted.", "success");
       } catch (error) {
         if (error.status === 401 || error.status === 403) {
-          signOut("Staff access expired or was rejected. Enter the access key again.", "error");
+          signOut("Staff access expired or was rejected. Sign in again with your authenticator code.", "error");
         }
         setStatus($("#staffPartnershipStatus"), error.message || "Unable to delete this inquiry.", "error");
       } finally {
@@ -682,7 +714,7 @@
             setStatus($("#portalActionStatus"), result.message || "Player removed.", "success");
           } catch (error) {
             if (error.status === 401 || error.status === 403) {
-              signOut("Staff access expired or was rejected. Enter the access key again.", "error");
+              signOut("Staff access expired or was rejected. Sign in again with your authenticator code.", "error");
             }
             setStatus(rosterStatus, error.message || "Unable to remove this player.", "error");
           } finally {
@@ -704,7 +736,7 @@
               showInviteResult(result);
               setStatus($("#staffRosterStatus"), "Invite code created for " + player.display_name + " — it is shown in the Invites tab. Copy it now.", "success");
             } catch (error) {
-              if (error.status === 401 || error.status === 403) signOut("Staff access expired or was rejected. Enter the access key again.", "error");
+              if (error.status === 401 || error.status === 403) signOut("Staff access expired or was rejected. Sign in again with your authenticator code.", "error");
               setStatus($("#staffRosterStatus"), error.message || "Unable to issue an invite for this player.", "error");
             } finally {
               issueInviteButton.disabled = false;
@@ -788,7 +820,7 @@
             await loadRoster(false);
           } catch (error) {
             if (error.status === 401 || error.status === 403) {
-              signOut("Staff access expired or was rejected. Enter the access key again.", "error");
+              signOut("Staff access expired or was rejected. Sign in again with your authenticator code.", "error");
             }
             setStatus(profileStatus, error.message || "Unable to save profile.", "error");
           } finally { saveProfile.disabled = false; }
@@ -801,7 +833,7 @@
       setStatus(rosterStatus, players.length + " roster member(s). Email addresses are visible only in this protected staff area.", "success");
     } catch (error) {
       if (error.status === 401 || error.status === 403) {
-        signOut("Staff access expired or was rejected. Enter the access key again.", "error");
+        signOut("Staff access expired or was rejected. Sign in again with your authenticator code.", "error");
       }
       setStatus(rosterStatus, error.message || "Unable to load the accepted roster.", "error");
     }
@@ -879,7 +911,7 @@
         await loadContent(false); setStatus($("#portalActionStatus"), "Content visibility updated.", "success");
       } catch (error) {
         if (error.status === 401 || error.status === 403) {
-          signOut("Staff access expired or was rejected. Enter the access key again.", "error");
+          signOut("Staff access expired or was rejected. Sign in again with your authenticator code.", "error");
           return;
         }
         setStatus($("#portalActionStatus"), error.message || "Unable to update visibility.", "error");
@@ -896,7 +928,7 @@
         await loadContent(false); setStatus($("#portalActionStatus"), "Content item deleted.", "success");
       } catch (error) {
         if (error.status === 401 || error.status === 403) {
-          signOut("Staff access expired or was rejected. Enter the access key again.", "error");
+          signOut("Staff access expired or was rejected. Sign in again with your authenticator code.", "error");
           return;
         }
         setStatus($("#portalActionStatus"), error.message || "Unable to delete item.", "error");
@@ -918,7 +950,7 @@
       setStatus($("#contentEditorStatus"), items.length + " saved content item(s).", "success");
     } catch (error) {
       if (error.status === 401 || error.status === 403) {
-        signOut("Staff access expired or was rejected. Enter the access key again.", "error");
+        signOut("Staff access expired or was rejected. Sign in again with your authenticator code.", "error");
       }
       setStatus($("#contentEditorStatus"), error.message || "Unable to load saved content.", "error");
     }
@@ -1000,7 +1032,7 @@
           await loadInvites(false);
           setStatus($("#inviteStatus"), result.message || "Invite revoked.", "success");
         } catch (error) {
-          if (error.status === 401 || error.status === 403) signOut("Staff access expired or was rejected. Enter the access key again.", "error");
+          if (error.status === 401 || error.status === 403) signOut("Staff access expired or was rejected. Sign in again with your authenticator code.", "error");
           revokeButton.disabled = false;
           setStatus($("#inviteStatus"), error.message || "Unable to revoke this invite.", "error");
         }
@@ -1033,26 +1065,142 @@
       setStatus($("#inviteStatus"), invites.length + " invite(s) on record — " + liveCount + " currently valid. Codes are stored only as hashes.", "success");
     } catch (error) {
       if (error.status === 401 || error.status === 403) {
-        signOut("Staff access expired or was rejected. Enter the access key again.", "error");
+        signOut("Staff access expired or was rejected. Sign in again with your authenticator code.", "error");
         return;
       }
       setStatus($("#inviteStatus"), error.message || "Could not load invites.", "error");
     }
   }
 
+  function showMfaStep(mfaToken, message) {
+    if (!mfaForm) {
+      setStatus(loginStatus, "This portal build cannot complete two-factor sign-in.", "error");
+      return;
+    }
+    mfaForm.dataset.mfaToken = mfaToken;
+    mfaForm.hidden = false;
+    loginForm.hidden = true;
+    if (bootstrapForm) bootstrapForm.hidden = true;
+    setStatus(mfaStatus, message || "Enter the current 6-digit code from your authenticator app.");
+    mfaForm.querySelector("input")?.focus();
+  }
+
+  function enterPortal(identity) {
+    reviewPanel.hidden = false;
+    loginPanel.hidden = true;
+    if (identity) {
+      setStatus(reviewStatus, "Signed in as " + identity.displayName + " (" + identity.role + " · " + identity.email + "). Every action in this portal is recorded against your identity.", "success");
+    }
+    loadApplications();
+  }
+
+  async function startStaffSession(path, body) {
+    const data = await api(path, { method: "POST", body: JSON.stringify(body) });
+    if (data.session && data.session.token) {
+      token = data.session.token;
+      try { sessionStorage.setItem(TOKEN_KEY, token); } catch {}
+    }
+    return data;
+  }
+
   loginForm.addEventListener("submit", async (event) => {
     event.preventDefault();
     if (!loginForm.reportValidity()) return;
     loginButton.disabled = true;
-    setStatus(loginStatus, "Checking staff access…");
-    // Pasted keys often carry a trailing space/newline or wrapping quotes; remove them before use.
-    token = loginForm.elements.accessKey.value.trim().replace(/^(["'])(.*)\1$/, "$2").trim();
-    try { sessionStorage.setItem(TOKEN_KEY, token); } catch {}
-    loginForm.elements.accessKey.value = "";
+    setStatus(loginStatus, "Checking your staff credentials…");
     try {
-      await loadApplications();
+      const data = await api("/api/staff/auth/login", {
+        method: "POST",
+        body: JSON.stringify({
+          email: loginForm.elements.email.value.trim(),
+          password: loginForm.elements.password.value
+        })
+      });
+      loginForm.elements.password.value = "";
+      if (data.mfaRequired && data.mfaToken) showMfaStep(data.mfaToken, data.message);
+      else setStatus(loginStatus, "The API did not start a two-factor challenge, so sign-in was refused.", "error");
+    } catch (error) {
+      setStatus(loginStatus, error.message || "Staff sign-in failed.", "error");
     } finally {
       loginButton.disabled = false;
+    }
+  });
+
+  mfaForm?.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    if (!mfaForm.reportValidity()) return;
+    if (mfaButton) mfaButton.disabled = true;
+    setStatus(mfaStatus, "Verifying your authenticator code…");
+    try {
+      const data = await startStaffSession("/api/staff/auth/verify", {
+        mfaToken: mfaForm.dataset.mfaToken || "",
+        code: mfaForm.elements.code.value.trim()
+      });
+      mfaForm.reset();
+      delete mfaForm.dataset.mfaToken;
+      enterPortal(data.staff);
+    } catch (error) {
+      setStatus(mfaStatus, error.message || "That code was not accepted.", "error");
+    } finally {
+      if (mfaButton) mfaButton.disabled = false;
+    }
+  });
+
+  showBootstrapButton?.addEventListener("click", () => {
+    if (!bootstrapForm) return;
+    bootstrapForm.hidden = !bootstrapForm.hidden;
+    if (!bootstrapForm.hidden) bootstrapForm.elements.token.focus();
+  });
+
+  bootstrapForm?.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    if (!bootstrapForm.reportValidity()) return;
+    if (bootstrapButton) bootstrapButton.disabled = true;
+    setStatus(bootstrapStatus, "Creating the first staff identity…");
+    try {
+      const data = await api("/api/staff/auth/bootstrap", {
+        method: "POST",
+        body: JSON.stringify({
+          token: bootstrapForm.elements.token.value.trim(),
+          email: bootstrapForm.elements.email.value.trim(),
+          displayName: bootstrapForm.elements.displayName.value.trim(),
+          password: bootstrapForm.elements.password.value
+        })
+      });
+      if (bootstrapPanel) {
+        bootstrapPanel.hidden = false;
+        const secretNode = $("#staffBootstrapSecret");
+        const uriNode = $("#staffBootstrapUri");
+        if (secretNode) secretNode.textContent = data.secret || "";
+        if (uriNode) uriNode.href = data.uri || "#";
+      }
+      setStatus(bootstrapStatus, data.message || "Add the secret to your authenticator app, then confirm a code below.", "success");
+    } catch (error) {
+      setStatus(bootstrapStatus, error.message || "Staff setup could not be completed.", "error");
+    } finally {
+      if (bootstrapButton) bootstrapButton.disabled = false;
+    }
+  });
+
+  activateButton?.addEventListener("click", async () => {
+    if (!bootstrapForm) return;
+    const code = ($("#staffBootstrapCode") || {}).value || "";
+    if (activateButton) activateButton.disabled = true;
+    setStatus(bootstrapStatus, "Confirming your authenticator code…");
+    try {
+      const data = await startStaffSession("/api/staff/auth/activate", {
+        email: bootstrapForm.elements.email.value.trim(),
+        password: bootstrapForm.elements.password.value,
+        code: code.trim()
+      });
+      if (bootstrapPanel) bootstrapPanel.hidden = true;
+      bootstrapForm.hidden = true;
+      if (bootstrapForm.elements.token) bootstrapForm.elements.token.value = "";
+      enterPortal(data.staff);
+    } catch (error) {
+      setStatus(bootstrapStatus, error.message || "That code was not accepted.", "error");
+    } finally {
+      if (activateButton) activateButton.disabled = false;
     }
   });
 
@@ -1105,7 +1253,7 @@
       setStatus($("#portalActionStatus"), result.message || "Content saved.", "success");
     } catch (error) {
       if (error.status === 401 || error.status === 403) {
-        signOut("Staff access expired or was rejected. Enter the access key again.", "error");
+        signOut("Staff access expired or was rejected. Sign in again with your authenticator code.", "error");
       }
       setStatus($("#contentEditorStatus"), error.message || "Unable to save content.", "error");
     } finally { saveButton.disabled = false; contentForm.removeAttribute("aria-busy"); }
@@ -1126,13 +1274,22 @@
       setStatus($("#inviteIssueStatus"), "Invite created. Copy the code before you leave this view.", "success");
       await loadInvites(false);
     } catch (error) {
-      if (error.status === 401 || error.status === 403) signOut("Staff access expired or was rejected. Enter the access key again.", "error");
+      if (error.status === 401 || error.status === 403) signOut("Staff access expired or was rejected. Sign in again with your authenticator code.", "error");
       else setStatus($("#inviteIssueStatus"), error.message || "Unable to generate an invite.", "error");
     } finally {
       if (generateButton) generateButton.disabled = false;
     }
   });
   $("#refreshCurrentView").addEventListener("click", () => refreshActiveView());
-  $("#staffSignOut").addEventListener("click", signOut);
-  if (token) loadApplications();
+  $("#staffSignOut").addEventListener("click", () => signOut());
+  if (token) {
+    // Confirm the stored session still belongs to a live, second-factor-verified identity.
+    api("/api/staff/auth/me")
+      .then((data) => enterPortal(data.staff))
+      .catch(() => {
+        token = "";
+        try { sessionStorage.removeItem(TOKEN_KEY); } catch {}
+        setStatus(loginStatus, "Your staff session expired. Sign in with your authenticator code again.", "warning");
+      });
+  }
 })();

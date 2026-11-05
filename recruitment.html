@@ -18,20 +18,20 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700;800;900&family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="styles.css?v=20261021-app-expand">
-  <script src="app.js?v=20261019-siteupgrade" defer></script>
-  <script src="recruitment.js?v=20261021-section-fix" defer></script>
-  <script src="navigation.js?v=20261019-siteupgrade" defer></script>
-  <link rel="icon" type="image/png" href="assets/vayntr-icon.png?v=20261016-tabs">
-  <link rel="shortcut icon" type="image/png" href="assets/vayntr-icon.png?v=20261016-tabs">
-  <link rel="apple-touch-icon" href="assets/vayntr-icon.png?v=20261016-tabs">
+  <link rel="stylesheet" href="styles.css?v=20261105-audit">
+  <script src="app.js?v=20261105-audit" defer></script>
+  <script src="recruitment.js?v=20261105-audit" defer></script>
+  <script src="navigation.js?v=20261105-audit" defer></script>
+  <link rel="icon" type="image/png" href="assets/vayntr-icon.png?v=20261105-audit">
+  <link rel="shortcut icon" type="image/png" href="assets/vayntr-icon.png?v=20261105-audit">
+  <link rel="apple-touch-icon" href="assets/vayntr-icon.png?v=20261105-audit">
 </head>
 <body>
   <a class="skip-link" href="#main">Skip to content</a>
   <header class="site-header">
     <div class="container nav">
       <a class="brand" href="./" aria-label="VAYNTR home">
-        <img src="assets/vayntr-icon.png" alt="" class="brand__mark">
+        <img src="assets/vayntr-mark.svg" alt="" class="brand__mark">
         <span>VAYNTR<span class="brand__dot">.</span></span>
       </a>
       <button class="menu-toggle" id="menuToggle" aria-expanded="false" aria-controls="primaryNav" aria-label="Open navigation"><span></span><span></span><span></span></button>
@@ -201,7 +201,7 @@
               <textarea id="whyVayntr" name="whyVayntr" rows="2" maxlength="300" placeholder="Keep it short and specific — what made you pick us?" required></textarea>
             </div>
 
-            <fieldset class="form-section" data-media-only hidden>
+            <div class="form-section" data-media-only hidden>
               <h3 class="form-section-title" data-section-label="Media team details — media team applicants only"></h3>
               <small class="form-note">These questions apply only to media team applications.</small>
               <div class="field field--full">
@@ -212,9 +212,8 @@
                 <label for="bestContentUrl">Link your single best content piece *</label>
                 <input id="bestContentUrl" name="bestContentUrl" type="url" inputmode="url" maxlength="500" placeholder="https://www.youtube.com/…" autocomplete="off">
               </div>
-              <legend class="form-sr-legend">What do you make for the media team?</legend>
-              <div class="field field--full media-skill-group">
-                <span class="media-skill-group__label">What do you make for the media team? *</span>
+              <div class="field field--full media-skill-group" role="group" aria-labelledby="mediaSkillLabel">
+                <span class="media-skill-group__label" id="mediaSkillLabel">What do you make for the media team? *</span>
                 <label class="consent-label"><input type="checkbox" name="mediaSkill" value="Clip editing"><span>Clip editing</span></label>
                 <label class="consent-label"><input type="checkbox" name="mediaSkill" value="Video editing / montages"><span>Video editing / montages</span></label>
                 <label class="consent-label"><input type="checkbox" name="mediaSkill" value="Casting / commentary"><span>Casting / commentary</span></label>
@@ -224,7 +223,7 @@
                 <label class="consent-label"><input type="checkbox" name="mediaSkill" value="Streaming"><span>Streaming</span></label>
                 <small class="form-note">Choose every area you contribute in.</small>
               </div>
-            </fieldset>
+            </div>
 
             <h3 class="form-section-title" data-section-label="Final words &amp; confirmations"></h3>
             <div class="field field--full">
@@ -243,7 +242,6 @@
                 <span>I understand that if accepted, I am expected to attend scheduled tryouts, scrims, and practice sessions, and to communicate in advance if I cannot make one. *</span>
               </label>
             </div>
-            <input type="hidden" id="youtubeRequirementNote">
             <div class="field field--full">
               <label for="youtubeUrl">YouTube video link — why you want to join VAYNTR *</label>
               <input id="youtubeUrl" name="youtubeUrl" type="url" inputmode="url" maxlength="500" placeholder="https://youtu.be/your-video-id" autocomplete="url" required aria-describedby="youtubeHint">
@@ -276,7 +274,7 @@
   </main>
   <footer class="site-footer">
     <div class="container footer__top">
-      <div class="footer__brand"><a class="brand" href="./"><img src="assets/vayntr-icon.png" alt="" class="brand__mark"><span>VAYNTR<span class="brand__dot">.</span></span></a><p>Built to compete. Made to endure.<br>An independent esports organization.</p></div>
+      <div class="footer__brand"><a class="brand" href="./"><img src="assets/vayntr-mark.svg" alt="" class="brand__mark"><span>VAYNTR<span class="brand__dot">.</span></span></a><p>Built to compete. Made to endure.<br>An independent esports organization.</p></div>
       <div class="footer__links">
         <div><b>Organization</b><a href="mission">Our mission</a><a href="roster">Roster</a><a href="news">News &amp; intel</a><a href="recruitment">Recruitment</a></div>
         <div><b>Competition</b><a href="results">Matches &amp; events</a><a href="media">Media library</a></div>

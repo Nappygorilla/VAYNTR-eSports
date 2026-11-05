@@ -12,15 +12,15 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700;800;900&family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="styles.css?v=20261021-app-expand">
-  <link rel="stylesheet" href="staff.css?v=20261021-security">
-  <script src="staff.js?v=20261021-partnerships" defer></script>
+  <link rel="stylesheet" href="styles.css?v=20261105-audit">
+  <link rel="stylesheet" href="staff.css?v=20261105-audit">
+  <script src="staff.js?v=20261105-audit" defer></script>
 </head>
 <body>
   <a class="skip-link" href="#main">Skip to content</a>
   <header class="site-header">
     <div class="container nav">
-      <a class="brand" href="./" aria-label="VAYNTR home"><img src="assets/vayntr-icon.png" alt="" class="brand__mark"><span>VAYNTR<span class="brand__dot">.</span></span></a>
+      <a class="brand" href="./" aria-label="VAYNTR home"><img src="assets/vayntr-mark.svg" alt="" class="brand__mark"><span>VAYNTR<span class="brand__dot">.</span></span></a>
       <span class="portal-header-label"><span class="portal-status-dot"></span> STAFF OPERATIONS</span>
       <a class="button button--small button--outline" href="./">View public site ↗</a>
     </div>
@@ -39,11 +39,34 @@
         <div id="staffLoginPanel" class="application-panel staff-login-card">
           <p class="eyebrow"><span></span> Protected access</p>
           <h2>STAFF SIGN-IN</h2>
-          <p class="form-note">Enter the private staff access key configured in Render. This key is not your Resend API key. Application data and roster contact details load only after the API authorizes staff access.</p>
+          <p class="form-note">Staff access needs your own staff account and a 6-digit authenticator code. There is no shared access key: every action in this portal is recorded against the signed-in identity.</p>
           <form id="staffLoginForm" class="staff-login-form">
-            <div class="field"><label for="staffAccessKey">Staff access key</label><input id="staffAccessKey" name="accessKey" type="password" minlength="32" maxlength="256" autocomplete="off" autocapitalize="none" spellcheck="false" required></div>
-            <button class="button button--primary" type="submit" id="staffLoginButton">Open staff portal <span aria-hidden="true">↗</span></button>
+            <div class="field"><label for="staffEmail">Staff email</label><input id="staffEmail" name="email" type="email" maxlength="254" autocomplete="username" autocapitalize="none" spellcheck="false" required></div>
+            <div class="field"><label for="staffPassword">Password</label><input id="staffPassword" name="password" type="password" maxlength="128" autocomplete="current-password" required></div>
+            <button class="button button--primary" type="submit" id="staffLoginButton">Continue to authenticator <span aria-hidden="true">↗</span></button>
             <p id="staffLoginStatus" class="form-note" role="status" aria-live="polite"></p>
+          </form>
+          <form id="staffMfaForm" class="staff-login-form" hidden>
+            <div class="field"><label for="staffMfaCode">Authenticator code</label><input id="staffMfaCode" name="code" type="text" inputmode="numeric" pattern="\d{6}" maxlength="6" autocomplete="one-time-code" required><small class="form-note">Open your authenticator app and enter the current 6-digit VAYNTR Staff code. Each code works once.</small></div>
+            <button class="button button--primary" type="submit" id="staffMfaButton">Verify and open portal</button>
+            <p id="staffMfaStatus" class="form-note" role="status" aria-live="polite"></p>
+          </form>
+          <p class="form-note"><button class="button button--small button--outline" type="button" id="showStaffBootstrap">First-time staff setup</button></p>
+          <form id="staffBootstrapForm" class="staff-login-form" hidden>
+            <p class="form-note">One-time migration. The shared setup key creates the first staff identity exactly once. After that it stops working and cannot grant access; later staff members are added from inside the portal.</p>
+            <div class="field"><label for="staffSetupToken">Setup key (Render STAFF_REVIEW_TOKEN)</label><input id="staffSetupToken" name="token" type="password" minlength="32" maxlength="256" autocomplete="off" autocapitalize="none" spellcheck="false" required></div>
+            <div class="field"><label for="staffSetupEmail">Staff email</label><input id="staffSetupEmail" name="email" type="email" maxlength="254" autocomplete="email" required></div>
+            <div class="field"><label for="staffSetupName">Display name</label><input id="staffSetupName" name="displayName" type="text" minlength="2" maxlength="60" autocomplete="name" required></div>
+            <div class="field"><label for="staffSetupPassword">New staff password</label><input id="staffSetupPassword" name="password" type="password" minlength="12" maxlength="128" autocomplete="new-password" required><small class="form-note">12+ characters with upper and lower case, a number, and a symbol.</small></div>
+            <button class="button button--primary" type="submit" id="staffBootstrapButton">Create first staff identity</button>
+            <p id="staffBootstrapStatus" class="form-note" role="status" aria-live="polite"></p>
+            <div id="staffBootstrapPanel" class="application-panel" hidden>
+              <p class="form-note">Add this secret to your authenticator app, then enter the current code to finish. No staff access exists until that code is verified.</p>
+              <code id="staffBootstrapSecret" class="member-mfa__secret"></code>
+              <p><a id="staffBootstrapUri" class="button button--outline" href="#">Open in authenticator app ↗</a></p>
+              <div class="field"><label for="staffBootstrapCode">Current 6-digit code</label><input id="staffBootstrapCode" type="text" inputmode="numeric" pattern="\d{6}" maxlength="6" autocomplete="one-time-code" required></div>
+              <button class="button button--primary" type="button" id="staffActivateButton">Confirm and sign in</button>
+            </div>
           </form>
         </div>
 

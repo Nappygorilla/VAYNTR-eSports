@@ -6,6 +6,8 @@
   const statusNode = $("#memberStatus");
   const gate = $("#memberGate");
   const area = $("#memberArea");
+  // The signed-in member payload. Declared here because the portal assigns to it in strict mode.
+  let memberState = null;
 
   function setStatus(node, message, state) {
     if (!node) return;
@@ -164,7 +166,6 @@
       }
     }
     if (removeButton) removeButton.hidden = !hasUpload;
-    const expiry = new Date();
     const bioInput = $("#memberBioInput");
     if (bioInput && document.activeElement !== bioInput) bioInput.value = member.bio || "";
     const ageToggle = $("#memberAgePublic");

@@ -39,4 +39,35 @@ Older Supabase membership-invitation files remain in \`supabase/\` during migrat
 - TLS to PostgreSQL verifies the server certificate by default (`PG_SSL_REJECT_UNAUTHORIZED` is no longer needed; set it to `false` only when the connection string's certificate cannot be validated, e.g. a custom CA). API-to-cloud-fit healthy check: `/health` reports `ok:false` and HTTP 503 unless the database is connected.
 - The Render free plan sleeps when idle, so the first request can take up to a minute. Ping `/health` every 5–10 minutes with a free uptime monitor, or upgrade the plan.
 - The recruitment form requires an age/guardian confirmation. Review the wording with your recruitment policy.
-- Fill in real Discord, email and social links on `contact.html` before announcing the site.
+- The official Discord invite (`https://discord.gg/wBsrHpDxcP`) is published on `contact.html` and in the home-page footer. A staff-monitored email address and any other social accounts are still unpublished — add them only when a real account exists, and never as placeholders.
+
+## Audit fixes and residual host limits (November 2026)
+
+- `npm run check` now runs ESLint with `no-undef`. Syntax checks and source regexes cannot resolve identifiers, which is how an undeclared variable reached production; keep the lint step in CI.
+- `security-check.js` now pins the fixes so they cannot silently regress: the recruitment insert serializes `socialLinks`, the member portal declares `memberState`, the member password minimum matches the API, the player profile renders one `h1`, and the avatar route sends an explicit CORP header.
+- Member profile pictures are served with `Cross-Origin-Resource-Policy: cross-origin`. Helmet's same-origin default silently blocks the image when the GitHub Pages roster embeds it, so remove that header only if avatars stop being embedded cross-origin.
+- `robots.txt` and `sitemap.xml` are only honoured at a domain root. While the site lives under `/VAYNTR-eSports/`, search engines will not read either file: rename the repository to `nappygorilla.github.io` or serve the site from a custom domain. The deploy workflow now stamps `lastmod` with the build date.
+- GitHub Pages cannot send response headers. The `<meta>` CSP is the only policy available there and cannot declare `frame-ancestors`, so the public pages can still be framed. Put Cloudflare (or another proxy) in front of the site to add `frame-ancestors`, `X-Content-Type-Options` and `Referrer-Policy`.
+- Pages now use the 4 KB SVG brand mark instead of the 136 KB PNG for on-page images (the PNG remains the favicon and social preview). Keep new artwork as SVG or WebP.
+- `contact.html` routes visitors to the partnership form and recruitment instead of dead "link pending" placeholders. Replace those routes with real channels once the organization publishes them.
+
+- Fresh-database bootstrap: `mfa_challenges` declared a foreign key to `accounts` before `accounts` was created, so a first deploy against an empty database failed at startup with `relation "accounts" does not exist`. The schema now creates every table before anything references it, and `security-check.js` fails the build if a foreign key ever precedes its target table.
+
+## Staff access: one-time migration (required before staff tools work again)
+
+Staff tools no longer accept `STAFF_REVIEW_TOKEN`. Every staff action now requires an individual staff identity plus a 6-digit authenticator code, and every privileged action is written to `security_events` with that identity.
+
+1. Deploy the backend, then open `staff-applications.html`.
+2. Choose **First-time staff setup**. Enter `STAFF_REVIEW_TOKEN` as the setup key, plus your own email, display name, and a 12+ character password.
+3. Scan the returned secret into an authenticator app and confirm one current code. That creates the `owner` identity and signs you in.
+4. The setup key is now dead: `POST /api/staff/auth/bootstrap` returns 409 and the token grants nothing anywhere. Remove `STAFF_REVIEW_TOKEN` from Render once you are satisfied — nothing depends on it after migration.
+5. Add other staff from inside the portal (owner/admin only). Each person receives their own secret and cannot use staff tools until they confirm a code.
+
+Behaviour to expect:
+
+- Sessions last 8 hours, are stored server-side as SHA-256 hashes, and are revoked by sign-out or by disabling the identity.
+- Five failed attempts lock an identity with doubling cooldowns (5 → 10 → 20 → 40 → 60 minutes), separate from member lockouts.
+- An authenticator code is single-use; replaying one is refused and recorded as `staff_mfa_replay`.
+- Recruitment and partnership intake stay paused (HTTP 503) until at least one staff identity finishes two-factor setup, so applications cannot arrive where nobody can review them.
+- `staffReviewConfigured` in `/api/status` now means "a staff identity exists with MFA enabled", not "a token is configured".
+- If `JWT_SECRET` is missing, staff MFA setup refuses to run (503) rather than storing an unencrypted secret.

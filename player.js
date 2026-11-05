@@ -124,7 +124,8 @@
     text(copy, "p", "eyebrow", "VAYNTR / PLAYER PROFILE");
     text(copy, "p", "player-profile__division", player.game || "VAYNTR roster");
     const name = String(player.display_name || "VAYNTR player");
-    text(copy, "h1", "player-profile__name", name);
+    // The page already has one h1 in the hero; the profile name is a section heading.
+    text(copy, "h2", "player-profile__name", name);
     const meta = document.createElement("div");
     meta.className = "player-profile__meta";
     if (player.platform) {

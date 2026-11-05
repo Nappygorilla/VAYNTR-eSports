@@ -131,11 +131,6 @@ function safePublicHttpsUrl(value) {
   } catch { return null; }
 }
 
-function isStrongPassword(password) {
-  return typeof password === "string" && password.length >= 10 && password.length <= 128
-    && /[a-zA-Z]/.test(password) && /[0-9]/.test(password);
-}
-
 // Hardened password policy: 12+ characters, all four character classes, and common passwords rejected.
 const COMMON_PASSWORDS = new Set([
   "password", "password1", "password123", "123456", "1234567", "12345678", "123456789", "1234567890",
@@ -202,15 +197,72 @@ function totpCodeAt(secretBuffer, counter) {
   return String(code).padStart(6, "0");
 }
 
-function verifyTotpCode(secretBase32, code) {
+// Returns the RFC 6238 time step that produced the code, or null. Staff sign-in needs the step
+// so a code can be consumed exactly once; the member path keeps its boolean behaviour.
+function totpMatchingStep(secretBase32, code) {
   const secret = base32Decode(secretBase32);
-  if (secret.length < 10 || typeof code !== "string" || !/^\d{6}$/.test(code)) return false;
+  if (secret.length < 10 || typeof code !== "string" || !/^\d{6}$/.test(code)) return null;
   const counter = Math.floor(Date.now() / 30000);
   const supplied = Buffer.from(code);
   for (let drift = -1; drift <= 1; drift++) {
-    if (crypto.timingSafeEqual(Buffer.from(totpCodeAt(secret, counter + drift)), supplied)) return true;
+    if (crypto.timingSafeEqual(Buffer.from(totpCodeAt(secret, counter + drift)), supplied)) return counter + drift;
   }
-  return false;
+  return null;
+}
+
+function verifyTotpCode(secretBase32, code) {
+  return totpMatchingStep(secretBase32, code) !== null;
+}
+
+// --- Staff identities: one person, one password, one authenticator --------------------
+const STAFF_SESSION_HOURS = 8;
+const STAFF_MFA_CHALLENGE_MINUTES = 5;
+const STAFF_LOCKOUT_THRESHOLD = 5;
+const STAFF_ROLES = ["owner", "admin", "reviewer"];
+
+function staffTotpUri(email, secret) {
+  return "otpauth://totp/" + encodeURIComponent("VAYNTR Staff:" + email) + "?secret=" + secret +
+    "&issuer=VAYNTR%20Staff&algorithm=SHA1&digits=6&period=30";
+}
+
+async function issueStaffSession(staffId) {
+  const session = createSessionToken();
+  await pool.query(
+    "INSERT INTO staff_sessions (token_hash, staff_id, expires_at) VALUES ($1, $2, NOW() + INTERVAL '8 hours')",
+    [session.tokenHash, staffId]
+  );
+  return session;
+}
+
+// Per-identity progressive lockout, mirroring the member rules: 5 failures, then doubling cooldowns.
+async function bumpStaffFailedLogins(staffId) {
+  const current = await pool.query("SELECT failed_login_count, lockout_cycles FROM staff_accounts WHERE id = $1", [staffId]);
+  const row = current.rows[0];
+  if (!row) return { locked: false, failures: 0 };
+  const failures = Number(row.failed_login_count || 0) + 1;
+  const cycles = Number(row.lockout_cycles || 0);
+  if (failures >= STAFF_LOCKOUT_THRESHOLD) {
+    const minutes = Math.min(60, 5 * Math.pow(2, cycles));
+    await pool.query(
+      "UPDATE staff_accounts SET failed_login_count = 0, lockout_cycles = $1, lockout_until = NOW() + INTERVAL '" + minutes + " minutes' WHERE id = $2",
+      [cycles + 1, staffId]
+    );
+    return { locked: true, minutes, failures: 0 };
+  }
+  await pool.query("UPDATE staff_accounts SET failed_login_count = $1 WHERE id = $2", [failures, staffId]);
+  return { locked: false, failures };
+}
+
+// Applicant intake stays closed until a real, second-factor-verified reviewer exists.
+async function requireStaffReady(_req, res, next) {
+  if (!pool) return res.status(503).json({ error: "Database is not configured yet." });
+  try {
+    const ready = await pool.query("SELECT COUNT(*)::int AS count FROM staff_accounts WHERE disabled_at IS NULL AND mfa_enabled = TRUE");
+    if (!(Number(ready.rows[0] && ready.rows[0].count) > 0)) {
+      return res.status(503).json({ error: "Intake is paused until a staff reviewer has completed two-factor setup." });
+    }
+    return next();
+  } catch (error) { return next(error); }
 }
 
 // Secrets are AES-256-GCM encrypted at rest with a key derived from JWT_SECRET.
@@ -273,10 +325,19 @@ function noteIpFailure(ip) {
 
 function securityLogger(poolRef, eventType, fields) {
   if (!poolRef) return;
+  // Staff events carry the acting identity so every privileged action is attributable.
   void poolRef.query(
-    "INSERT INTO security_events (event_type, account_id, name_hint, ip_hash, detail) VALUES ($1, $2, $3, $4, $5)",
-    [eventType, fields.accountId ?? null, fields.nameHint ? String(fields.nameHint).slice(0, 50) : null, fields.ip ? sha256Hex(String(fields.ip)).slice(0, 32) : null, fields.detail ? String(fields.detail).slice(0, 300) : null]
+    "INSERT INTO security_events (event_type, account_id, staff_id, actor, name_hint, ip_hash, detail) VALUES ($1, $2, $3, $4, $5, $6, $7)",
+    [eventType, fields.accountId ?? null, fields.staffId ?? null, fields.actor ? String(fields.actor).slice(0, 120) : null, fields.nameHint ? String(fields.nameHint).slice(0, 50) : null, fields.ip ? sha256Hex(String(fields.ip)).slice(0, 32) : null, fields.detail ? String(fields.detail).slice(0, 300) : null]
   ).catch(() => { /* security logging must never break the request path */ });
+}
+
+// Constant-time comparison for fixed secrets. Length differences fail closed without leaking them.
+function safeTokenEquals(suppliedValue, expectedValue) {
+  const supplied = Buffer.from(String(suppliedValue == null ? "" : suppliedValue));
+  const expected = Buffer.from(String(expectedValue == null ? "" : expectedValue));
+  if (!expected.length || supplied.length !== expected.length) return false;
+  return crypto.timingSafeEqual(supplied, expected);
 }
 
 // Increment the failed sign-in counter and auto-lock after 5 consecutive failures.
@@ -408,6 +469,11 @@ const pool = DATABASE_URL ? new Pool({
 }) : null;
 
 app.use(helmet());
+// Helmet leaves Permissions-Policy unset; deny device APIs this API never needs.
+app.use((_req, res, next) => {
+  res.set("Permissions-Policy", "camera=(), microphone=(), geolocation=(), payment=()");
+  next();
+});
 app.use(cors({
   origin(origin, callback) {
     if (!origin || FRONTEND_ORIGINS.includes(origin)) return callback(null, true);
@@ -416,7 +482,7 @@ app.use(cors({
   methods: ["GET", "POST", "DELETE", "OPTIONS"],
   allowedHeaders: ["Content-Type", "Authorization"]
 }));
-app.use(express.json({ limit: "20kb" }));
+app.use(express.json({ limit: "20kb", strict: true }));
 const recruitmentLimiter = rateLimit({ windowMs: 15 * 60 * 1000, limit: 10, standardHeaders: "draft-7", legacyHeaders: false, message: { error: "Too many applications from this connection. Please wait and try again." } });
 const partnershipLimiter = rateLimit({ windowMs: 15 * 60 * 1000, limit: 10, standardHeaders: "draft-7", legacyHeaders: false, message: { error: "Too many partnership inquiries from this connection. Please wait and try again." } });
 const apiLimiter = rateLimit({ windowMs: 15 * 60 * 1000, limit: 120, standardHeaders: "draft-7", legacyHeaders: false, message: { error: "Too many requests. Please wait a few minutes and try again." }, skip: (req) => req.path.startsWith("/staff") });
@@ -443,25 +509,286 @@ function requireDatabase(_req, res, next) {
   if (!pool) return res.status(503).json({ error: "Database is not configured yet." });
   next();
 }
-function requireStaffAccess(req, res, next) {
+// Staff privileges always come from a per-user session whose account has a verified second factor.
+// The legacy shared token is not a credential here: holding it grants nothing.
+async function requireStaffAccess(req, res, next) {
   // Staff endpoints contain private applicant and roster details; prevent shared/browser HTTP caching.
   res.set("Cache-Control", "no-store, private");
   res.set("Pragma", "no-cache");
-  if (STAFF_REVIEW_TOKEN.length < 32) {
-    return res.status(503).json({ error: "Staff review access is not configured." });
-  }
+  if (!pool) return res.status(503).json({ error: "Staff access is not available yet." });
   const match = (req.get("authorization") || "").match(/^Bearer\s+(.+)$/i);
-  if (!match) return res.status(401).json({ error: "A staff review token is required." });
+  if (!match) return res.status(401).json({ error: "Sign in with your staff account to continue." });
 
-  const supplied = Buffer.from(match[1]);
-  const expected = Buffer.from(STAFF_REVIEW_TOKEN);
-  if (supplied.length !== expected.length || !crypto.timingSafeEqual(supplied, expected)) {
-    return res.status(401).json({ error: "The staff review token is invalid." });
+  if (STAFF_REVIEW_TOKEN.length >= 32 && safeTokenEquals(match[1].trim(), STAFF_REVIEW_TOKEN)) {
+    securityLogger(pool, "staff_shared_token_refused", { actor: "legacy-shared-token", ip: req.ip, detail: "The shared staff token no longer grants access." });
+    return res.status(401).json({ error: "The shared staff token no longer grants access. Sign in with your staff account and authenticator code." });
   }
 
-  req.user = { id: null, display_name: "VAYNTR staff token", role: "admin" };
-  return next();
+  try {
+    const result = await pool.query(
+      "SELECT s.staff_id, a.email, a.display_name, a.role, a.mfa_enabled, a.disabled_at FROM staff_sessions s JOIN staff_accounts a ON a.id = s.staff_id WHERE s.token_hash = $1 AND s.expires_at > NOW()",
+      [sha256Hex(match[1])]
+    );
+    if (!result.rowCount) return res.status(401).json({ error: "Your staff session is invalid or has expired. Sign in again." });
+    const staff = result.rows[0];
+    if (staff.disabled_at) return res.status(401).json({ error: "This staff account has been disabled." });
+    if (staff.mfa_enabled !== true) {
+      securityLogger(pool, "staff_session_refused", { staffId: staff.staff_id, actor: staff.email, ip: req.ip, detail: "Session refused: second factor not enabled." });
+      return res.status(403).json({ error: "Finish authenticator setup before using staff tools." });
+    }
+    req.staff = { id: staff.staff_id, email: staff.email, displayName: staff.display_name, role: staff.role };
+    req.user = { id: null, display_name: staff.display_name, role: staff.role };
+    return next();
+  } catch (error) { return next(error); }
 }
+
+// --- Staff authentication: one-time bootstrap, then password + authenticator code ------
+app.post("/api/staff/auth/bootstrap", requireDatabase, async (req, res, next) => {
+  try {
+    if (STAFF_REVIEW_TOKEN.length < 32) return res.status(503).json({ error: "Staff setup is not configured." });
+    const suppliedToken = typeof req.body.token === "string" ? req.body.token : "";
+    const email = typeof req.body.email === "string" ? req.body.email.trim().toLowerCase() : "";
+    const displayName = typeof req.body.displayName === "string" ? req.body.displayName.trim() : "";
+    const password = typeof req.body.password === "string" ? req.body.password : "";
+    if (!safeTokenEquals(suppliedToken.trim(), STAFF_REVIEW_TOKEN)) {
+      securityLogger(pool, "staff_bootstrap_refused", { ip: req.ip, detail: "Bootstrap attempted with an invalid setup key." });
+      return res.status(401).json({ error: "The setup key is not valid." });
+    }
+    // One-time migration only: the shared key stops working as soon as a staff identity exists,
+    // so it can never become a standing backdoor.
+    const existing = await pool.query("SELECT COUNT(*)::int AS count FROM staff_accounts");
+    if (Number(existing.rows[0] && existing.rows[0].count) > 0) {
+      securityLogger(pool, "staff_bootstrap_refused", { ip: req.ip, detail: "Bootstrap is closed: a staff identity already exists." });
+      return res.status(409).json({ error: "Bootstrap is closed. Ask an existing staff owner to create your account." });
+    }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || email.length > 254) return res.status(400).json({ error: "Enter a valid staff email address." });
+    if (displayName.length < 2 || displayName.length > 60) return res.status(400).json({ error: "Display name must be 2–60 characters." });
+    if (!isHardenedPassword(password)) return res.status(400).json({ error: STRONG_PASSWORD_MESSAGE });
+    if (!process.env.JWT_SECRET) return res.status(503).json({ error: "Staff MFA setup is unavailable: the server encryption key is missing." });
+    const secret = base32Encode(crypto.randomBytes(20));
+    const inserted = await pool.query(
+      "INSERT INTO staff_accounts (email, display_name, password_hash, role, mfa_secret_encrypted, mfa_enabled) VALUES ($1, $2, $3, $4, $5, FALSE) RETURNING id, email, display_name, role, created_at",
+      [email, displayName, hashPassword(password), "owner", encryptTotpSecret(secret)]
+    );
+    securityLogger(pool, "staff_bootstrap_created", { staffId: inserted.rows[0].id, actor: email, ip: req.ip, detail: "First staff identity created by one-time migration." });
+    res.set("Cache-Control", "no-store, private");
+    return res.status(201).json({
+      staff: inserted.rows[0],
+      secret,
+      uri: staffTotpUri(email, secret),
+      message: "Staff identity created. Add the secret to your authenticator app, then confirm a current code to finish setup. No staff access exists until that code is verified."
+    });
+  } catch (error) { return next(error); }
+});
+
+app.post("/api/staff/auth/activate", requireDatabase, async (req, res, next) => {
+  const email = typeof req.body.email === "string" ? req.body.email.trim().toLowerCase() : "";
+  const password = typeof req.body.password === "string" ? req.body.password : "";
+  const code = typeof req.body.code === "string" ? req.body.code.trim() : "";
+  if (!email || !password) return res.status(400).json({ error: "Enter your staff email and password." });
+  if (!/^\d{6}$/.test(code)) return res.status(400).json({ error: "Enter the current 6-digit authenticator code." });
+  try {
+    const found = await pool.query(
+      "SELECT id, email, display_name, role, password_hash, mfa_secret_encrypted, mfa_enabled, lockout_until, disabled_at FROM staff_accounts WHERE LOWER(email) = LOWER($1)",
+      [email]
+    );
+    const staff = found.rows[0];
+    if (!staff || staff.disabled_at) {
+      securityLogger(pool, "staff_login_failed", { actor: email, ip: req.ip, detail: "Activation attempted for an unknown or disabled staff identity." });
+      return res.status(401).json({ error: "Staff credentials are not valid." });
+    }
+    if (staff.lockout_until && new Date(staff.lockout_until).getTime() > Date.now()) {
+      const minutes = Math.ceil((new Date(staff.lockout_until).getTime() - Date.now()) / 60000);
+      securityLogger(pool, "staff_login_locked", { staffId: staff.id, actor: staff.email, ip: req.ip, detail: "Blocked during an active lockout window." });
+      return res.status(423).json({ error: "This staff identity is locked for about " + minutes + " more minute(s).", lockoutMinutes: minutes });
+    }
+    if (!verifyPassword(password, staff.password_hash)) {
+      const bumped = await bumpStaffFailedLogins(staff.id);
+      securityLogger(pool, "staff_login_failed", { staffId: staff.id, actor: staff.email, ip: req.ip, detail: "Incorrect password during activation." });
+      return res.status(401).json({ error: "Staff credentials are not valid.", locked: Boolean(bumped.locked) });
+    }
+    if (staff.mfa_enabled) return res.status(409).json({ error: "This account is already active. Sign in with your authenticator code." });
+    const secret = staff.mfa_secret_encrypted ? decryptTotpSecret(staff.mfa_secret_encrypted) : null;
+    if (!secret) return res.status(409).json({ error: "Start the one-time staff setup first." });
+    const step = totpMatchingStep(secret, code);
+    if (step === null) {
+      const bumped = await bumpStaffFailedLogins(staff.id);
+      securityLogger(pool, "staff_mfa_failed", { staffId: staff.id, actor: staff.email, ip: req.ip, detail: "Incorrect authenticator code during activation." });
+      return res.status(401).json({ error: "That authenticator code is not correct.", locked: Boolean(bumped.locked) });
+    }
+    await pool.query(
+      "UPDATE staff_accounts SET mfa_enabled = TRUE, last_totp_step = $1, failed_login_count = 0, lockout_cycles = 0, lockout_until = NULL, last_login_at = NOW() WHERE id = $2",
+      [step, staff.id]
+    );
+    const session = await issueStaffSession(staff.id);
+    securityLogger(pool, "staff_mfa_activated", { staffId: staff.id, actor: staff.email, ip: req.ip, detail: "Authenticator confirmed; staff access enabled." });
+    securityLogger(pool, "staff_login", { staffId: staff.id, actor: staff.email, ip: req.ip, detail: "Signed in with password and authenticator code." });
+    res.set("Cache-Control", "no-store, private");
+    return res.status(201).json({
+      session: { token: session.token, expiresAt: new Date(Date.now() + STAFF_SESSION_HOURS * 3600000).toISOString() },
+      staff: { id: staff.id, email: staff.email, displayName: staff.display_name, role: staff.role },
+      message: "Authenticator confirmed. Staff access is enabled for your identity only."
+    });
+  } catch (error) { return next(error); }
+});
+
+app.post("/api/staff/auth/login", requireDatabase, async (req, res, next) => {
+  const email = typeof req.body.email === "string" ? req.body.email.trim().toLowerCase() : "";
+  const password = typeof req.body.password === "string" ? req.body.password : "";
+  if (!email || !password) return res.status(400).json({ error: "Enter your staff email and password." });
+  try {
+    const found = await pool.query(
+      "SELECT id, email, display_name, role, password_hash, mfa_enabled, lockout_until, disabled_at FROM staff_accounts WHERE LOWER(email) = LOWER($1)",
+      [email]
+    );
+    const staff = found.rows[0];
+    if (staff && staff.disabled_at) return res.status(401).json({ error: "Staff credentials are not valid." });
+    if (staff && staff.lockout_until && new Date(staff.lockout_until).getTime() > Date.now()) {
+      const minutes = Math.ceil((new Date(staff.lockout_until).getTime() - Date.now()) / 60000);
+      securityLogger(pool, "staff_login_locked", { staffId: staff.id, actor: staff.email, ip: req.ip, detail: "Sign-in blocked during an active lockout window." });
+      return res.status(423).json({ error: "Too many failed attempts. This staff identity is locked for about " + minutes + " more minute(s).", lockoutMinutes: minutes });
+    }
+    if (!staff || !verifyPassword(password, staff.password_hash)) {
+      if (staff) await bumpStaffFailedLogins(staff.id);
+      securityLogger(pool, "staff_login_failed", { staffId: staff ? staff.id : null, actor: email, ip: req.ip, detail: "Incorrect staff email or password." });
+      return res.status(401).json({ error: "Staff credentials are not valid." });
+    }
+    if (staff.mfa_enabled !== true) {
+      return res.status(409).json({ error: "Authenticator setup is not finished for this identity. Complete the one-time staff setup first." });
+    }
+    const challenge = createSessionToken();
+    await pool.query(
+      "INSERT INTO staff_mfa_challenges (token_hash, staff_id, expires_at) VALUES ($1, $2, NOW() + INTERVAL '5 minutes')",
+      [challenge.tokenHash, staff.id]
+    );
+    res.set("Cache-Control", "no-store, private");
+    return res.json({
+      mfaRequired: true,
+      mfaToken: challenge.token,
+      expiresAt: new Date(Date.now() + STAFF_MFA_CHALLENGE_MINUTES * 60000).toISOString(),
+      message: "Enter the current 6-digit code from your authenticator app."
+    });
+  } catch (error) { return next(error); }
+});
+
+const staffLoginFailLimiter = rateLimit({ windowMs: 15 * 60 * 1000, limit: 10, standardHeaders: "draft-7", legacyHeaders: false, skipSuccessfulRequests: true, message: { error: "Too many unsuccessful staff sign-in attempts. Please wait 15 minutes and try again." } });
+app.use("/api/staff/auth/login", staffLoginFailLimiter);
+app.use("/api/staff/auth/verify", staffLoginFailLimiter);
+
+app.post("/api/staff/auth/verify", requireDatabase, async (req, res, next) => {
+  const mfaToken = typeof req.body.mfaToken === "string" ? req.body.mfaToken.trim() : "";
+  const code = typeof req.body.code === "string" ? req.body.code.trim() : "";
+  if (!mfaToken || !/^\d{6}$/.test(code)) return res.status(400).json({ error: "Enter the current 6-digit authenticator code." });
+  try {
+    const found = await pool.query(
+      "SELECT c.staff_id, a.email, a.display_name, a.role, a.mfa_secret_encrypted, a.mfa_enabled, a.disabled_at FROM staff_mfa_challenges c JOIN staff_accounts a ON a.id = c.staff_id WHERE c.token_hash = $1 AND c.expires_at > NOW()",
+      [sha256Hex(mfaToken)]
+    );
+    if (!found.rowCount) return res.status(400).json({ error: "This sign-in request expired. Enter your password again." });
+    const staff = found.rows[0];
+    if (staff.disabled_at || staff.mfa_enabled !== true) return res.status(401).json({ error: "This staff identity cannot sign in." });
+    const secret = decryptTotpSecret(staff.mfa_secret_encrypted);
+    const step = secret ? totpMatchingStep(secret, code) : null;
+    if (step === null) {
+      await bumpStaffFailedLogins(staff.staff_id);
+      securityLogger(pool, "staff_mfa_failed", { staffId: staff.staff_id, actor: staff.email, ip: req.ip, detail: "Incorrect authenticator code." });
+      return res.status(401).json({ error: "That authenticator code is not correct." });
+    }
+    // Replay protection: a code is valid for one sign-in only. The step is consumed atomically.
+    const consumed = await pool.query(
+      "UPDATE staff_accounts SET last_totp_step = $1 WHERE id = $2 AND (last_totp_step IS NULL OR last_totp_step < $1) RETURNING id",
+      [step, staff.staff_id]
+    );
+    if (!consumed.rowCount) {
+      securityLogger(pool, "staff_mfa_replay", { staffId: staff.staff_id, actor: staff.email, ip: req.ip, detail: "A previously used authenticator code was replayed." });
+      return res.status(401).json({ error: "That code was already used. Wait for the next code and try again." });
+    }
+    await pool.query("DELETE FROM staff_mfa_challenges WHERE token_hash = $1", [sha256Hex(mfaToken)]);
+    await pool.query("UPDATE staff_accounts SET failed_login_count = 0, lockout_cycles = 0, lockout_until = NULL, last_login_at = NOW() WHERE id = $1", [staff.staff_id]);
+    const session = await issueStaffSession(staff.staff_id);
+    securityLogger(pool, "staff_login", { staffId: staff.staff_id, actor: staff.email, ip: req.ip, detail: "Signed in with password and authenticator code." });
+    res.set("Cache-Control", "no-store, private");
+    return res.json({
+      session: { token: session.token, expiresAt: new Date(Date.now() + STAFF_SESSION_HOURS * 3600000).toISOString() },
+      staff: { id: staff.staff_id, email: staff.email, displayName: staff.display_name, role: staff.role }
+    });
+  } catch (error) { return next(error); }
+});
+
+app.post("/api/staff/auth/logout", requireDatabase, requireStaffAccess, async (req, res, next) => {
+  try {
+    const match = (req.get("authorization") || "").match(/^Bearer\s+(.+)$/i);
+    await pool.query("DELETE FROM staff_sessions WHERE token_hash = $1", [sha256Hex(match[1])]);
+    securityLogger(pool, "staff_logout", { staffId: req.staff.id, actor: req.staff.email, ip: req.ip, detail: "Staff session ended." });
+    res.json({ loggedOut: true, message: "Signed out." });
+  } catch (error) { return next(error); }
+});
+
+app.get("/api/staff/auth/me", requireDatabase, requireStaffAccess, (req, res) => {
+  res.json({ staff: req.staff });
+});
+
+app.get("/api/staff/auth/accounts", requireDatabase, requireStaffAccess, async (_req, res, next) => {
+  try {
+    const result = await pool.query(
+      "SELECT id, email, display_name, role, mfa_enabled, disabled_at, created_at, last_login_at FROM staff_accounts ORDER BY created_at ASC"
+    );
+    res.set("Cache-Control", "no-store, private");
+    res.json({ staff: result.rows });
+  } catch (error) { return next(error); }
+});
+
+app.post("/api/staff/auth/accounts", requireDatabase, requireStaffAccess, async (req, res, next) => {
+  if (!["owner", "admin"].includes(req.staff.role)) {
+    return res.status(403).json({ error: "Only an owner or admin can add staff identities." });
+  }
+  const email = typeof req.body.email === "string" ? req.body.email.trim().toLowerCase() : "";
+  const displayName = typeof req.body.displayName === "string" ? req.body.displayName.trim() : "";
+  const password = typeof req.body.password === "string" ? req.body.password : "";
+  const role = typeof req.body.role === "string" ? req.body.role : "reviewer";
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || email.length > 254) return res.status(400).json({ error: "Enter a valid staff email address." });
+  if (displayName.length < 2 || displayName.length > 60) return res.status(400).json({ error: "Display name must be 2–60 characters." });
+  if (!isHardenedPassword(password)) return res.status(400).json({ error: STRONG_PASSWORD_MESSAGE });
+  if (!STAFF_ROLES.includes(role)) return res.status(400).json({ error: "Choose the owner, admin, or reviewer role." });
+  if (!process.env.JWT_SECRET) return res.status(503).json({ error: "Staff MFA setup is unavailable: the server encryption key is missing." });
+  try {
+    const secret = base32Encode(crypto.randomBytes(20));
+    const inserted = await pool.query(
+      "INSERT INTO staff_accounts (email, display_name, password_hash, role, mfa_secret_encrypted, mfa_enabled) VALUES ($1, $2, $3, $4, $5, FALSE) RETURNING id, email, display_name, role, created_at",
+      [email, displayName, hashPassword(password), role, encryptTotpSecret(secret)]
+    );
+    securityLogger(pool, "staff_account_created", { staffId: req.staff.id, actor: req.staff.email, ip: req.ip, detail: "Created staff identity " + email + " as " + role + "." });
+    res.set("Cache-Control", "no-store, private");
+    return res.status(201).json({
+      staff: inserted.rows[0],
+      secret,
+      uri: staffTotpUri(email, secret),
+      message: "Identity created. Give this person the secret once; they must confirm an authenticator code before they can use staff tools."
+    });
+  } catch (error) {
+    if (error && error.code === "23505") return res.status(409).json({ error: "That staff email already has an identity." });
+    return next(error);
+  }
+});
+
+app.post("/api/staff/auth/accounts/:id/disable", requireDatabase, requireStaffAccess, async (req, res, next) => {
+  if (!["owner", "admin"].includes(req.staff.role)) {
+    return res.status(403).json({ error: "Only an owner or admin can disable staff identities." });
+  }
+  const id = Number(req.params.id);
+  if (!Number.isSafeInteger(id) || id < 1) return res.status(400).json({ error: "Invalid staff identity." });
+  if (id === req.staff.id) return res.status(400).json({ error: "You cannot disable your own staff identity." });
+  try {
+    const result = await pool.query(
+      "UPDATE staff_accounts SET disabled_at = NOW() WHERE id = $1 AND disabled_at IS NULL RETURNING id, email",
+      [id]
+    );
+    if (!result.rowCount) return res.status(404).json({ error: "That staff identity is already disabled or does not exist." });
+    await pool.query("DELETE FROM staff_sessions WHERE staff_id = $1", [id]);
+    securityLogger(pool, "staff_account_disabled", { staffId: req.staff.id, actor: req.staff.email, ip: req.ip, detail: "Disabled staff identity " + result.rows[0].email + " and ended its sessions." });
+    res.json({ disabled: true, staff: result.rows[0], message: "Identity disabled and its sessions ended." });
+  } catch (error) { return next(error); }
+});
 
 async function requireMemberSession(req, res, next) {
   res.set("Cache-Control", "no-store, private");
@@ -515,6 +842,14 @@ app.get("/api/status", async (_req, res) => {
     try { await pool.query("SELECT 1"); databaseReady = true; }
     catch { databaseReady = false; }
   }
+  // Staff review is ready only when a real identity has completed second-factor setup.
+  let staffReady = false;
+  if (databaseReady) {
+    try {
+      const staffCount = await pool.query("SELECT COUNT(*)::int AS count FROM staff_accounts WHERE disabled_at IS NULL AND mfa_enabled = TRUE");
+      staffReady = Number(staffCount.rows[0] && staffCount.rows[0].count) > 0;
+    } catch { staffReady = false; }
+  }
   res.json({
     service: "VAYNTR API",
     status: "online",
@@ -525,7 +860,7 @@ app.get("/api/status", async (_req, res) => {
       partnershipInquiries: databaseReady,
       staffTools: databaseReady,
       emailNotifications: Boolean(RESEND_API_KEY && RESEND_FROM_EMAIL),
-      staffReviewConfigured: STAFF_REVIEW_TOKEN.length >= 32
+      staffReviewConfigured: staffReady
     }
   });
 });
@@ -542,10 +877,7 @@ app.get("/api/roster", requireDatabase, async (_req, res, next) => {
   } catch (error) { next(error); }
 });
 
-app.post("/api/recruitment/applications", recruitmentLimiter, requireDatabase, async (req, res, next) => {
-  if (STAFF_REVIEW_TOKEN.length < 32) {
-    return res.status(503).json({ error: "Recruitment applications are temporarily paused while secure staff review is configured." });
-  }
+app.post("/api/recruitment/applications", recruitmentLimiter, requireDatabase, requireStaffReady, async (req, res, next) => {
   try {
     const displayName = typeof req.body.displayName === "string" ? req.body.displayName.trim() : "";
     const email = typeof req.body.email === "string" ? req.body.email.trim().toLowerCase() : "";
@@ -628,7 +960,7 @@ app.post("/api/recruitment/applications", recruitmentLimiter, requireDatabase, a
 
     const result = await pool.query(
       "INSERT INTO recruitment_applications (display_name, email, platform, game, message, youtube_url, privacy_consent, age, show_age_on_profile, track, social_links, privacy_consent_at, in_game_handle, rank_level, competitive_experience, proudest_moment, game_details, availability, timezone_region, schedule_window, feedback_story, has_mic, why_vayntr, other_roster_status, schedule_agreement, media_skills, media_tools, best_content_url) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, NOW(), $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27) RETURNING id, status, created_at",
-      [displayName, email, platform, game, message, youtubeUrl, privacyConsent, age, showAgeOnProfile, track, JSON.stringify(storedSocialLinks), inGameHandle || null, rankLevel || null, competitiveExperience, proudestMoment || null, gameDetails || null, availability, timezoneRegion, scheduleWindow || null, feedbackStory, hasMic || null, whyVayntr, otherRosterStatus, scheduleAgreement, mediaSkills.length ? JSON.stringify(mediaSkills) : null, mediaTools || null, bestContentUrl || null]
+      [displayName, email, platform, game, message, youtubeUrl, privacyConsent, age, showAgeOnProfile, track, JSON.stringify(socialLinks), inGameHandle || null, rankLevel || null, competitiveExperience, proudestMoment || null, gameDetails || null, availability, timezoneRegion, scheduleWindow || null, feedbackStory, hasMic || null, whyVayntr, otherRosterStatus, scheduleAgreement, mediaSkills.length ? JSON.stringify(mediaSkills) : null, mediaTools || null, bestContentUrl || null]
     );
     const application = { ...result.rows[0], display_name: displayName, email };
     // VAYNTR is using manual applicant contact for now; never send a confirmation email automatically.
@@ -650,10 +982,7 @@ app.post("/api/recruitment/applications", recruitmentLimiter, requireDatabase, a
 // Partnership inquiries: like recruitment applications but simpler — no age, no roster
 // conversion, and the reply happens by email. Stored in the same PostgreSQL database and
 // reviewed in the same staff portal. Contact details never reach any public endpoint.
-app.post("/api/partnerships", partnershipLimiter, requireDatabase, async (req, res, next) => {
-  if (STAFF_REVIEW_TOKEN.length < 32) {
-    return res.status(503).json({ error: "Partnership intake is temporarily paused while secure staff review is configured." });
-  }
+app.post("/api/partnerships", partnershipLimiter, requireDatabase, requireStaffReady, async (req, res, next) => {
   try {
     const trimValue = (value) => (typeof value === "string" ? value.trim() : "");
     const orgName = trimValue(req.body.orgName);
@@ -709,6 +1038,7 @@ app.post("/api/staff/partnerships/delete", requireDatabase, requireStaffAccess, 
   try {
     const result = await pool.query("DELETE FROM partnership_inquiries WHERE id = $1 RETURNING id", [id]);
     if (!result.rowCount) return res.status(404).json({ error: "This inquiry was already removed. Refresh the list." });
+    securityLogger(pool, "staff_action", { staffId: req.staff.id, actor: req.staff.email, ip: req.ip, detail: "Deleted partnership inquiry " + id + "." });
     res.json({ deleted: true, message: "Partnership inquiry deleted." });
   } catch (error) { next(error); }
 });
@@ -775,6 +1105,7 @@ app.post("/api/staff/roster/:id/update", requireDatabase, requireStaffAccess, as
     if (!result.rowCount) return res.status(404).json({ error: "This roster player no longer exists. Refresh the roster." });
     // Keep the member sign-in name in sync when staff rename the player.
     await pool.query("UPDATE accounts SET display_name = $1 WHERE roster_id = $2", [displayName, id]);
+    securityLogger(pool, "staff_action", { staffId: req.staff.id, actor: req.staff.email, ip: req.ip, detail: "Updated roster profile " + id + "." });
     res.json({ player: result.rows[0], message: "Player profile updated." });
   } catch (error) { next(error); }
 });
@@ -827,6 +1158,7 @@ app.post("/api/staff/content", requireDatabase, requireStaffAccess, async (req, 
         values
       );
     }
+    securityLogger(pool, "staff_action", { staffId: req.staff.id, actor: req.staff.email, ip: req.ip, detail: (id === null ? "Created " : "Updated ") + type + " content " + result.rows[0].id + "." });
     res.status(id === null ? 201 : 200).json({ item: result.rows[0], message: id === null ? "Content created." : "Content updated." });
   } catch (error) { next(error); }
 });
@@ -837,6 +1169,7 @@ app.post("/api/staff/content/delete", requireDatabase, requireStaffAccess, async
   try {
     const result = await pool.query("DELETE FROM site_content WHERE id=$1 AND content_type=$2 RETURNING id", [id, type]);
     if (!result.rowCount) return res.status(404).json({ error: "Content item not found." });
+    securityLogger(pool, "staff_action", { staffId: req.staff.id, actor: req.staff.email, ip: req.ip, detail: "Deleted " + type + " content " + id + "." });
     res.json({ deleted: true, message: "Content deleted." });
   } catch (error) { next(error); }
 });
@@ -874,6 +1207,7 @@ app.post("/api/staff/invites", requireDatabase, requireStaffAccess, async (req, 
       [label, hashInviteCode(code)]
     );
     // The plaintext code is returned only here. It is not stored or logged anywhere.
+    securityLogger(pool, "staff_action", { staffId: req.staff.id, actor: req.staff.email, ip: req.ip, detail: "Issued a member invite (id " + result.rows[0].id + "); the code itself is never logged." });
     res.set("Cache-Control", "no-store, private");
     res.status(201).json({ invite: result.rows[0], code, message: "Invite created. This code is shown only once — copy it now." });
   } catch (error) { next(error); }
@@ -899,6 +1233,7 @@ app.post("/api/staff/invites/:id/revoke", requireDatabase, requireStaffAccess, a
       [id]
     );
     if (!result.rowCount) return res.status(404).json({ error: "Invite not found, already revoked, or already redeemed." });
+    securityLogger(pool, "staff_action", { staffId: req.staff.id, actor: req.staff.email, ip: req.ip, detail: "Revoked member invite " + id + "." });
     res.json({ revoked: true, message: "Invite revoked. It can no longer be redeemed." });
   } catch (error) { next(error); }
 });
@@ -918,6 +1253,7 @@ app.post("/api/staff/invites/for-roster/:rosterId", requireDatabase, requireStaf
       "INSERT INTO invite_codes (label, code_hash, bound_roster_id, expires_at) VALUES ($1, $2, $3, NOW() + INTERVAL '30 days') RETURNING id, label, created_at, expires_at, bound_roster_id",
       [player.rows[0].display_name, hashInviteCode(code), rosterId]
     );
+    securityLogger(pool, "staff_action", { staffId: req.staff.id, actor: req.staff.email, ip: req.ip, detail: "Issued a roster-bound invite for player " + rosterId + " (invite " + invite.rows[0].id + ")." });
     res.set("Cache-Control", "no-store, private");
     res.status(201).json({
       invite: invite.rows[0],
@@ -932,7 +1268,7 @@ app.get("/api/staff/security-events", requireDatabase, requireStaffAccess, async
   try {
     // IPs are logged only as truncated SHA-256 hashes; row detail stays staff-only.
     const result = await pool.query(
-      "SELECT id, event_type, account_id, name_hint, ip_hash, detail, created_at FROM security_events ORDER BY created_at DESC LIMIT 100"
+      "SELECT id, event_type, account_id, staff_id, actor, name_hint, ip_hash, detail, created_at FROM security_events ORDER BY created_at DESC LIMIT 100"
     );
     res.json({ events: result.rows });
   } catch (error) { next(error); }
@@ -1201,7 +1537,7 @@ app.post("/api/me/profile", requireMemberSession, async (req, res, next) => {
 });
 
 // Self-service profile picture: a true binary upload stored in the database.
-app.post("/api/me/avatar", express.raw({ type: () => true, limit: MAX_AVATAR_BYTES + 2048 }), requireMemberSession, async (req, res, next) => {
+app.post("/api/me/avatar", express.raw({ type: ["image/png", "image/jpeg", "image/webp"], limit: MAX_AVATAR_BYTES + 2048 }), requireMemberSession, async (req, res, next) => {
   const image = Buffer.isBuffer(req.body) ? req.body : null;
   if (!image || !image.length) return res.status(400).json({ error: "Choose an image file to upload." });
   const contentType = detectImageContentType(image);
@@ -1240,6 +1576,9 @@ app.get("/api/members/:id/avatar", requireDatabase, async (req, res, next) => {
     if (!row || !row.avatar_data) return res.status(404).json({ error: "No profile picture." });
     res.set("Content-Type", row.avatar_content_type || "image/png");
     res.set("Cache-Control", "public, max-age=300");
+    // Helmet defaults to Cross-Origin-Resource-Policy: same-origin, which makes browsers refuse
+    // this image when the public roster (github.io) embeds it. Avatars are public by design.
+    res.set("Cross-Origin-Resource-Policy", "cross-origin");
     res.send(row.avatar_data);
   } catch (error) { next(error); }
 });
@@ -1288,6 +1627,7 @@ app.post("/api/staff/applications/:id/decision", requireDatabase, requireStaffAc
     }
     await client.query("DELETE FROM recruitment_applications WHERE id = $1", [id]);
     await client.query("COMMIT");
+    securityLogger(pool, "staff_action", { staffId: req.staff.id, actor: req.staff.email, ip: req.ip, detail: "Recruitment decision '" + decision + "' on application " + id + "." });
     return res.json({
       decision,
       applicationDeleted: true,
@@ -1316,6 +1656,7 @@ app.post("/api/staff/roster/:id/remove", requireDatabase, requireStaffAccess, as
       [id]
     );
     if (!result.rowCount) return res.status(404).json({ error: "This roster player no longer exists. Refresh the roster." });
+    securityLogger(pool, "staff_action", { staffId: req.staff.id, actor: req.staff.email, ip: req.ip, detail: "Removed roster player " + id + "." });
     res.json({ removed: true, player: result.rows[0], message: "Player removed from the public VAYNTR roster." });
   } catch (error) { next(error); }
 });
@@ -1334,6 +1675,7 @@ app.post("/api/staff/applications/:id/confirmation-email", requireDatabase, requ
       "UPDATE recruitment_applications SET confirmation_email_status = $1, confirmation_email_sent_at = CASE WHEN $1 = 'sent' THEN NOW() ELSE confirmation_email_sent_at END WHERE id = $2",
       [notification.sent ? "sent" : notification.reason, id]
     );
+    securityLogger(pool, "staff_action", { staffId: req.staff.id, actor: req.staff.email, ip: req.ip, detail: "Requested a manual confirmation email for application " + id + " (" + (notification.sent ? "accepted by provider" : notification.reason) + ")." });
     res.json({ notification });
   } catch (error) {
     next(error);
@@ -1412,13 +1754,6 @@ ALTER TABLE roster_players ADD COLUMN IF NOT EXISTS avatar_updated_at TIMESTAMPT
 ALTER TABLE roster_players ADD COLUMN IF NOT EXISTS social_links JSONB NOT NULL DEFAULT '[]'::jsonb;
 ALTER TABLE recruitment_applications ADD COLUMN IF NOT EXISTS track TEXT NOT NULL DEFAULT 'player';
 ALTER TABLE recruitment_applications ADD COLUMN IF NOT EXISTS social_links JSONB NOT NULL DEFAULT '[]'::jsonb;
-CREATE TABLE IF NOT EXISTS mfa_challenges (
- token_hash TEXT PRIMARY KEY,
- account_id BIGINT NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
- created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
- expires_at TIMESTAMPTZ NOT NULL
-);
-CREATE INDEX IF NOT EXISTS mfa_challenges_expiry_idx ON mfa_challenges (expires_at);
 CREATE TABLE IF NOT EXISTS security_events (
  id BIGSERIAL PRIMARY KEY,
  event_type TEXT NOT NULL,
@@ -1441,6 +1776,14 @@ CREATE TABLE IF NOT EXISTS accounts (
  last_login_at TIMESTAMPTZ
 );
 CREATE UNIQUE INDEX IF NOT EXISTS accounts_display_name_lower_idx ON accounts (LOWER(display_name));
+
+CREATE TABLE IF NOT EXISTS mfa_challenges (
+ token_hash TEXT PRIMARY KEY,
+ account_id BIGINT NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
+ created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+ expires_at TIMESTAMPTZ NOT NULL
+);
+CREATE INDEX IF NOT EXISTS mfa_challenges_expiry_idx ON mfa_challenges (expires_at);
 CREATE TABLE IF NOT EXISTS account_sessions (
  token_hash TEXT PRIMARY KEY,
  account_id BIGINT NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
@@ -1512,6 +1855,45 @@ CREATE TABLE IF NOT EXISTS partnership_inquiries (
 CREATE INDEX IF NOT EXISTS partnership_inquiries_created_at_idx ON partnership_inquiries (created_at DESC);
 
 CREATE INDEX IF NOT EXISTS site_content_public_feed_idx ON site_content (content_type, published, created_at DESC);
+
+-- Staff identities. Privileged access is one person + one password + one authenticator.
+-- The shared STAFF_REVIEW_TOKEN is only a one-time bootstrap credential and is never a session.
+CREATE TABLE IF NOT EXISTS staff_accounts (
+ id BIGSERIAL PRIMARY KEY,
+ email TEXT NOT NULL,
+ display_name TEXT NOT NULL,
+ password_hash TEXT NOT NULL,
+ role TEXT NOT NULL DEFAULT 'reviewer' CHECK (role IN ('owner', 'admin', 'reviewer')),
+ mfa_secret_encrypted TEXT,
+ mfa_enabled BOOLEAN NOT NULL DEFAULT FALSE,
+ last_totp_step BIGINT,
+ failed_login_count INTEGER NOT NULL DEFAULT 0,
+ lockout_cycles INTEGER NOT NULL DEFAULT 0,
+ lockout_until TIMESTAMPTZ,
+ disabled_at TIMESTAMPTZ,
+ created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+ last_login_at TIMESTAMPTZ
+);
+CREATE UNIQUE INDEX IF NOT EXISTS staff_accounts_email_lower_idx ON staff_accounts (LOWER(email));
+CREATE TABLE IF NOT EXISTS staff_sessions (
+ token_hash TEXT PRIMARY KEY,
+ staff_id BIGINT NOT NULL REFERENCES staff_accounts(id) ON DELETE CASCADE,
+ created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+ expires_at TIMESTAMPTZ NOT NULL
+);
+CREATE INDEX IF NOT EXISTS staff_sessions_staff_idx ON staff_sessions (staff_id);
+CREATE INDEX IF NOT EXISTS staff_sessions_expiry_idx ON staff_sessions (expires_at);
+CREATE TABLE IF NOT EXISTS staff_mfa_challenges (
+ token_hash TEXT PRIMARY KEY,
+ staff_id BIGINT NOT NULL REFERENCES staff_accounts(id) ON DELETE CASCADE,
+ created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+ expires_at TIMESTAMPTZ NOT NULL
+);
+CREATE INDEX IF NOT EXISTS staff_mfa_challenges_expiry_idx ON staff_mfa_challenges (expires_at);
+
+-- Attribution: which staff identity acted, in addition to which member account.
+ALTER TABLE security_events ADD COLUMN IF NOT EXISTS staff_id BIGINT;
+ALTER TABLE security_events ADD COLUMN IF NOT EXISTS actor TEXT;
 `;
 async function start() {
   if (pool) { await pool.query(schema); console.log("Database schema is ready."); }
