@@ -1,0 +1,45 @@
+name: Deploy VAYNTR API to Render
+
+# Render's repository auto-deploy stopped firing on pushes to main (verified 2026-11-05:
+# two pushes, no deploy). This workflow triggers the service's deploy hook instead.
+# It needs one repository secret, RENDER_DEPLOY_HOOK_URL, from
+# Render dashboard -> VAYNTR-eSports service -> Settings -> Deploy Hook.
+# Until that secret exists the job reports a notice and exits cleanly.
+
+on:
+  push:
+    branches: ["main"]
+    paths:
+      - "server.js"
+      - "package.json"
+      - "package-lock.json"
+      - "render.yaml"
+      - ".github/workflows/render-deploy.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: "render-api-deploy"
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger the Render deploy hook
+        env:
+          RENDER_DEPLOY_HOOK_URL: ${{ secrets.RENDER_DEPLOY_HOOK_URL }}
+        run: |
+          if [ -z "$RENDER_DEPLOY_HOOK_URL" ]; then
+            echo "::notice title=Render deploy skipped::Add a repository secret named RENDER_DEPLOY_HOOK_URL (Render dashboard -> VAYNTR-eSports service -> Settings -> Deploy Hook) so API fixes deploy automatically."
+            exit 0
+          fi
+          status=$(curl -sS -o /tmp/render-hook.txt -w '%{http_code}' -X POST "$RENDER_DEPLOY_HOOK_URL")
+          echo "Render deploy hook returned HTTP $status"
+          if [ "$status" -lt 200 ] || [ "$status" -ge 300 ]; then
+            echo "::error::Render deploy hook rejected the request (HTTP $status)"
+            exit 1
+          fi
+          echo "Render deploy triggered."
