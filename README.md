@@ -51,6 +51,15 @@ Older Supabase membership-invitation files remain in \`supabase/\` during migrat
 - Pages now use the 4 KB SVG brand mark instead of the 136 KB PNG for on-page images (the PNG remains the favicon and social preview). Keep new artwork as SVG or WebP.
 - `contact.html` routes visitors to the partnership form and recruitment instead of dead "link pending" placeholders. Replace those routes with real channels once the organization publishes them.
 
+- Applicant path re-verified against `bb82e4f` on a throwaway database with a test reviewer: an anonymous
+  application is stored (201) and every answer reads back through the staff queue; malformed JSON,
+  bodyless and non-JSON requests, oversized fields and bad links return 400, an oversized body returns
+  413; absent, forged and not-yet-verified staff sessions return 401/403; the test record was deleted
+  afterwards. No request in that run returned a 500.
+- Production deploys: Render's service is configured with `autoDeploy: yes` on `main`, but a push on
+  2026-11-05 did not start a deploy and one had to be triggered through the Render API. Reconnect the
+  repository in the Render dashboard, or add a `RENDER_DEPLOY_HOOK_URL` repository secret for
+  `.github/workflows/render-deploy.yml`, so fixes reach production without a manual step.
 - Fresh-database bootstrap: `mfa_challenges` declared a foreign key to `accounts` before `accounts` was created, so a first deploy against an empty database failed at startup with `relation "accounts" does not exist`. The schema now creates every table before anything references it, and `security-check.js` fails the build if a foreign key ever precedes its target table.
 
 ## Staff access: one-time migration (required before staff tools work again)
