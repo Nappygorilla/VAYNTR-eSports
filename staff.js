@@ -598,8 +598,16 @@
       setStatus(reviewStatus, "Loaded " + applications.length + " application(s).", "success");
     } catch (error) {
       if (error.status === 401 || error.status === 403) {
+        // The API states plainly what was wrong (missing key, wrong key, ended session); keep its wording.
+        const wasSignedIn = !reviewPanel.hidden;
         signOut();
-        setStatus(loginStatus, "Access denied. Check that STAFF_REVIEW_TOKEN is configured correctly in Render and paste the exact value here.", "error");
+        setStatus(
+          loginStatus,
+          wasSignedIn
+            ? "Your staff session ended. Enter the access key again to continue."
+            : error.message || "That access key was not accepted. Check the key and try again.",
+          "error"
+        );
       } else if (reviewPanel.hidden) {
         setStatus(loginStatus, error.message || "Unable to connect to the review service.", "error");
       } else {

@@ -138,6 +138,17 @@ assert.match(source, /if \(STAFF_REVIEW_TOKEN\.length >= 32\) return next\(\);/,
 assert.match(source, /requireStaffReady/,
   "Applicant intake must stay behind the readiness gate.");
 
+// A refused key must read as a refused key. The portal used to answer a mistyped key with
+// "check that STAFF_REVIEW_TOKEN is configured correctly", which sends the owner hunting for a
+// configuration fault while a working deployment rejects the wrong string.
+const staffPortalScript = readFileSync("staff.js", "utf8");
+assert.match(staffPortalScript, /error\.message \|\| "That access key was not accepted/,
+  "The staff portal must surface the API's own message when an access key is refused.");
+assert.doesNotMatch(staffPortalScript, /STAFF_REVIEW_TOKEN is configured correctly/,
+  "A refused staff access key must not be reported as a configuration problem.");
+assert.match(readFileSync("staff-applications.html", "utf8"), /<input id="staffAccessKey"[^>]*type="password"/,
+  "The staff access key field must stay masked so a shoulder-surfer cannot read the shared credential.");
+
 // A brand-new database has to bootstrap in a single pass: every foreign key target must already
 // exist when the referencing table is created, otherwise a fresh deploy dies at startup.
 const bootSchema = (source.match(/const schema = `([\s\S]*?)`;/) || [null, ""])[1];
