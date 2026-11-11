@@ -576,6 +576,7 @@
       const result = await api("/api/staff/applications");
       loginPanel.hidden = true;
       reviewPanel.hidden = false;
+      setStatus(loginStatus, "");
       const applications = Array.isArray(result.applications) ? result.applications : [];
       const appCount = String(applications.length);
       if ($("#overviewApplicationCount")) $("#overviewApplicationCount").textContent = appCount;
@@ -1142,5 +1143,14 @@
   });
   $("#refreshCurrentView").addEventListener("click", () => refreshActiveView());
   $("#staffSignOut").addEventListener("click", signOut);
-  if (token) loadApplications();
+  // A stored key means this tab is already signed in, so open the workspace straight away: a reload
+  // must not flash the sign-in gate at someone who is signed in. The API still decides whether the
+  // key is accepted; a rejected key signs out and shows the API's own message.
+  if (token) {
+    loginPanel.hidden = true;
+    reviewPanel.hidden = false;
+    setStatus(loginStatus, "");
+    setStatus(reviewStatus, "Restoring staff session…");
+    loadApplications();
+  }
 })();
